@@ -24,7 +24,7 @@ from portfolio import load_watchlist, load_portfolio
 from screener import signal_reason
 from settings import get_veto_thresholds
 from uvalu import nav as nav_registry
-from uvalu.components import (_esc, model_signal_badge_html, mos_text_color, signal_provenance_html, founder_notice_html,
+from uvalu.components import (_esc, fmt_mos_pct, model_signal_badge_html, mos_text_color, signal_provenance_html, founder_notice_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
                               veto_reason_str, is_hard_veto, header_width_px)
@@ -229,8 +229,10 @@ def open_drawer(row: "pd.Series") -> None:
     _label = 'font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;'
     _cells = [
         (_("Price"), _fmt_eur(float(_price)) if pd.notna(_price) else "—", "inherit"),
-        (_("Fair value"), _fv(row, "fair_value", _fmt_eur), "var(--up-txt)"),
-        (_("Margin of safety"), _fv(row, "MoS %", lambda v: fmt_pct(v, signed=True)), _mos_color),
+        # UX3: the fair value in a neutral colour (green read as "good"), and
+        # a margin below −100% as "price N× fair value".
+        (_("Fair value"), _fv(row, "fair_value", _fmt_eur), "inherit"),
+        (_("Margin of safety"), _fv(row, "MoS %", fmt_mos_pct), _mos_color),
     ]
     _drawer_width_css([(label, value) for label, value, _c in _cells])
     st.markdown(

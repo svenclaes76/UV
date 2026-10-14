@@ -98,7 +98,8 @@ def _loading_tier(abs_val: float) -> tuple[str, str]:
     real threshold this page's own caption/heatmap already use for
     "concentrated factor bet"; Low/Moderate splits the remaining range at
     half that, since the real data only ever documented the one cutoff."""
-    if abs_val <= 0.75:
+    # UX4: a 0.75 loading is a clear tilt, not "Low"; Low now means below 0.3.
+    if abs_val < 0.3:
         return _("Low"), "var(--up-txt)"
     if abs_val <= 1.5:
         return _("Moderate"), "var(--amber-txt)"
@@ -340,8 +341,9 @@ def render() -> None:
             if r.factor.stale:
                 _prov.append(_("cached — source unreachable"))
             _prov_txt = (" · " + " · ".join(_prov)) if _prov else ""
-            st.caption(_("Fama-French factor loadings{details}. A loading above 1.5 or below -1.5 means the "
-                         "portfolio leans heavily on that factor.", details=_prov_txt))
+            st.caption(_("Fama-French factor loadings{details}. A loading above {high} or below {low} means "
+                         "the portfolio leans heavily on that factor; below {small} either way it hardly does.",
+                         details=_prov_txt, high=fmt_num(1.5, 1), low=fmt_num(-1.5, 1), small=fmt_num(0.3, 1)))
         else:
             st.caption(_("Factor analysis unavailable.") + " " + (tr(r.factor.flags[0]) if r.factor.flags else ""))
 
@@ -383,13 +385,13 @@ def render() -> None:
         _flags = []
         if c.top1_flag:
             _flags.append(h_("{ticker} at {weight} is above the model's 15% single-name reference level",
-                             ticker=_esc(c.top1_ticker), weight=fmt_pct(c.top1_weight, 0, fraction=True)))
+                             ticker=_esc(c.top1_ticker), weight=fmt_pct(c.top1_weight, 1, fraction=True)))
         if c.sector_flag and _has_sector:
             _flags.append(h_("{sector} at {weight} is above the model's 30% sector reference level", sector=_esc(tr(c.largest_sector)),
-                             weight=fmt_pct(c.sector_weights.get(c.largest_sector, 0), 0, fraction=True)))
+                             weight=fmt_pct(c.sector_weights.get(c.largest_sector, 0), 1, fraction=True)))
         if c.geo_flag and c.largest_geo:
             _flags.append(h_("{country} at {weight} is above the model's 60% country reference level", country=_esc(tr(c.largest_geo)),
-                             weight=fmt_pct(c.geo_weights.get(c.largest_geo, 0), 0, fraction=True)))
+                             weight=fmt_pct(c.geo_weights.get(c.largest_geo, 0), 1, fraction=True)))
         # PER-5: a held stock's quality-screen result stays on its own badge
         # (the Flag column below); it isn't turned into a portfolio alert.
         _alert_msg = (" · ".join(_flags) + ".") if _flags else \

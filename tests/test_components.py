@@ -823,3 +823,12 @@ def test_ladder_difference_text_uses_text_tokens():
     assert _ladder_text_color(-20) == "var(--amber-txt)"
     assert _ladder_text_color(1) == "var(--muted)"
     assert _ladder_text_color(20) == "var(--up-txt)"
+
+
+def test_fmt_mos_pct_reads_a_price_far_above_fair_value_as_a_multiple():
+    # UX3: "−125%" means nothing to a reader; say how far the price is above.
+    from uvalu.components import fmt_mos_pct
+    assert fmt_mos_pct(-125.3) == "price 2.3× fair value"
+    assert fmt_mos_pct(-125.3, compact=True).startswith("< ")
+    assert fmt_mos_pct(-40.0).startswith("-") or fmt_mos_pct(-40.0).startswith("−")
+    assert fmt_mos_pct(None) == "—" and fmt_mos_pct(float("nan")) == "—"

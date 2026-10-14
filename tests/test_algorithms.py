@@ -2984,6 +2984,16 @@ class TestStage8Drift:
         r2 = _stage8_observations(profiles, conc, quant, income, stress, 1000.0)
         assert next(i for i in r2.items if "Sharpe" in str(i.message)).mode == "absolute"
 
+    def test_a_snapshot_from_today_is_not_an_earlier_report(self):
+        # UX4: one snapshot per day, so today's is this report's own earlier
+        # save; no "two consecutive reports" on one day.
+        import datetime as _dt
+        profiles, conc, quant, income, stress = self._inputs(sharpe=0.7)
+        r = _stage8_observations(profiles, conc, quant, income, stress, 1000.0,
+                                 prior_snapshot={"sharpe": 0.8, "date": _dt.date.today().isoformat()})
+        sharpe_it = next(i for i in r.items if "Sharpe" in str(i.message))
+        assert sharpe_it.mode == "absolute" and "two consecutive" not in str(sharpe_it.message)
+
     def test_rating_transition_flags_an_upgrade(self):
         profiles, conc, quant, income, stress = self._inputs(ratings=(("AAA", "High"),))
         r = _stage8_observations(profiles, conc, quant, income, stress, 1000.0,

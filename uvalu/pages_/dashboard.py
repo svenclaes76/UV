@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from portfolio import (portfolio_exists, load_portfolio, load_value_history, load_sold,
+                       record_value_snapshot,
                        ensure_value_history_fresh, load_div_hist, dividends_in_eur,
                        exchange_key_for_ticker, BE_WITHHOLDING_RATE)
 from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
@@ -204,17 +205,20 @@ def render() -> None:
     with st.container(key="db_kpi_row"):
         _k1, _kc, _k2, _k3, _k4 = st.columns(5)
         with _k1:
-            _kpi_card(h_("Current value"), fmt_total(_db_current + _db_cash['balance']),
-                     fmt_pct(_db_gain_pct, signed=True), _db_gain >= 0,
-                     # The chip is the unrealised result on the holdings: say so.
-                     (h_("unrealised · incl. {amount} cash", amount=fmt_total(_db_cash['balance'])) if _db_cash["count"]
-                      else h_("{amount} unrealised", amount=fmt_total(_db_gain, signed=True))), icon="wallet")
+            # UX2: what the total is made of, with no return chip (the Total
+            # return tile carries the return); the holdings figure matches the
+            # sector total and the value chart's last point.
+            _kpi_card(h_("Current value"), fmt_total(_db_current + _db_cash['balance']), "", True,
+                     (h_("holdings {holdings} + cash {cash}", holdings=fmt_total(_db_current),
+                         cash=fmt_total(_db_cash['balance'])) if _db_cash["count"]
+                      else h_("holdings, no cash recorded")), icon="wallet")
         with _kc:
             _kpi_card(h_("Cash"), fmt_total(_db_cash['balance']), fmt_pct(_db_cash['cash_pct']), True,
                      h_("of total value · not in risk"), icon="cash", delta_style=_db_cash["chip_style"])
         with _k2:
             _kpi_card(h_("Total return"), fmt_total(_db_total_ret),
-                     fmt_pct(_db_ret_pct, signed=True), _db_total_ret >= 0, h_("incl. dividends"), icon="trend")
+                     fmt_pct(_db_ret_pct, signed=True), _db_total_ret >= 0,
+                     h_("open positions: unrealised + dividends"), icon="trend")
         with _k3:
             if _db_fwd_income is not None:
                 _db_blended_yield = _safe_pct(_db_fwd_income, _db_current)
@@ -242,6 +246,16 @@ def render() -> None:
     _chart_col, _conv_col = st.columns([1.62, 1], gap="large")
 
     with _chart_col, st.container(key="db_card_chart", border=True):
+        # UX2: the value history only gained a point when the Portfolio page
+        # was opened, so the chart could end days ago at a figure no tile
+        # showed. Record today's point here too (one per day, upserted;
+        # throttled like the Portfolio page's own call).
+        if _db_current > 0:
+            import time as _time
+            _now = _time.time()
+            if _now - st.session_state.get("_db_snapshot_ts", 0.0) >= 600:
+                record_value_snapshot(float(_db_invested), float(_db_current))
+                st.session_state["_db_snapshot_ts"] = _now
         _db_vh = load_value_history()
         if _db_vh is not None and not _db_vh.empty and len(_db_vh) >= 2:
             _db_vh["date"]     = pd.to_datetime(_db_vh["date"])
@@ -289,7 +303,8 @@ def render() -> None:
   <span style="font-family:var(--uv-mono);font-size:24px;font-weight:500;letter-spacing:-0.02em;">{fmt_total(_db_last_val)}</span>
   {_chip_html(fmt_pct(_db_range_pct, signed=True), _db_range_pct >= 0)}
   <span style="font-size:11px;color:var(--muted);">{_range_txt}</span>
-</div>""", unsafe_allow_html=True)
+</div>
+<div style="font-size:11px;color:var(--muted);margin-top:4px;">{h_("Your holdings, without cash.")}</div>""", unsafe_allow_html=True)
 
             _db_has_spx   = "benchmark_spx"   in _vh_view.columns and _vh_view["benchmark_spx"].notna().any()
             _db_has_stoxx = "benchmark_stoxx" in _vh_view.columns and _vh_view["benchmark_stoxx"].notna().any()

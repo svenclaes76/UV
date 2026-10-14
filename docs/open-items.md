@@ -127,14 +127,12 @@ penetration test. SR1, SR3 and SR5 were fixed on 13 October 2026
 
 From the UX walkthrough and research plan (13 October 2026,
 [`ux-research-plan.md`](ux-research-plan.md)). The plan for testing with real
-users is in the same file.
+users is in the same file. UX2–UX4 done (14 October 2026,
+`feature/ux2-ux4`); git history keeps their rows.
 
 | # | Item | Do it before |
 | --- | --- | --- |
 | UX1 | **Signal next to the user's own position — interim fix done** (14 October 2026, `feature/ux1-signal-position`): the Risk page's last column is now "Position risk" (the position's own rating, no signal), and the stock preview shows the stock's metrics with the signal and the user's shares, value and P&L in a separate "Your position" section below the records divider. Still open: lawyer #1's view on both screens (with L9, L13), then adjust if needed. | Lawyer's answer |
-| UX2 | **Dashboard totals:** €26,550 / €25.5K / €23,662 and −23.5% / −14.8% / +7.5% on one screen, unreconciled. One headline value and return, the rest labelled as views. | User test |
-| UX3 | **Negative margin of safety:** "−125,3%" and per-model "−216,7%", fair value in green. Say "price is N× / N% above the model fair value", neutral colour, cap per-model values. | User test |
-| UX4 | **Risk page wording:** factor codes before plain names, "Low · +0,75" labels, "30% above 30%" rounding, "two consecutive reports" on one day, mixed decimal separators. | User test |
 | UX5 | **Run the user study** (6–8 Belgian/Dutch self-directed investors, plan and screener in the doc) after V1, V2 and Q1, on a warmed staging server. | Paid launch |
 
 ## Translations

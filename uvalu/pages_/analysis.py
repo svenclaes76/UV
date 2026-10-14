@@ -18,7 +18,7 @@ from settings import (load_shared_settings, get_veto_thresholds, get_score_weigh
                       ALL_EXCHANGES, get_dividend_withholding)
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import (_esc, back_link, model_signal_badge_html, signal_provenance_html, founder_notice_html,
+from uvalu.components import (_esc, back_link, fmt_mos_pct, model_signal_badge_html, signal_provenance_html, founder_notice_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
                               sub_score_bar_html, quality_score_color, score_band_label, mos_text_color,
@@ -221,7 +221,7 @@ def _render_model_summary(row, ticker: str) -> None:
     _thesis = [_("{name} trades at {price} against an estimated model fair value of {fair_value} ({mos} margin of safety).",
                  name=display_name(row.get('Name')) or ticker, price=_fv(row, 'Price', _fmt_eur),
                  fair_value=_fv(row, 'fair_value', _fmt_eur),
-                 mos=_fv(row, 'MoS %', lambda v: fmt_pct(v, signed=True)))]
+                 mos=_fv(row, 'MoS %', lambda v: fmt_mos_pct(v, compact=True)))]
     if _valid_subs:
         _best = max(_valid_subs, key=_valid_subs.get)
         _worst = min(_valid_subs, key=_valid_subs.get)
@@ -343,8 +343,8 @@ def render() -> None:
         st.markdown(
             '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">'
             + _hero_card(h_("Current price"), _fv(row, "Price", _fmt_eur))
-            + _hero_card(h_("Composite fair value · estimate"), _fv(row, "fair_value", _fmt_eur), color="var(--up-txt)")
-            + _hero_card(h_("Margin of safety"), _fv(row, "MoS %", lambda v: fmt_pct(v, signed=True)), color=_mos_color)
+            + _hero_card(h_("Composite fair value · estimate"), _fv(row, "fair_value", _fmt_eur), color="var(--text)")
+            + _hero_card(h_("Margin of safety"), _fv(row, "MoS %", fmt_mos_pct), color=_mos_color)
             + _hero_card(h_("Your position"), _held_str, small=True)
             + '</div>',
             unsafe_allow_html=True,

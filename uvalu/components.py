@@ -43,6 +43,25 @@ def _esc(value) -> str:
     return _html_mod.escape(str(value), quote=False)
 
 
+def fmt_mos_pct(pct, *, compact: bool = False) -> str:
+    """A margin of safety in percent for display (UX3). Down to −100% it's a
+    plain signed percentage. Below that, a percentage stops meaning anything
+    to a reader ("−125%"), so it says how far the price is above the model
+    fair value: "price 2.3× fair value", or "< −100%" where space is tight
+    (table columns, the ladder). "—" when unknown."""
+    try:
+        v = float(pct)
+    except (TypeError, ValueError):
+        return "—"
+    if v != v:
+        return "—"
+    if v >= -100.0:
+        return fmt_pct(v, signed=True)
+    if compact:
+        return "< " + fmt_pct(-100.0, 0, signed=True)
+    return h_("price {ratio}× fair value", ratio=fmt_num(1.0 - v / 100.0, 1))
+
+
 def _name_html(name) -> str:
     """A company name for row markup: tidied for display (display_name,
     visual review G5) and HTML-escaped (names come from the data provider)."""
@@ -849,7 +868,7 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
                f'<div style="width:{bar_width}px;flex:none;height:5px;border-radius:4px;background:var(--uv-track,#EEF1F5);position:relative;">'
                f'<div style="position:absolute;left:0;top:0;height:5px;border-radius:4px;width:{min(100.0, value / scale * 100):.1f}%;background:{color};"></div></div>'
                f'<span style="font-family:var(--uv-mono);font-size:12.5px;font-weight:500;width:64px;text-align:right;">{fmt_money(value, ccy, 0)}</span>'
-               f'<span style="font-family:var(--uv-mono);font-size:11px;width:52px;text-align:right;color:{_ladder_text_color(delta_pct)};">{fmt_pct(delta_pct, signed=True)}</span></div>')
+               f'<span style="font-family:var(--uv-mono);font-size:11px;width:52px;text-align:right;color:{_ladder_text_color(delta_pct)};">{fmt_mos_pct(delta_pct, compact=True)}</span></div>')
 
     rows_html = "".join(_row(lbl, v) for lbl, v in models)
 
@@ -974,7 +993,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
     if mos_pct is not None and pd.notna(mos_pct):
         mos_pct = float(mos_pct)
         mos_html = (f"<span style='font-family:var(--uv-mono);font-size:13px;font-weight:500;"
-                    f"color:{mos_text_color(mos_pct)};'>{fmt_pct(mos_pct, signed=True)}</span>")
+                    f"color:{mos_text_color(mos_pct)};'>{fmt_mos_pct(mos_pct, compact=True)}</span>")
     elif data_thin:
         mos_html = (f"<span title='{_html_attr(_('Margin of safety pending, no fair value yet'))}' "
                     f"style='color:var(--muted);font-family:var(--uv-mono);font-size:11px;'>{h_('pending')}</span>")
@@ -1157,7 +1176,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
                 # upside is the one figure this table wants to read as
                 # emphasized, same visual weight as the ticker/score cells).
                 st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:13px;"
-                           f"font-weight:500;color:{_mos_color};'>{fmt_pct(mos_pct, signed=True)}</div>", unsafe_allow_html=True)
+                           f"font-weight:500;color:{_mos_color};'>{fmt_mos_pct(mos_pct, compact=True)}</div>", unsafe_allow_html=True)
             else:
                 st.markdown("<div style='text-align:right;color:var(--muted);'>—</div>", unsafe_allow_html=True)
         _i += 1

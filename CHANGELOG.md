@@ -32,6 +32,22 @@ of that month); earlier releases used SemVer. Rules in
   distribution line and the help question. The dividend "Yield" column and
   the Analysis yield figures now say dividend yield instead of the general
   word for return.
+- Dashboard totals (UX2, docs/ux-review.md): the Current value card says how
+  it adds up (holdings + cash, or holdings with no cash recorded) instead
+  of an unexplained chip; the Total return card says it covers open
+  positions (unrealised + dividends); the value chart says it shows
+  holdings without cash. The Dashboard now records today's value point
+  (at most every 10 minutes), so the chart's last point matches the card.
+- Negative margin of safety (UX3): below -100% the margin is shown as
+  "price N× fair value" (new `components.fmt_mos_pct`), and per-model
+  values in the fair-value ladder are capped at "< -100%". Fair value on
+  the stock preview and the Analysis hero is no longer green.
+- Risk page wording (UX4): a factor loading is Low only below 0.3 (0.75
+  was shown as Low), the caption gives the thresholds in the user's number
+  format, concentration weights show one decimal (no more "30% above
+  30%"), the Sharpe reference is formatted per locale, and a risk report
+  saved earlier the same day no longer counts as the previous report for
+  "two consecutive reports".
 
 ## [2026.10.7] — 2026-10-14
 

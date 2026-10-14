@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date as _date_cls, datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -1494,6 +1494,12 @@ def _stage8_observations(profiles: list[PositionRisk], concentration: Concentrat
                          prior_snapshot: dict | None = None) -> RiskObservations:
     targets        = targets or {}
     prior_snapshot = prior_snapshot or {}
+    # UX4: snapshots are kept one per calendar day, so a "prior" snapshot
+    # dated today is this report's own earlier save, not an earlier report;
+    # comparing with it said "two consecutive reports" twice on one day.
+    _pd = str(prior_snapshot.get("date") or prior_snapshot.get("as_of") or "")[:10]
+    if _pd and _pd >= _date_cls.today().isoformat():
+        prior_snapshot = {}
     sector_targets = targets.get("sectors") or {}
     ticker_targets = targets.get("tickers") or {}
     _prior_date    = prior_snapshot.get("date") or prior_snapshot.get("as_of")
@@ -1591,7 +1597,7 @@ def _stage8_observations(profiles: list[PositionRisk], concentration: Concentrat
         w = concentration.sector_weights.get(concentration.largest_sector, 0.0)
         add("notice", concentration.largest_sector,
             lazy_("{sector} is {weight} of the portfolio, above the model's 30% sector reference level",
-                  sector=Fmt("tr", concentration.largest_sector), weight=Fmt("pct", w, decimals=0, fraction=True)))
+                  sector=Fmt("tr", concentration.largest_sector), weight=Fmt("pct", w, decimals=1, fraction=True)))
 
     # Per-name drift vs the user's own target weights.
     if ticker_targets:
@@ -1618,14 +1624,14 @@ def _stage8_observations(profiles: list[PositionRisk], concentration: Concentrat
     if quant.sharpe is not None and quant.sharpe < REF_SHARPE:
         if prior_sharpe is not None and prior_sharpe < REF_SHARPE:
             add("notice", "Portfolio",
-                lazy_("Sharpe ratio {sharpe} is below 1.0 in two consecutive risk reports (was {previous} at {date})",
+                lazy_("Sharpe ratio {sharpe} is below {ref} in two consecutive risk reports (was {previous} at {date})",
                       sharpe=Fmt("num", quant.sharpe, decimals=2), previous=Fmt("num", prior_sharpe, decimals=2),
-                      date=prior_since),
+                      ref=Fmt("num", REF_SHARPE, decimals=1), date=prior_since),
                 basis="since_snapshot", mode="drift")
         else:
             add("notice", "Portfolio",
-                lazy_("Sharpe ratio {sharpe} is below 1.0: historical return per unit of volatility was modest",
-                      sharpe=Fmt("num", quant.sharpe, decimals=2)))
+                lazy_("Sharpe ratio {sharpe} is below {ref}: historical return per unit of volatility was modest",
+                      sharpe=Fmt("num", quant.sharpe, decimals=2), ref=Fmt("num", REF_SHARPE, decimals=1)))
 
     # Rating transitions vs the prior snapshot (an upgrade into High/Critical).
     prior_ratings = prior_snapshot.get("ratings") or {}
