@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-14 18:48+0000\n"
+"POT-Creation-Date: 2026-10-14 19:41+0000\n"
 "PO-Revision-Date: 2026-10-14 20:37+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
@@ -20,30 +20,30 @@ msgstr ""
 "X-Generator: Poedit 3.9\n"
 
 #. Context: Main navigation › page name in the top bar and browser tab
-#: app.py:103 uvalu/shell.py:47
+#: app.py:103 uvalu/shell.py:48
 msgid "Dashboard"
 msgstr "Dashboard"
 
 #. Context: Main navigation › page name. Also the Portfolio page title.
 #: app.py:104 uvalu/pages_/cash.py:93 uvalu/pages_/portfolio.py:258
 #: uvalu/pages_/portfolio.py:445 uvalu/pages_/portfolio.py:503
-#: uvalu/pages_/portfolio.py:551 uvalu/shell.py:50 workbook.py:291
+#: uvalu/pages_/portfolio.py:551 uvalu/shell.py:51 workbook.py:291
 msgid "Portfolio"
 msgstr "Portefeuille"
 
 #. Context: Main navigation › page name for the risk assessment page
-#: app.py:105 uvalu/pages_/analysis.py:217 uvalu/shell.py:51
+#: app.py:105 uvalu/pages_/analysis.py:217 uvalu/shell.py:52
 msgid "Risk"
 msgstr "Risico"
 
 #. Context: Main navigation › page name. Kept in English in all languages
 #. (glossary).
-#: app.py:106 uvalu/shell.py:48
+#: app.py:106 uvalu/shell.py:49
 msgid "Screener"
 msgstr "Screener"
 
 #. Context: Main navigation › page name; also the Watchlist page title
-#: app.py:107 uvalu/pages_/watchlist.py:71 uvalu/shell.py:49
+#: app.py:107 uvalu/pages_/watchlist.py:71 uvalu/shell.py:50
 msgid "Watchlist"
 msgstr "Volglijst"
 
@@ -53,12 +53,12 @@ msgid "Analysis"
 msgstr "Analyse"
 
 #. Context: Page name; also the user menu link and the Settings page title
-#: app.py:109 uvalu/pages_/settings.py:568 uvalu/shell.py:433
+#: app.py:109 uvalu/pages_/settings.py:568 uvalu/shell.py:434
 msgid "Settings"
 msgstr "Instellingen"
 
 #: app.py:110 uvalu/compliance/disclosures.py:93 uvalu/pages_/help.py:197
-#: uvalu/shell.py:435
+#: uvalu/shell.py:436
 msgid "Methodology"
 msgstr "Methodologie"
 
@@ -67,7 +67,7 @@ msgid "Legal"
 msgstr "Juridisch"
 
 #: app.py:113 uvalu/pages_/about.py:203 uvalu/pages_/help.py:161
-#: uvalu/pages_/help.py:301 uvalu/shell.py:438
+#: uvalu/pages_/help.py:301 uvalu/shell.py:439
 msgid "About Uvalu"
 msgstr "Over Uvalu"
 
@@ -92,7 +92,7 @@ msgid "Enter a valid email address."
 msgstr "Vul een geldig e-mailadres in."
 
 #. Context: Password forms › validation error
-#: auth.py:136 auth.py:1170
+#: auth.py:136 auth.py:1196
 #, python-brace-format
 msgid "Password must be at least {min_len} characters."
 msgstr "Het wachtwoord moet minstens {min_len} tekens hebben."
@@ -112,54 +112,54 @@ msgstr "Er bestaat al een account met dit e-mailadres."
 msgid "Account created. You can now log in."
 msgstr "Account aangemaakt. Je kunt je nu aanmelden."
 
-#: auth.py:304 uvalu/authgate.py:422
+#: auth.py:315 uvalu/authgate.py:422
 msgid "Uvalu is open to residents of the European Economic Area only."
 msgstr "Uvalu staat alleen open voor inwoners van de Europese Economische Ruimte."
 
-#: auth.py:376
+#: auth.py:390
 msgid "Confirm the statements above before creating your account."
 msgstr "Bevestig de verklaringen hierboven voordat je je account aanmaakt."
 
-#: auth.py:406
+#: auth.py:432
 msgid "Confirm the statements on the invitation page before creating your account."
 msgstr "Bevestig de verklaringen op de uitnodigingspagina voordat je je account aanmaakt."
 
 #. Context: Invite acceptance › error when signing in with a different SSO
 #. account
-#: auth.py:408
+#: auth.py:434
 #, python-brace-format
 msgid "This invite was sent to {email}. Sign in with a matching account, or ask your admin to invite {provider_email}."
 msgstr "Deze uitnodiging werd naar {email} gestuurd. Meld je aan met een overeenkomend account of vraag je beheerder om {provider_email} uit te nodigen."
 
 #. Context: Sign-in › error
-#: auth.py:547
+#: auth.py:573
 msgid "Invalid email or password."
 msgstr "Ongeldig e-mailadres of wachtwoord."
 
 #. Context: Sign-in › error
-#: auth.py:629
+#: auth.py:655
 msgid "The user store could not be read (wrong encryption key or a corrupted file). Contact your administrator."
 msgstr "De gebruikersgegevens konden niet worden gelezen (verkeerde encryptiesleutel of beschadigd bestand). Neem contact op met je beheerder."
 
 #. Context: Settings › error when the signed-in account can't be found (e.g.
 #. deleted meanwhile)
-#: auth.py:780 auth.py:800 auth.py:876 auth.py:1123 auth.py:1205 auth.py:1228
-#: auth.py:1254 auth.py:1443
+#: auth.py:806 auth.py:826 auth.py:902 auth.py:1149 auth.py:1231 auth.py:1254
+#: auth.py:1280 auth.py:1469
 msgid "User not found."
 msgstr "Gebruiker niet gevonden."
 
 #. Context: Settings › Active sessions › error
-#: auth.py:787
+#: auth.py:813
 msgid "Session not found."
 msgstr "Sessie niet gevonden."
 
 #. Context: Settings › Active sessions › confirmation
-#: auth.py:791
+#: auth.py:817
 msgid "Signed out of that session."
 msgstr "Afgemeld bij die sessie."
 
 #. Context: Settings › confirmation after 'Sign out everywhere else'
-#: auth.py:809
+#: auth.py:835
 #, python-brace-format
 msgid "Signed out of {count} other session."
 msgid_plural "Signed out of {count} other sessions."
@@ -167,100 +167,100 @@ msgstr[0] "Afgemeld bij {count} andere sessie."
 msgstr[1] "Afgemeld bij {count} andere sessies."
 
 #. Context: Settings › 2FA setup › error
-#: auth.py:858
+#: auth.py:884
 msgid "Start enrollment again — no pending setup found."
 msgstr "Start de instelling opnieuw: er is geen lopende instelling gevonden."
 
 #. Context: 2FA sign-in and setup › error
-#: auth.py:860 auth.py:963
+#: auth.py:886 auth.py:989
 msgid "That code didn't match. Try again."
 msgstr "Die code klopt niet. Probeer opnieuw."
 
 #. Context: Settings › confirmation
-#: auth.py:867
+#: auth.py:893
 msgid "Two-factor authentication enabled."
 msgstr "Tweestapsverificatie ingeschakeld."
 
 #. Context: Settings › confirmation
-#: auth.py:884
+#: auth.py:910
 msgid "Two-factor authentication turned off."
 msgstr "Tweestapsverificatie uitgeschakeld."
 
 #. Context: Sign-in › error while the account is locked
-#: auth.py:936
+#: auth.py:962
 #, python-brace-format
 msgid "This account is temporarily locked. Try again in {count} minute."
 msgid_plural "This account is temporarily locked. Try again in {count} minutes."
 msgstr[0] "Dit account is tijdelijk geblokkeerd. Probeer het over {count} minuut opnieuw."
 msgstr[1] "Dit account is tijdelijk geblokkeerd. Probeer het over {count} minuten opnieuw."
 
-#: auth.py:957
+#: auth.py:983
 #, python-brace-format
 msgid "That code didn't match. Too many failed attempts — this account is now locked for {minutes} minutes."
 msgstr "Die code klopt niet. Te veel mislukte pogingen: dit account is nu {minutes} minuten geblokkeerd."
 
 #. Context: Settings / sign-in › error
-#: auth.py:993 auth.py:1019
+#: auth.py:1019 auth.py:1045
 msgid "Two-factor authentication isn't enabled for this account."
 msgstr "Tweestapsverificatie is niet ingeschakeld voor dit account."
 
 #. Context: Settings › confirmation after 'Revoke all'
-#: auth.py:1128
+#: auth.py:1154
 msgid "All trusted devices revoked."
 msgstr "Alle vertrouwde apparaten ingetrokken."
 
 #. Context: Password forms › error
-#: auth.py:1174
+#: auth.py:1200
 msgid "This password has appeared in known data breaches. Choose a different one."
 msgstr "Dit wachtwoord is opgedoken in bekende datalekken. Kies een ander."
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:1208
+#: auth.py:1234
 msgid "This identity is already linked to a different account."
 msgstr "Deze identiteit is al gekoppeld aan een ander account."
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:1211
+#: auth.py:1237
 msgid "This provider is already linked to your account."
 msgstr "Deze provider is al gekoppeld aan je account."
 
 #. Context: Settings › Linked accounts › confirmation
-#: auth.py:1218
+#: auth.py:1244
 msgid "Provider connected."
 msgstr "Provider gekoppeld."
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:1233
+#: auth.py:1259
 msgid "That provider isn't linked to your account."
 msgstr "Die provider is niet gekoppeld aan je account."
 
 #. Context: Settings › Linked accounts › error
-#: auth.py:1235
+#: auth.py:1261
 msgid "Can't disconnect your only sign-in method — set a password first."
 msgstr "Je kunt je enige aanmeldmethode niet ontkoppelen: stel eerst een wachtwoord in."
 
 #. Context: Settings › Linked accounts › confirmation
-#: auth.py:1240
+#: auth.py:1266
 msgid "Provider disconnected."
 msgstr "Provider ontkoppeld."
 
 #. Context: Settings › Set a password › error. 'Change' must match the button.
-#: auth.py:1256
+#: auth.py:1282
 msgid "This account already has a password — use Change instead."
 msgstr "Dit account heeft al een wachtwoord: gebruik Wijzigen."
 
 #. Context: Settings › confirmation
-#: auth.py:1262
+#: auth.py:1288
 msgid "Password set."
 msgstr "Wachtwoord ingesteld."
 
 #. Context: Settings › Change password › error
-#: auth.py:1448
+#: auth.py:1474
 msgid "Current password is incorrect."
 msgstr "Het huidige wachtwoord is onjuist."
 
 #. Context: Settings › confirmation
-#: auth.py:1454
+#: auth.py:1480
 msgid "Password changed."
 msgstr "Wachtwoord gewijzigd."
 
@@ -612,7 +612,7 @@ msgstr "Gemiddeld"
 
 #. Context: Password strength level. Also the 'Strong' score label on the
 #. Analysis page and a Sharpe ratio rating on the Risk page.
-#: risk.py:742 uvalu/shell.py:108
+#: risk.py:742 uvalu/shell.py:109
 msgid "Strong"
 msgstr "Sterk"
 
@@ -1481,127 +1481,126 @@ msgstr "Laatst bekeken “Wat is er nieuw”"
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:467 workbook.py:486 workbook.py:507 workbook.py:514
-#: workbook.py:559
+#: workbook.py:477 workbook.py:496 workbook.py:517 workbook.py:524 workbook.py:569
 #, python-brace-format
 msgid "{column} is empty."
 msgstr "{column} is leeg."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:473
+#: workbook.py:483
 #, python-brace-format
 msgid "{value} is not a ticker."
 msgstr "{value} is geen ticker."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:482 workbook.py:489
+#: workbook.py:492 workbook.py:499
 #, python-brace-format
 msgid "{column}: {value} is not a number."
 msgstr "{column}: {value} is geen getal."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:492 workbook.py:583
+#: workbook.py:502 workbook.py:593
 #, python-brace-format
 msgid "{column} must be greater than zero."
 msgstr "{column} moet groter zijn dan nul."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:494
+#: workbook.py:504
 #, python-brace-format
 msgid "{column} must be at least {minimum}."
 msgstr "{column} moet minstens {minimum} zijn."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:496
+#: workbook.py:506
 #, python-brace-format
 msgid "{column} must be at most {maximum}."
 msgstr "{column} mag hoogstens {maximum} zijn."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:504
+#: workbook.py:514
 #, python-brace-format
 msgid "{column}: {value} is not a date."
 msgstr "{column}: {value} is geen datum."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:518
+#: workbook.py:528
 #, python-brace-format
 msgid "{column}: {value} is not one of {options}."
 msgstr "{column}: {value} is niet een van {options}."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:542 workbook.py:550 workbook.py:593
+#: workbook.py:552 workbook.py:560 workbook.py:603
 #, python-brace-format
 msgid "{column} is in the future."
 msgstr "{column} ligt in de toekomst."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:548
+#: workbook.py:558
 msgid "date_out is before date_in."
 msgstr "date_out ligt vóór date_in."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:562
+#: workbook.py:572
 msgid "shares is needed to compute the amount from amount_per_share."
 msgstr "shares is nodig om het bedrag uit amount_per_share te berekenen."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:567 workbook.py:586
+#: workbook.py:577 workbook.py:596
 #, python-brace-format
 msgid "{column}: {value} is not a currency code."
 msgstr "{column}: {value} is geen muntcode."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:571
+#: workbook.py:581
 msgid "ex_date is after the payment date."
 msgstr "ex_date ligt na de betaaldatum."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:591
+#: workbook.py:601
 #, python-brace-format
 msgid "An Adjustment is always in {currency}."
 msgstr "Een Adjustment is altijd in {currency}."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:611
+#: workbook.py:621
 msgid "This is not an Excel workbook (.xlsx)."
 msgstr "Dit is geen Excel-werkmap (.xlsx)."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:638
+#: workbook.py:648
 msgid "This file was made by a newer version of Uvalu. Update the app first."
 msgstr "Dit bestand is gemaakt door een nieuwere versie van Uvalu. Werk de app eerst bij."
 
 #. Context: Settings › Import › a problem with an uploaded workbook
-#: workbook.py:642
+#: workbook.py:652
 msgid "No Uvalu sheets found. Start from an Uvalu export."
 msgstr "Geen Uvalu-tabbladen gevonden. Vertrek van een Uvalu-export."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:751
+#: workbook.py:761
 #, python-brace-format
 msgid "No exchange rate for {currency} on {date}. Add it in the fx_rate column."
 msgstr "Geen wisselkoers voor {currency} op {date}. Vul hem in de kolom fx_rate in."
 
 #. Context: Settings › Import › a problem found in a row of an uploaded workbook.
 #. {column} is an English column name from the file; keep it as is.
-#: workbook.py:804
+#: workbook.py:814
 msgid "Fix the problems in the file first."
 msgstr "Los eerst de problemen in het bestand op."
 
@@ -1695,7 +1694,7 @@ msgstr "Wachtwoordsterkte: {strength}"
 
 #. Context: Small uppercase tagline next to the uvalu logo (top bar and sign-in
 #. panel). Keep short and lowercase.
-#: uvalu/authgate.py:326 uvalu/shell.py:368
+#: uvalu/authgate.py:326 uvalu/shell.py:369
 msgid "value engine"
 msgstr "waarde-engine"
 
@@ -1838,7 +1837,7 @@ msgid "Create your account"
 msgstr "Maak je account aan"
 
 #. Context: Sign-in, sign-up and invite screens › label of the email field
-#: uvalu/authgate.py:471 uvalu/authgate.py:541 uvalu/authgate.py:813
+#: uvalu/authgate.py:471 uvalu/authgate.py:541 uvalu/authgate.py:812
 msgid "Email"
 msgstr "E-mail"
 
@@ -1850,8 +1849,8 @@ msgstr "VAST DOOR UITNODIGING"
 
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
-#: uvalu/authgate.py:485 uvalu/authgate.py:542 uvalu/authgate.py:823
-#: uvalu/authgate.py:828 uvalu/authgate.py:869 uvalu/pages_/settings.py:589
+#: uvalu/authgate.py:485 uvalu/authgate.py:542 uvalu/authgate.py:822
+#: uvalu/authgate.py:827 uvalu/authgate.py:868 uvalu/pages_/settings.py:589
 #: uvalu/pages_/settings.py:593
 msgid "Password"
 msgstr "Wachtwoord"
@@ -1870,7 +1869,7 @@ msgstr "Account aanmaken"
 
 #. Context: Sign-in screen › divider between the password form and the
 #. 'Continue with Google/Microsoft' buttons
-#: uvalu/authgate.py:503 uvalu/authgate.py:789 uvalu/authgate.py:878
+#: uvalu/authgate.py:503 uvalu/authgate.py:788 uvalu/authgate.py:877
 msgid "or"
 msgstr "of"
 
@@ -1881,7 +1880,7 @@ msgstr "Maak het eerste beheerdersaccount aan"
 
 #. Context: Sign-in and first-admin screens › example text inside the empty
 #. email field
-#: uvalu/authgate.py:541 uvalu/authgate.py:813
+#: uvalu/authgate.py:541 uvalu/authgate.py:812
 msgid "you@company.com"
 msgstr "jij@bedrijf.be"
 
@@ -1955,72 +1954,72 @@ msgstr "Je account bestaat niet meer. Neem contact op met je beheerder."
 msgid "This account has been suspended."
 msgstr "Dit account is geschorst."
 
-#: uvalu/authgate.py:741
+#: uvalu/authgate.py:740
 msgid "← Back to sign in"
 msgstr "← Terug naar aanmelden"
 
 #. Context: Sign-in screen › heading after too many failed password attempts
-#: uvalu/authgate.py:772
+#: uvalu/authgate.py:771
 msgid "Sign in temporarily locked"
 msgstr "Aanmelden tijdelijk geblokkeerd"
 
-#: uvalu/authgate.py:773
+#: uvalu/authgate.py:772
 msgid "Too many failed sign-in attempts. Uvalu will accept a new attempt when the timer expires."
 msgstr "Te veel mislukte aanmeldpogingen. Uvalu aanvaardt een nieuwe poging zodra de timer afloopt."
 
 #. Context: Sign-in lockout card › big countdown, e.g. '12 min'. Followed by
 #. 'until the next attempt'.
 #. Also: Settings › price refresh interval option, e.g. '5 min'
-#: uvalu/authgate.py:779
+#: uvalu/authgate.py:778
 #, python-brace-format
 msgid "{minutes} min"
 msgstr "{minutes} min"
 
 #. Context: Sign-in lockout card › caption under the countdown ('12 min / until
 #. the next attempt')
-#: uvalu/authgate.py:780
+#: uvalu/authgate.py:779
 msgid "until the next attempt"
 msgstr "tot de volgende poging"
 
 #. Context: Sign-in screen › heading of the form, and the (disabled) sign-in
 #. button when the account is locked
-#: uvalu/authgate.py:782 uvalu/authgate.py:806 uvalu/authgate.py:830
+#: uvalu/authgate.py:781 uvalu/authgate.py:805 uvalu/authgate.py:829
 msgid "Sign in"
 msgstr "Aanmelden"
 
-#: uvalu/authgate.py:796
+#: uvalu/authgate.py:795
 msgid "The lock applies to password sign-in only."
 msgstr "De blokkering geldt alleen voor aanmelden met een wachtwoord."
 
 #. Context: Sign-in lockout screen › button to try another email address
-#: uvalu/authgate.py:799
+#: uvalu/authgate.py:798
 msgid "Not you? Use a different account"
 msgstr "Ben jij dit niet? Gebruik een ander account"
 
 #. Context: Sign-in screen › subheading under 'Sign in'
-#: uvalu/authgate.py:807
+#: uvalu/authgate.py:806
 msgid "Welcome back. Enter your credentials to continue."
 msgstr "Welkom terug. Vul je gegevens in om verder te gaan."
 
 #. Context: Sign-in screen › small link next to the password label, opens the
 #. 'Forgot your password?' note
-#: uvalu/authgate.py:825
+#: uvalu/authgate.py:824
 msgid "Forgot?"
 msgstr "Vergeten?"
 
 #. Context: Sign-in screen › error when the form is submitted with an empty
 #. field
-#: uvalu/authgate.py:833
+#: uvalu/authgate.py:832
 msgid "Enter your email and password to continue."
 msgstr "Vul je e-mailadres en wachtwoord in om verder te gaan."
 
 #. Context: Sign-in screen › footer line, followed by 'Ask your admin for an
 #. invite'
-#: uvalu/authgate.py:888
+#: uvalu/authgate.py:887
 msgid "New to Uvalu?"
 msgstr "Nieuw bij Uvalu?"
 
-#: uvalu/authgate.py:888
+#: uvalu/authgate.py:887
 msgid "Ask for an invite"
 msgstr "Vraag een uitnodiging"
 
@@ -3806,87 +3805,86 @@ msgstr "je identiteitsprovider"
 
 #. Context: Top bar › price feed status pill. {time} is the time of the last
 #. quote, e.g. 17:35.
-#: uvalu/shell.py:38
+#: uvalu/shell.py:39
 #, python-brace-format
 msgid "Market closed · {time}"
 msgstr "Markt gesloten · {time}"
 
 #. Context: Top bar › price feed status pill: quotes have not updated for a
 #. while. {time} = time of last quote.
-#: uvalu/shell.py:40
+#: uvalu/shell.py:41
 #, python-brace-format
 msgid "Feed stale · {time}"
 msgstr "Koersen verouderd · {time}"
 
 #. Context: Top bar › price feed status pill: {delayed} of {total} quotes are
 #. delayed. {time} = time of last quote.
-#: uvalu/shell.py:42
+#: uvalu/shell.py:43
 #, python-brace-format
 msgid "Delayed {delayed}/{total} · {time}"
 msgstr "Vertraagd {delayed}/{total} · {time}"
 
 #. Context: Top bar › price feed status pill: quotes are live. {time} = time of
 #. last quote.
-#: uvalu/shell.py:44
+#: uvalu/shell.py:45
 #, python-brace-format
 msgid "Live · {time}"
 msgstr "Live · {time}"
 
 #. Context: Password strength level shown in the meter. Also used as the 'Weak'
 #. conviction/score label on the Analysis page.
-#: uvalu/shell.py:105
+#: uvalu/shell.py:106
 msgid "Weak"
 msgstr "Zwak"
 
 #. Context: Password strength level (middle of Weak / Fair / Strong). Means
 #. 'acceptable', not 'fair value'.
-#: uvalu/shell.py:107
+#: uvalu/shell.py:108
 msgid "Fair"
 msgstr "Redelijk"
 
-#: uvalu/shell.py:395
+#: uvalu/shell.py:396
 msgctxt "market"
 msgid "Closed"
 msgstr "Gesloten"
 
-#: uvalu/shell.py:396
+#: uvalu/shell.py:397
 msgctxt "market"
 msgid "Live"
 msgstr "Live"
 
-#: uvalu/shell.py:396
+#: uvalu/shell.py:397
 msgctxt "market"
 msgid "Delayed"
 msgstr "Vertraagd"
 
 #. Context: Top bar › tooltip on the theme toggle button
-#: uvalu/shell.py:410
+#: uvalu/shell.py:411
 msgid "Switch to dark theme"
 msgstr "Overschakelen naar donker thema"
 
 #. Context: Top bar › tooltip on the theme toggle button
-#: uvalu/shell.py:410
+#: uvalu/shell.py:411
 msgid "Switch to light theme"
 msgstr "Overschakelen naar licht thema"
 
-#: uvalu/pages_/settings.py:1130 uvalu/shell.py:424
+#: uvalu/pages_/settings.py:1130 uvalu/shell.py:425
 msgid "Free beta"
 msgstr "Gratis bèta"
 
 #. Context: User menu (top right) › link to the admin portal, only shown to
 #. admins
-#: uvalu/shell.py:440
+#: uvalu/shell.py:441
 msgid "Admin portal"
 msgstr "Beheerportaal"
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:738 uvalu/pages_/settings.py:1131
-#: uvalu/shell.py:447
+#: uvalu/pages_/settings.py:738 uvalu/pages_/settings.py:1131 uvalu/shell.py:448
 msgid "Sign out"
 msgstr "Afmelden"
 
-#: uvalu/shell.py:457
+#: uvalu/shell.py:458
 #, python-brace-format
 msgid "{name}, trading as {trading_as}"
 msgstr "{name}, handelend onder de naam {trading_as}"
@@ -3894,11 +3892,11 @@ msgstr "{name}, handelend onder de naam {trading_as}"
 #. Context: Risk metric label: Dashboard risk snapshot and Risk page (shown
 #. uppercase)
 #: uvalu/pages_/dashboard.py:494 uvalu/pages_/risk.py:33 uvalu/pages_/risk.py:288
-#: uvalu/shell.py:486
+#: uvalu/shell.py:487
 msgid "Beta"
 msgstr "Bèta"
 
-#: uvalu/shell.py:489
+#: uvalu/shell.py:490
 msgid "Terms →"
 msgstr "Voorwaarden →"
 
@@ -3906,11 +3904,22 @@ msgstr "Voorwaarden →"
 #. restart. “No signal” is the badge label.
 #. Strip under the beta notice while the app rebuilds its peer reference after a
 #. restart. “No signal” is the badge label.
-#: uvalu/shell.py:504
+#: uvalu/shell.py:505
 msgid "Rebuilding the peer reference after a restart. Signals show “No signal” until it finishes, usually within a few minutes."
 msgstr "De vergelijkingsgroep wordt na een herstart opnieuw opgebouwd. Tot dat klaar is, tonen signalen „Geen signaal”, meestal binnen enkele minuten."
 
-#: uvalu/shell.py:566
+#: uvalu/shell.py:554
+#
+msgid "Skip to content"
+msgstr "Naar de inhoud"
+
+#: uvalu/shell.py:554
+#
+msgctxt "landmark"
+msgid "Main"
+msgstr "Hoofdmenu"
+
+#: uvalu/shell.py:619
 msgid "Couldn’t load this page. Try again in a moment."
 msgstr "Deze pagina kon niet worden geladen. Probeer het zo meteen opnieuw."
 
@@ -3918,7 +3927,7 @@ msgstr "Deze pagina kon niet worden geladen. Probeer het zo meteen opnieuw."
 #. to quote to support.
 #. Shown under an error message; {ref} is a technical reference (id, version, commit)
 #. to quote to support.
-#: uvalu/shell.py:569
+#: uvalu/shell.py:622
 #, python-brace-format
 msgid "Something went wrong. Reference for support: {ref}"
 msgstr "Er ging iets mis. Referentie voor support: {ref}"
@@ -3927,16 +3936,16 @@ msgstr "Er ging iets mis. Referentie voor support: {ref}"
 #. update.
 #. Maintenance screen › title, shown instead of the app while stored data waits for an
 #. update.
-#: uvalu/shell.py:582
+#: uvalu/shell.py:635
 msgid "Uvalu is being updated"
 msgstr "Uvalu wordt bijgewerkt"
 
 #. Maintenance screen › body text under "Uvalu is being updated".
-#: uvalu/shell.py:584
+#: uvalu/shell.py:637
 msgid "The app is waiting for a data update to finish. Please try again in a few minutes."
 msgstr "De app wacht tot een update van de gegevens klaar is. Probeer het over een paar minuten opnieuw."
 
-#: uvalu/shell.py:659
+#: uvalu/shell.py:712
 msgid "About this version and what's new"
 msgstr "Over deze versie en wat er nieuw is"
 
@@ -4841,7 +4850,6 @@ msgid "holdings {holdings} + cash {cash}"
 msgstr "posities {holdings} + cash {cash}"
 
 #: uvalu/pages_/dashboard.py:214
-#
 msgid "holdings, no cash recorded"
 msgstr "posities, geen cash geregistreerd"
 
@@ -4858,7 +4866,6 @@ msgid "Total return"
 msgstr "Totaalrendement"
 
 #: uvalu/pages_/dashboard.py:221
-#
 msgid "open positions: unrealised + dividends"
 msgstr "open posities: niet-gerealiseerde W/V + dividenden"
 
@@ -4960,7 +4967,6 @@ msgid "Portfolio value over time"
 msgstr "Waarde van de portefeuille in de tijd"
 
 #: uvalu/pages_/dashboard.py:307
-#
 msgid "Your holdings, without cash."
 msgstr "Je posities, zonder cash."
 

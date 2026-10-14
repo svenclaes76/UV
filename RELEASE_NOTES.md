@@ -20,6 +20,12 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+### Improved
+
+- **Easier with a screen reader or keyboard**: pages have proper headings
+  and landmarks, a "Skip to content" link comes first when you press Tab,
+  and each browser tab shows the page name.
+
 ### Fixed
 
 - **Safer Excel exports**: a note that starts with "=" is exported as text,

@@ -62,7 +62,7 @@ def _fv(row, field, fmt=None):
     return fmt(v) if fmt else str(v)
 
 
-_PANEL_TITLE = '<div style="font-size:15px;font-weight:500;margin-bottom:10px;">{title}</div>'
+_PANEL_TITLE = '<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:10px;">{title}</div>'
 _KV_ROW = ('<div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:8px 0;'
            'border-bottom:0.5px solid var(--line-2);font-size:12.5px;"><span style="color:var(--muted);">{k}</span>'
            '<span style="color:var(--text);line-height:1.5;">{v}</span></div>')
@@ -114,7 +114,7 @@ def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: di
         # Title with the shared-settings note on the same row (design reference).
         st.markdown(
             '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px;">'
-            f'<span style="font-size:15px;font-weight:500;">{h_("Assumptions & sensitivity")}</span>'
+            f'<span role="heading" aria-level="2" style="font-size:15px;font-weight:500;">{h_("Assumptions & sensitivity")}</span>'
             # Translators: Analysis › Assumptions & sensitivity, note beside the card title: the settings are the same for every user; {model} is the model version, e.g. "M1".
             f'<span style="font-size:11px;color:var(--muted);white-space:nowrap;">{h_("Shared settings · model {model}", model=MODEL_VERSION)}</span></div>',
             unsafe_allow_html=True)
@@ -212,7 +212,7 @@ def _render_model_summary(row, ticker: str) -> None:
     only), the last card on the page (mockup), ending with the sentence that
     it is the same for every user and not a recommendation."""
     _thesis_card = st.container(key="an_card_thesis", border=True)
-    _thesis_card.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:10px;">{h_("Model summary")}</div>',
+    _thesis_card.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:10px;">{h_("Model summary")}</div>',
                           unsafe_allow_html=True)
     _sub_fields = {N_("Margin of safety"): row.get("Sub MoS"), N_("Risk"): row.get("Sub Risk"),
                   N_("Quality"): row.get("Sub Quality"), N_("Momentum"): row.get("Sub Momentum"),
@@ -373,7 +373,7 @@ def render() -> None:
     _C = theme_colors()
     with st.container(key="an_card_chart", border=True):
         with st.container(horizontal=True, horizontal_alignment="distribute", vertical_alignment="center"):
-            st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Price vs composite fair value · 1Y")}</div>',
+            st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;">{h_("Price vs composite fair value · 1Y")}</div>',
                        unsafe_allow_html=True)
             with st.container(horizontal=True, gap="small", width="content"):
                 st.markdown('<span style="display:flex;align-items:center;gap:6px;font-size:11.5px;'
@@ -421,7 +421,7 @@ def render() -> None:
     # sensitivity and sources / producer split 1 : 1.
     _col1, _col2 = st.columns([1, 1.25])
     with _col1, st.container(key="an_card_subscores", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Signal sub-scores")}</div>',
+        st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:16px;">{h_("Signal sub-scores")}</div>',
                    unsafe_allow_html=True)
         st.caption(_("Weighted components of the composite score."))
         for label_, field in [(h_("Margin of safety"), "Sub MoS"), (h_("Risk (inverted)"), "Sub Risk"),
@@ -435,7 +435,7 @@ def render() -> None:
                 st.markdown(sub_score_bar_html(label_, float(v), color=quality_score_color(float(v))),
                             unsafe_allow_html=True)
     with _col2, st.container(key="an_card_sixmodel", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:12px;">{h_("Model fair values")}</div>',
+        st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:12px;">{h_("Model fair values")}</div>',
                    unsafe_allow_html=True)
         _price = row.get("Price")
         if _price is not None and pd.notna(_price):
@@ -459,7 +459,7 @@ def render() -> None:
     # ── Financials & valuation | hard-veto checks ─────────────────────────────
     _col3, _col4 = st.columns([1.25, 1])
     with _col3, st.container(key="an_card_financials", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:6px;">{h_("Financials & valuation")}</div>',
+        st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:6px;">{h_("Financials & valuation")}</div>',
                    unsafe_allow_html=True)
         _de_val = row.get("debtToEquity")
         # Matches Uvalu.dc.html's 9-field set (EPS/P-E·fairP-E/ROE/Debt-equity/
@@ -505,7 +505,7 @@ def render() -> None:
                     f'color:{_fcolor};">{_fval}</span></div>',
                     unsafe_allow_html=True)
     with _col4, st.container(key="an_card_vetochecks", border=True):
-        st.markdown(f'<div style="font-size:15px;font-weight:500;margin-bottom:12px;">{h_("Quality screen checks")}</div>',
+        st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;margin-bottom:12px;">{h_("Quality screen checks")}</div>',
                    unsafe_allow_html=True)
         _max_de_thr = get_veto_thresholds()[0]
         de = row.get("debtToEquity"); fcf = row.get("freeCashflow"); fcf_y = row.get("fcfYield")
@@ -616,7 +616,7 @@ def render() -> None:
                 _dps_label = (h_("{amount} / share", amount=fmt_money(_dps_annual, "EUR"))
                               if pd.notna(_dps_annual) and _dps_annual else "—")
                 st.markdown(f'<div style="display:flex;align-items:center;gap:10px;">'
-                           f'<span style="font-size:15px;font-weight:500;">{h_("Dividend & income")}</span>'
+                           f'<span role="heading" aria-level="2" style="font-size:15px;font-weight:500;">{h_("Dividend & income")}</span>'
                            f'<span style="font-size:11.5px;color:var(--muted);">{_freq_label} · {_dps_label}</span></div>',
                            unsafe_allow_html=True)
             with _dh_src:

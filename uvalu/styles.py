@@ -162,6 +162,18 @@ GLOBAL_CSS = """
   }
   /* Brand §7: 18px between a page's sections (Streamlit's default is 16px). */
   .block-container > [data-testid="stVerticalBlock"] { gap: var(--uv-section-gap) !important; }
+  /* AC1: the page body sits in app.py's uv_main container (role="main"),
+     one level down; same gap between its sections. */
+  .block-container .st-key-uv_main { gap: var(--uv-section-gap) !important; }
+  /* AC1: "Skip to content", the first focusable element (uvalu/shell.py
+     render_landmarks); off-screen until it has keyboard focus. */
+  .uv-skip {
+    position: fixed; left: 16px; top: -60px; z-index: 1000000;
+    padding: 8px 14px; border-radius: 6px; border: 0.5px solid var(--line);
+    background: var(--panel); color: var(--link); font-size: 13px; font-weight: 500;
+    text-decoration: none;
+  }
+  .uv-skip:focus { top: 12px; outline: 2px solid var(--link); outline-offset: 2px; }
 
   /* ── Invisible helper elements (localStorage-sync iframes, theme/density
      scripts) render nothing but still occupy a full row-gap in Streamlit's

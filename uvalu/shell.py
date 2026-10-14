@@ -7,6 +7,7 @@ built but before nav.run() so the bar renders above the page body;
 render_beta_banner() right after it, and render_footer() after nav.run().
 """
 import html
+import json
 
 import streamlit as st
 
@@ -537,6 +538,58 @@ def env_marker_html(info=None) -> str:
             f'z-index:1000000;background:{color};color:#fff;'
             f'font:600 10px/1 var(--uv-mono, monospace);letter-spacing:0.12em;padding:4px 10px 4px;'
             f'border-radius:6px 6px 0 0;pointer-events:none;">{label}</div>')
+
+
+def render_landmarks(page_path: str) -> None:
+    """AC1 (docs/accessibility-review.md): landmarks and a skip link.
+
+    Streamlit gives no way to set a role on a container, so a hidden-iframe
+    script (same pattern as apply_theme_script) marks the top-bar links as
+    navigation, the page body (app.py's ``uv_main`` container) as main and
+    the footer as contentinfo, and puts a "Skip to content" link first in
+    the parent document. The link moves focus to the page's level-1 heading.
+    ``page_path`` is part of the script, so it reloads, and runs again, on
+    every page change. app.py calls it after the footer, so everything it
+    marks is already drawn; the retries cover the browser's own paint."""
+    labels = json.dumps({"skip": _("Skip to content"), "nav": pgettext("landmark", "Main")})
+    with st.container(key="uv_hidden_util_landmarks"):
+        st.iframe(f"""
+<script>
+/* page: {html.escape(page_path)} */
+(function(){{
+  var L = {labels};
+  function apply(){{
+    try {{
+      var d = window.parent.document;
+      function mark(sel, role, label){{
+        var e = d.querySelector(sel);
+        if (!e) return;
+        if (e.getAttribute('role') !== role) e.setAttribute('role', role);
+        if (label && e.getAttribute('aria-label') !== label) e.setAttribute('aria-label', label);
+      }}
+      mark('.st-key-uv_topbar_nav', 'navigation', L.nav);
+      mark('.st-key-uv_main', 'main');
+      mark('.st-key-uv_footer', 'contentinfo');
+      var a = d.getElementById('uv-skip');
+      if (!a) {{
+        a = d.createElement('a');
+        a.id = 'uv-skip'; a.className = 'uv-skip'; a.href = '#';
+        a.addEventListener('click', function(ev){{
+          ev.preventDefault();
+          var t = d.querySelector('.st-key-uv_main [role="heading"][aria-level="1"]')
+                  || d.querySelector('.st-key-uv_main');
+          if (t) {{ t.setAttribute('tabindex', '-1'); t.focus(); t.scrollIntoView({{block: 'start'}}); }}
+        }});
+        d.body.insertBefore(a, d.body.firstChild);
+      }}
+      if (a.textContent !== L.skip) a.textContent = L.skip;
+    }} catch(e) {{}}
+  }}
+  apply();
+  [300, 1000, 2500].forEach(function(t){{ setTimeout(apply, t); }});
+}})();
+</script>
+""", height=1)
 
 
 def render_env_marker() -> None:

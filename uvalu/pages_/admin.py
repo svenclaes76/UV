@@ -1590,7 +1590,7 @@ def render() -> None:
             with st.container(key="admin_topbar"):
                 _t1, _t2 = st.columns([3, 1], vertical_alignment="center")
                 with _t1:
-                    st.markdown(f'<div style="font-size:15px;font-weight:500;color:var(--text);'
+                    st.markdown(f'<div role="heading" aria-level="1" style="font-size:15px;font-weight:500;color:var(--text);'
                                f'line-height:1;letter-spacing:-0.01em;">{_SECTION_TITLES[_section]}</div>',
                                unsafe_allow_html=True)
                 with _t2:

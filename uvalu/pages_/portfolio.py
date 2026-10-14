@@ -670,7 +670,7 @@ def render() -> None:
                 with st.container(key="pf_card_tax_years", border=True):
                     with st.container(key="pf_tax_years_title", horizontal=True, vertical_alignment="center",
                                       horizontal_alignment="distribute"):
-                        st.markdown(f'<div style="font-size:15px;font-weight:500;">{h_("Annual dividend income summary")}</div>'
+                        st.markdown(f'<div role="heading" aria-level="2" style="font-size:15px;font-weight:500;">{h_("Annual dividend income summary")}</div>'
                                    '<div style="font-size:12px;color:var(--muted);margin-top:3px;">'
                                    f'{h_("Estimate under Belgian rules · gross and net shown separately.")}</div>',
                                    unsafe_allow_html=True, width="content")

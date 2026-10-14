@@ -34,7 +34,7 @@ from uvalu.pages_ import (dashboard as _page_dashboard, portfolio as _page_portf
 
 # ── Page config + global styles ───────────────────────────────────────────────
 st.set_page_config(
-    page_title="uvalu",
+    page_title="Uvalu",
     page_icon="assets/logo/uvalu-mark-small-32.png",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -156,13 +156,22 @@ if _nav.url_path != "admin":
 # @st.dialog inside another, so open_drawer() can't call them directly).
 dispatch_pending_drawer_action()
 
+# AC4: a title per page in the browser tab and history ("Risk · Uvalu"),
+# translated like the page names in the top bar.
+st.set_page_config(page_title=f"{_nav.title} · Uvalu")
+
 _nav_started = time.perf_counter()
 _render_ok = True
 try:
-    _nav.run()
+    # The page body, marked role="main" by shell.render_landmarks().
+    with st.container(key="uv_main"):
+        _nav.run()
     # Legal footer on every screen (DIS-1, REC-1); Admin has its own shell.
     if _nav.url_path != "admin":
         shell.render_footer()
+    # AC1: navigation / main / contentinfo landmarks and the skip link, after
+    # the footer so every element it marks is already on the page.
+    shell.render_landmarks(_nav.url_path or "dashboard")
 except Exception:
     _render_ok = False
     logkit.get_logger("uvalu.render").exception(

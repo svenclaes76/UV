@@ -90,7 +90,7 @@ def _row_header(label: str, *, anchor: str | None = None, chip: str | None = Non
           f'white-space:nowrap;">{chip}</span>') if chip else ""
     # One outer <div> so Markdown keeps it a raw HTML block (a leading <span>
     # would make it a paragraph, with Markdown applied inside).
-    st.markdown(f'<div>{_a}<div class="uv-card-head uv-set-head"><span>{label}</span>{_c}</div></div>',
+    st.markdown(f'<div>{_a}<div class="uv-card-head uv-set-head"><span role="heading" aria-level="2">{label}</span>{_c}</div></div>',
                 unsafe_allow_html=True)
 
 
