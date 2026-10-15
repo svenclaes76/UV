@@ -4396,14 +4396,14 @@ msgid "Fair value {amount}"
 msgstr "Valor razonable {amount}"
 
 #: uvalu/pages_/analysis.py:419
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Chart: over the past year the price moved between {low} and {high}; it is {last}"
 " now."
 msgstr "Gráfico: en el último año el precio se movió entre {low} y {high}; ahora está en {last}."
 
 #: uvalu/pages_/analysis.py:423
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "The model fair value is {amount}."
 msgstr "El valor razonable del modelo es {amount}."
 
@@ -5054,14 +5054,14 @@ msgid "Euro Stoxx 50 (same invested)"
 msgstr "Euro Stoxx 50 (misma inversión)"
 
 #: uvalu/pages_/dashboard.py:355
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Chart: your holdings were worth {first} on {start} and {last} on {end}; amount "
 "invested {invested}."
 msgstr "Gráfico: tus posiciones valían {first} el {start} y {last} el {end}; importe invertido {invested}."
 
 #: uvalu/pages_/dashboard.py:358
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Chart: your holdings were worth {last} on {end}; amount invested {invested}."
 msgstr "Gráfico: tus posiciones valían {last} el {end}; importe invertido {invested}."
 
