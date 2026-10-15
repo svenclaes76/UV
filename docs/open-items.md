@@ -162,7 +162,7 @@ their rows. The Admin page's own sidebar is not yet marked as navigation.
 | # | Item | Do it before |
 | --- | --- | --- |
 | AC2 | **Tables (rest of AC2):** the row buttons have names and states (14 October 2026); the Screener, Holdings and Risk grids still have no table semantics. `role=table`/`row`/`cell` and `aria-sort` on the sort column, which needs the row markup reworked (Streamlit columns with a full-row overlay button). | Paid launch |
-| AC7 | **Accessibility statement** (target, known gaps, contact), then a specialist audit with screen readers, keyboard and 200% zoom. | Paid launch |
+| AC7 | **Specialist audit** with screen readers (NVDA, VoiceOver), keyboard only and 200% zoom. The statement is published (15 October 2026, `docs/legal/policies/accessibility.md`); update its gaps list and date whenever an item here closes. | Paid launch |
 
 ## Design and code
 

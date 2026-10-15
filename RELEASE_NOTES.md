@@ -33,6 +33,8 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 - **Charts and loading messages for screen readers**: the value and price
   charts are described in one sentence with their figures, and the
   Screener says when results arrive and how many match your filters.
+- **Accessibility statement**: what works for screen readers and keyboards,
+  what doesn't yet, and how to tell us (footer › Accessibility).
 
 ### Fixed
 

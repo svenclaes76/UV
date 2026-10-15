@@ -94,10 +94,11 @@ LEGAL_DOCS = (
     ("data", N_("Data sources"), "data-sources.md"),
     ("conflicts", N_("Conflicts of interest"), "conflicts-of-interest.md"),
     ("complaints", N_("Complaints & Consumer Mediation Service"), "complaints.md"),
+    ("accessibility", N_("Accessibility statement"), "accessibility.md"),
 )
 # Shorter labels for the footer's one-line link row; the legal page itself
 # keeps the full titles above.
-FOOTER_LINK_LABELS = {"complaints": N_("Complaints")}
+FOOTER_LINK_LABELS = {"complaints": N_("Complaints"), "accessibility": N_("Accessibility")}
 REFERENCE_LANGUAGE_NOTE = N_("Reference language: English. You may rely on the version shown "
                              "to you in your own language.")
 NOT_YET_TRANSLATED = N_("This page is not yet available in your language; the English "

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-15 06:02+0000\n"
+"POT-Creation-Date: 2026-10-15 06:19+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4204,17 +4204,25 @@ msgstr ""
 msgid "Complaints & Consumer Mediation Service"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:100
+#: uvalu/compliance/disclosures.py:97
+msgid "Accessibility statement"
+msgstr ""
+
+#: uvalu/compliance/disclosures.py:101
 msgid "Complaints"
 msgstr ""
 
 #: uvalu/compliance/disclosures.py:101
+msgid "Accessibility"
+msgstr ""
+
+#: uvalu/compliance/disclosures.py:102
 msgid ""
 "Reference language: English. You may rely on the version shown to you in your "
 "own language."
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:103
+#: uvalu/compliance/disclosures.py:104
 msgid ""
 "This page is not yet available in your language; the English reference version "
 "is shown."
