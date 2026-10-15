@@ -20,6 +20,12 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+## [2026.10.8] — 2026-10-15
+
+**Easier to read and to use with a keyboard or screen reader, and more
+secure.** Signals and scores are unchanged. If you were sent an invitation
+before 15 October that you haven't used yet, ask for a new one.
+
 ### Improved
 
 - **Easier with a screen reader or keyboard**: pages have proper headings
