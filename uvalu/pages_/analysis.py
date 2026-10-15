@@ -4,7 +4,6 @@ st.session_state["_analysis_ticker"], set right before st.switch_page()."""
 import html
 
 import pandas as pd
-import yfinance as yf
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -45,8 +44,25 @@ def _fetch_price_history_1y_cached(ticker: str) -> pd.DataFrame:
     fix rather than standing up a background thread for it. Left undecorated
     for failures (raises instead of swallowing) so st.cache_data doesn't
     pin a transient yfinance error as this ticker's result for the full TTL —
-    see _fetch_price_history_1y, which is what callers should use."""
-    return yf.Ticker(ticker).history(period="1y")
+    see _fetch_price_history_1y, which is what callers should use.
+
+    L23: through the provider module (marketdata.py), like every other price
+    history, so a data provider other than Yahoo is one change. It asks for
+    the Risk page's own period (risk.STRESS_HISTORY_PERIOD): price_history
+    shares one disk cache per ticker and only ever extends it forward, so a
+    1-year first fetch would leave the Risk page a 1-year history for that
+    stock. The chart keeps the last year. Adjusted closes, as before
+    (yfinance's history() adjusts by default too)."""
+    import marketdata
+    from risk import STRESS_HISTORY_PERIOD
+    closes = marketdata.price_history([ticker], period=STRESS_HISTORY_PERIOD)
+    if ticker not in closes.columns or closes[ticker].dropna().empty:
+        # price_history returns an empty frame instead of raising; raise so
+        # the failure isn't cached (see above).
+        raise LookupError(f"no price history for {ticker}")
+    series = closes[ticker].dropna()
+    series = series[series.index >= pd.Timestamp.now().normalize() - pd.Timedelta(days=366)]
+    return series.to_frame("Close")
 
 
 def _fetch_price_history_1y(ticker: str) -> pd.DataFrame:

@@ -63,7 +63,6 @@ Yahoo (same trigger as L1).
 | L20 | **EODHD in writing:** send the question list (review appendix): display to paying users, derived data, price charts, exchange fees, retention incl. the 12-month signal history, exports, attribution, price per user tier. Then the contract. | Medium–high | Choosing a plan; M2 | Founder |
 | L21 | **Benchmark licence:** confirm whether computing beta on EURO STOXX 50 needs a STOXX licence, or switch to an ETF benchmark (methodology update). | Medium | Paid launch | Founder |
 | L22 | **French Data Library:** ask permission to use the factor data in a paid service; file the reply (DATA-6). | Low | Paid launch | Founder |
-| L23 | **Direct Yahoo call:** the Analysis 1-year price chart calls `yf.Ticker().history` itself; route it through the provider module with C7/S3. | Low | M2 | Dev |
 
 From the tax and business set-up review (13 October 2026,
 [`legal/tax-business-review.md`](legal/tax-business-review.md)). Figures in it
