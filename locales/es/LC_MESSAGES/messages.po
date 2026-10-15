@@ -1616,7 +1616,7 @@ msgstr "Principal"
 
 #. screen readers only: the hidden header of a table's "View" button column.
 #: uvalu/a11y.py:250
-#, fuzzy
+#
 msgid "Details"
 msgstr "Detalles"
 
@@ -6110,7 +6110,7 @@ msgid "No stocks match these filters. Try loosening the score or margin-of-safet
 msgstr "Ninguna acción cumple estos filtros. Prueba a relajar el umbral de puntuación o de margen de seguridad."
 
 #: uvalu/pages_/screener.py:429
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Sort by {column}"
 msgstr "Ordenar por {column}"
 

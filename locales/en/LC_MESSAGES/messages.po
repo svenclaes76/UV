@@ -1615,7 +1615,7 @@ msgstr "Main"
 
 #. screen readers only: the hidden header of a table's "View" button column.
 #: uvalu/a11y.py:250
-#, fuzzy
+#
 msgid "Details"
 msgstr "Details"
 
@@ -6095,7 +6095,7 @@ msgid "No stocks match these filters. Try loosening the score or margin-of-safet
 msgstr "No stocks match these filters. Try loosening the score or margin-of-safety threshold."
 
 #: uvalu/pages_/screener.py:429
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Sort by {column}"
 msgstr "Sort by {column}"
 
