@@ -207,3 +207,15 @@ def test_adding_a_ticker_already_on_the_watchlist_says_so(isolated_data, monkeyp
     at.button(key="FormSubmitter:wl_add_form-Add ticker").click().run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert "Already on your watchlist." in "".join(m.value for m in at.markdown)
+
+
+def test_loading_message_while_the_universe_is_prepared(isolated_data, monkeypatch):
+    """P9: right after a restart (peer reference rebuilt, universe rescored)
+    the card says it is loading, not "after the next screener refresh"."""
+    from uvalu.pages_ import watchlist as watchlist_page
+    monkeypatch.setattr(watchlist_page, "_universe_loading", lambda: True)
+    portfolio.save_watchlist({"ZZZ.BR"})
+    at = _run(monkeypatch)
+    html = "".join(m.value for m in at.markdown)
+    assert "Loading screener data for your 1 watchlisted ticker" in html
+    assert "after the next screener refresh" not in html

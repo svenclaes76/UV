@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-15 20:42+0000\n"
+"POT-Creation-Date: 2026-10-15 20:56+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -41,8 +41,8 @@ msgid "Screener"
 msgstr ""
 
 #. Context: Main navigation › page name; also the Watchlist page title
-#: app.py:107 uvalu/pages_/screener.py:473 uvalu/pages_/watchlist.py:72
-#: uvalu/pages_/watchlist.py:200 uvalu/shell.py:50
+#: app.py:107 uvalu/pages_/screener.py:473 uvalu/pages_/watchlist.py:83
+#: uvalu/pages_/watchlist.py:222 uvalu/shell.py:50
 msgid "Watchlist"
 msgstr ""
 
@@ -2425,7 +2425,7 @@ msgstr ""
 #. Context: Tooltip on disabled buttons for users with the Viewer role
 #: uvalu/components.py:1144 uvalu/components.py:1231 uvalu/drawer.py:333
 #: uvalu/pages_/cash.py:26 uvalu/pages_/dashboard.py:190 uvalu/pages_/portfolio.py:42
-#: uvalu/pages_/watchlist.py:122
+#: uvalu/pages_/watchlist.py:133
 msgid "Viewer role is read-only"
 msgstr ""
 
@@ -2820,7 +2820,7 @@ msgid "Viewer role is read-only."
 msgstr ""
 
 #. Context: Field label and column header: stock ticker symbol (e.g. ABI.BR)
-#: uvalu/dialogs.py:241 uvalu/pages_/watchlist.py:111 uvalu/pages_/watchlist.py:112
+#: uvalu/dialogs.py:241 uvalu/pages_/watchlist.py:122 uvalu/pages_/watchlist.py:123
 msgid "Ticker"
 msgstr ""
 
@@ -2945,13 +2945,13 @@ msgid "Price / share (opt.)"
 msgstr ""
 
 #. Context: Error when the ticker field is empty (dialogs, Watchlist)
-#: uvalu/dialogs.py:425 uvalu/pages_/watchlist.py:127
+#: uvalu/dialogs.py:425 uvalu/pages_/watchlist.py:138
 msgid "Enter a ticker symbol."
 msgstr ""
 
 #. Context: Error when the ticker doesn't exist. Keep the ** bold markers.
 #. (Watchlist builds this from pieces; merge.)
-#: uvalu/dialogs.py:429 uvalu/dialogs.py:858 uvalu/pages_/watchlist.py:60
+#: uvalu/dialogs.py:429 uvalu/dialogs.py:858 uvalu/pages_/watchlist.py:71
 #, python-brace-format
 msgid "Ticker **{ticker}** not found. Check the symbol and try again."
 msgstr ""
@@ -6327,8 +6327,8 @@ msgid "Sort by {column}"
 msgstr ""
 
 #. Context: Screener/Watchlist › tooltip on the filled star
-#: uvalu/pages_/screener.py:454 uvalu/pages_/watchlist.py:202
-#: uvalu/pages_/watchlist.py:211
+#: uvalu/pages_/screener.py:454 uvalu/pages_/watchlist.py:224
+#: uvalu/pages_/watchlist.py:233
 msgid "Remove from watchlist"
 msgstr ""
 
@@ -7182,33 +7182,33 @@ msgid "During the beta these documents are available in English only."
 msgstr ""
 
 #. Context: Watchlist › caption under the title
-#: uvalu/pages_/watchlist.py:73
+#: uvalu/pages_/watchlist.py:84
 msgid ""
 "Track tickers you don't hold yet. Add from the screener with the star, or"
 " type a symbol directly below."
 msgstr ""
 
 #. Context: Watchlist › submit button
-#: uvalu/pages_/watchlist.py:107
+#: uvalu/pages_/watchlist.py:118
 msgid "Add ticker"
 msgstr ""
 
 #. Context: Watchlist › field label
-#: uvalu/pages_/watchlist.py:115 uvalu/pages_/watchlist.py:117
+#: uvalu/pages_/watchlist.py:126 uvalu/pages_/watchlist.py:128
 msgid "Company name (optional)"
 msgstr ""
 
-#: uvalu/pages_/watchlist.py:131
+#: uvalu/pages_/watchlist.py:142
 msgid "Already on your watchlist."
 msgstr ""
 
 #. Context: Watchlist › empty state
-#: uvalu/pages_/watchlist.py:161
+#: uvalu/pages_/watchlist.py:172
 msgid "Your watchlist is empty. Star a ticker in the screener or add one above."
 msgstr ""
 
 #. Context: Watchlist › loading caption
-#: uvalu/pages_/watchlist.py:174
+#: uvalu/pages_/watchlist.py:185
 #, python-brace-format
 msgid ""
 "Fetching data for your {count} watchlisted ticker… {done}/{total} "
@@ -7219,8 +7219,15 @@ msgid_plural ""
 msgstr[0] ""
 msgstr[1] ""
 
+#: uvalu/pages_/watchlist.py:192
+#, python-brace-format
+msgid "Loading screener data for your {count} watchlisted ticker…"
+msgid_plural "Loading screener data for your {count} watchlisted tickers…"
+msgstr[0] ""
+msgstr[1] ""
+
 #. Context: Watchlist › note when data isn't loaded yet
-#: uvalu/pages_/watchlist.py:178
+#: uvalu/pages_/watchlist.py:200
 msgid ""
 "No screener data yet for your watchlisted ticker — it will appear after "
 "the next screener refresh."

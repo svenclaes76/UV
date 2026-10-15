@@ -18,7 +18,7 @@ from uvalu.drawer import open_drawer
 from uvalu.formatting import exchange_code
 from uvalu.i18n import N_, _, h_, ngettext, tr
 from uvalu.runtime import current_user
-from uvalu.ui import poll_while_fetching
+from uvalu.ui import _auto_rerun, poll_while_fetching
 
 _EXCHANGE_LABELS = {
     "brussels": N_("Brussels"), "amsterdam": N_("Amsterdam"), "paris": N_("Paris"),
@@ -54,6 +54,17 @@ def _col_header() -> None:
         if _label:
             with _hh:
                 st.markdown(header_cell_html(tr(_label), right=_label in _HH_RIGHT), unsafe_allow_html=True)
+
+
+def _universe_loading() -> bool:
+    """True while the screening universe is still being prepared: the peer
+    reference is rebuilt after a restart, or the scored universe recomputed."""
+    from uvalu.data import peer_reference_pending
+    from uvalu.store import universe_recomputing
+    try:
+        return bool(peer_reference_pending() or universe_recomputing())
+    except Exception:
+        return False
 
 
 def _not_found_html(sym: str) -> str:
@@ -174,6 +185,17 @@ def render() -> None:
             _wl_msg = html.escape(ngettext("Fetching data for your {count} watchlisted ticker… {done}/{total} companies scored.",
                                   "Fetching data for your {count} watchlisted tickers… {done}/{total} companies scored.",
                                   _n, done=_wl_prog['done'], total=_wl_prog['total']))
+        elif _universe_loading():
+            # P9: right after a restart the fetch hasn't started yet while the
+            # peer reference is rebuilt or the universe rescored; "after the
+            # next screener refresh" read as if nothing was happening.
+            _wl_msg = html.escape(ngettext("Loading screener data for your {count} watchlisted ticker…",
+                                  "Loading screener data for your {count} watchlisted tickers…", _n))
+            # poll_while_fetching only polls while the fetch runs or the
+            # universe is rescored; keep polling through the peer rebuild too,
+            # so the rows appear without a click.
+            from uvalu.data import screener_refresh_signature
+            _auto_rerun(5.0, "wl_fetch_refresh", version_fn=screener_refresh_signature)
         else:
             _wl_msg = html.escape(ngettext("No screener data yet for your watchlisted ticker — it will appear after the next screener refresh.",
                                   "No screener data yet for your watchlisted tickers — they'll appear after the next screener refresh.",

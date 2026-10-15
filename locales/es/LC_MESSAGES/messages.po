@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-15 20:42+0000\n"
+"POT-Creation-Date: 2026-10-15 20:56+0000\n"
 "PO-Revision-Date: 2026-10-14 20:38+0200\n"
 "Last-Translator: \n"
 "Language-Team: es <LL@li.org>\n"
@@ -43,8 +43,8 @@ msgid "Screener"
 msgstr "Screener"
 
 #. Context: Main navigation › page name; also the Watchlist page title
-#: app.py:107 uvalu/pages_/screener.py:473 uvalu/pages_/watchlist.py:72
-#: uvalu/pages_/watchlist.py:200 uvalu/shell.py:50
+#: app.py:107 uvalu/pages_/screener.py:473 uvalu/pages_/watchlist.py:83
+#: uvalu/pages_/watchlist.py:222 uvalu/shell.py:50
 msgid "Watchlist"
 msgstr "Lista de seguimiento"
 
@@ -526,7 +526,6 @@ msgid "2022 rate hike cycle"
 msgstr "Ciclo de subidas de tipos de 2022"
 
 #: risk.py:190
-#
 msgid "Nov 2021–Sep 2022"
 msgstr "nov. 2021–sep. 2022"
 
@@ -2385,7 +2384,7 @@ msgstr "Cotización diferida — no es un precio intradía en tiempo real"
 #. Context: Tooltip on disabled buttons for users with the Viewer role
 #: uvalu/components.py:1144 uvalu/components.py:1231 uvalu/drawer.py:333
 #: uvalu/pages_/cash.py:26 uvalu/pages_/dashboard.py:190 uvalu/pages_/portfolio.py:42
-#: uvalu/pages_/watchlist.py:122
+#: uvalu/pages_/watchlist.py:133
 msgid "Viewer role is read-only"
 msgstr "El rol Lector es de solo lectura"
 
@@ -2776,7 +2775,7 @@ msgid "Viewer role is read-only."
 msgstr "El rol Lector es de solo lectura."
 
 #. Context: Field label and column header: stock ticker symbol (e.g. ABI.BR)
-#: uvalu/dialogs.py:241 uvalu/pages_/watchlist.py:111 uvalu/pages_/watchlist.py:112
+#: uvalu/dialogs.py:241 uvalu/pages_/watchlist.py:122 uvalu/pages_/watchlist.py:123
 msgid "Ticker"
 msgstr "Ticker"
 
@@ -2899,13 +2898,13 @@ msgid "Price / share (opt.)"
 msgstr "Precio / acción (opcional)"
 
 #. Context: Error when the ticker field is empty (dialogs, Watchlist)
-#: uvalu/dialogs.py:425 uvalu/pages_/watchlist.py:127
+#: uvalu/dialogs.py:425 uvalu/pages_/watchlist.py:138
 msgid "Enter a ticker symbol."
 msgstr "Introduce un símbolo de ticker."
 
 #. Context: Error when the ticker doesn't exist. Keep the ** bold markers.
 #. (Watchlist builds this from pieces; merge.)
-#: uvalu/dialogs.py:429 uvalu/dialogs.py:858 uvalu/pages_/watchlist.py:60
+#: uvalu/dialogs.py:429 uvalu/dialogs.py:858 uvalu/pages_/watchlist.py:71
 #, python-brace-format
 msgid "Ticker **{ticker}** not found. Check the symbol and try again."
 msgstr "No se ha encontrado el ticker **{ticker}**. Comprueba el símbolo y vuelve a intentarlo."
@@ -6112,8 +6111,8 @@ msgid "Sort by {column}"
 msgstr "Ordenar por {column}"
 
 #. Context: Screener/Watchlist › tooltip on the filled star
-#: uvalu/pages_/screener.py:454 uvalu/pages_/watchlist.py:202
-#: uvalu/pages_/watchlist.py:211
+#: uvalu/pages_/screener.py:454 uvalu/pages_/watchlist.py:224
+#: uvalu/pages_/watchlist.py:233
 msgid "Remove from watchlist"
 msgstr "Quitar de la lista de seguimiento"
 
@@ -6937,39 +6936,46 @@ msgid "During the beta these documents are available in English only."
 msgstr "Durante la beta estos documentos solo están disponibles en inglés."
 
 #. Context: Watchlist › caption under the title
-#: uvalu/pages_/watchlist.py:73
+#: uvalu/pages_/watchlist.py:84
 msgid "Track tickers you don't hold yet. Add from the screener with the star, or type a symbol directly below."
 msgstr "Sigue tickers que aún no tienes. Añádelos desde el screener con la estrella o escribe un símbolo aquí abajo."
 
 #. Context: Watchlist › submit button
-#: uvalu/pages_/watchlist.py:107
+#: uvalu/pages_/watchlist.py:118
 msgid "Add ticker"
 msgstr "Añadir ticker"
 
 #. Context: Watchlist › field label
-#: uvalu/pages_/watchlist.py:115 uvalu/pages_/watchlist.py:117
+#: uvalu/pages_/watchlist.py:126 uvalu/pages_/watchlist.py:128
 msgid "Company name (optional)"
 msgstr "Nombre de la empresa (opcional)"
 
-#: uvalu/pages_/watchlist.py:131
+#: uvalu/pages_/watchlist.py:142
 msgid "Already on your watchlist."
 msgstr "Ya está en tu lista de seguimiento."
 
 #. Context: Watchlist › empty state
-#: uvalu/pages_/watchlist.py:161
+#: uvalu/pages_/watchlist.py:172
 msgid "Your watchlist is empty. Star a ticker in the screener or add one above."
 msgstr "Tu lista de seguimiento está vacía. Marca un ticker con la estrella en el screener o añade uno arriba."
 
 #. Context: Watchlist › loading caption
-#: uvalu/pages_/watchlist.py:174
+#: uvalu/pages_/watchlist.py:185
 #, python-brace-format
 msgid "Fetching data for your {count} watchlisted ticker… {done}/{total} companies scored."
 msgid_plural "Fetching data for your {count} watchlisted tickers… {done}/{total} companies scored."
 msgstr[0] "Obteniendo datos de tu {count} ticker en seguimiento… {done}/{total} empresas valoradas."
 msgstr[1] "Obteniendo datos de tus {count} tickers en seguimiento… {done}/{total} empresas valoradas."
 
+#: uvalu/pages_/watchlist.py:192
+#, python-brace-format
+msgid "Loading screener data for your {count} watchlisted ticker…"
+msgid_plural "Loading screener data for your {count} watchlisted tickers…"
+msgstr[0] "Cargando los datos del screener para tu {count} ticker en la lista de seguimiento…"
+msgstr[1] "Cargando los datos del screener para tus {count} tickers en la lista de seguimiento…"
+
 #. Context: Watchlist › note when data isn't loaded yet
-#: uvalu/pages_/watchlist.py:178
+#: uvalu/pages_/watchlist.py:200
 msgid "No screener data yet for your watchlisted ticker — it will appear after the next screener refresh."
 msgid_plural "No screener data yet for your watchlisted tickers — they'll appear after the next screener refresh."
 msgstr[0] "Todavía no hay datos del screener para tu ticker en seguimiento: aparecerán tras la próxima actualización."
