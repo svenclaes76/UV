@@ -74,6 +74,9 @@ of that month); earlier releases used SemVer. Rules in
   data, zoom and narrow screens, target size, row focus, small labels, Admin,
   English-only legal texts) and a contact. English only, like the other
   legal texts.
+- Admin portal landmarks: its own sidebar is a navigation landmark
+  ("Admin"), only its content area is main, and the open section's button
+  has `aria-current="page"` (`a11y.current()`).
 - Table semantics (rest of AC2): `a11y.table(key, name, header=, rows=,
   header_names=, sorted_by=)` makes the Screener, Watchlist, Dashboard
   holdings and Risk holdings grids `role="table"` with `row`, `columnheader`

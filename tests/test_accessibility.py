@@ -162,3 +162,19 @@ def test_table_registration_reaches_the_page_script(monkeypatch):
     for js in ("setRole(box, 'table')", "setRole(head, 'row')", "setRole(c, 'columnheader')",
                "setRole(c, 'cell')", "aria-sort", '"details": "Details"'):
         assert js in seen[0], js
+
+
+def test_admin_sidebar_is_navigation_with_the_current_section(monkeypatch):
+    """The Admin portal's own sidebar is a navigation landmark, its content
+    area is main, and the open section's button has aria-current."""
+    import json
+    from uvalu import a11y
+    seen = []
+    monkeypatch.setattr(a11y.st, "iframe", lambda body, **kw: seen.append(body))
+    a11y.begin_run()
+    a11y.current("admin_navbtn_users")
+    a11y.render("admin")
+    assert '"admin_navbtn_users": ' + json.dumps([None, None, "current"]) in seen[0]
+    assert "mark('.st-key-admin_sidebar', 'navigation', 'Admin')" in seen[0]
+    assert "mark('.st-key-admin_content', 'main')" in seen[0]
+    assert "setAttribute('aria-current', 'page')" in seen[0]

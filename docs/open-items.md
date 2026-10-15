@@ -157,7 +157,7 @@ half of AC2 the same day (`feature/ac2-ac3-row-buttons`), the rest of AC2
 (tables) on 15 October 2026 (`feature/ac2-table-semantics`), AC5 too
 (`feature/ac5-button-contrast`), AC6 on 15 October 2026
 (`feature/ac6-chart-summaries`); git history keeps
-their rows. The Admin page's own sidebar is not yet marked as navigation.
+their rows. The Admin sidebar is a navigation landmark since 15 October 2026.
 
 | # | Item | Do it before |
 | --- | --- | --- |
