@@ -1581,6 +1581,8 @@ def render() -> None:
                         unsafe_allow_html=True,
                     )
                 for _key, _label, _icon in _NAV_ITEMS:
+                    if _key == _section:
+                        a11y.current(f"admin_navbtn_{_key}")   # aria-current (uvalu/a11y.py)
                     if st.button(_label, key=f"admin_navbtn_{_key}", icon=_icon, width="stretch"):
                         _goto(_key)
                 if _dash_page is not None and st.button("← Back to app", key="admin_back", type="tertiary",

@@ -76,6 +76,13 @@ def label(key: str, text: str, *, pressed: bool | None = None) -> None:
     st.session_state.setdefault(_SS_KEY, {})[css_key(key)] = [text, pressed]
 
 
+def current(key: str) -> None:
+    """Mark the button with widget key ``key`` as the current page or
+    section (``aria-current="page"``), e.g. the Admin sidebar's open
+    section; the mark moves when another key is registered instead."""
+    st.session_state.setdefault(_SS_KEY, {})[css_key(key)] = [None, None, "current"]
+
+
 def image(key: str, text: str) -> None:
     """Make the keyed container one image named ``text`` for screen readers
     (AC6): a chart's summary sentence instead of its axis ticks and points."""
@@ -112,7 +119,17 @@ _PAGE_SCRIPT = r"""
     pending = false;
     var cfg = window.__uvA11y || {labels: {}, aria: {}};
     mark('.st-key-uv_topbar_nav', 'navigation', cfg.labels.nav);
-    mark('.st-key-uv_main', 'main');
+    // The Admin portal has its own sidebar inside the page body: the sidebar
+    // is its navigation and only its content area is main.
+    var adminMain = d.querySelector('.st-key-admin_content');
+    if (adminMain) {
+      mark('.st-key-admin_sidebar', 'navigation', 'Admin');
+      var um = d.querySelector('.st-key-uv_main');
+      if (um && um.getAttribute('role') === 'main') um.removeAttribute('role');
+      mark('.st-key-admin_content', 'main');
+    } else {
+      mark('.st-key-uv_main', 'main');
+    }
     mark('.st-key-uv_footer', 'contentinfo');
     var a = d.getElementById('uv-skip');
     if (!a) {
@@ -129,8 +146,24 @@ _PAGE_SCRIPT = r"""
     if (cfg.labels.skip && a.textContent !== cfg.labels.skip) a.textContent = cfg.labels.skip;
     var icons = d.querySelectorAll('[data-testid="stIconMaterial"]:not([aria-hidden])');
     for (var i = 0; i < icons.length; i++) icons[i].setAttribute('aria-hidden', 'true');
+    var currentKeys = {};
+    for (var ck in cfg.aria) if (cfg.aria[ck][2] === 'current') currentKeys[ck] = 1;
+    var marked = d.querySelectorAll('button[aria-current]');
+    for (var q = 0; q < marked.length; q++) {
+      var holder = marked[q].closest('[class*="st-key-"]');
+      var hk = holder ? (holder.className.match(/st-key-(\S+)/) || [])[1] : null;
+      if (!hk || !currentKeys[hk]) marked[q].removeAttribute('aria-current');
+    }
     for (var k in cfg.aria) {
       var v = cfg.aria[k], els = d.getElementsByClassName('st-key-' + k);
+      if (v[2] === 'current') {
+        for (var cc = 0; cc < els.length; cc++) {
+          var cbs = els[cc].tagName === 'BUTTON' ? [els[cc]] : els[cc].querySelectorAll('button');
+          for (var cb = 0; cb < cbs.length; cb++)
+            if (cbs[cb].getAttribute('aria-current') !== 'page') cbs[cb].setAttribute('aria-current', 'page');
+        }
+        continue;
+      }
       if (v[2] === 'img') {
         for (var g = 0; g < els.length; g++) {
           if (els[g].getAttribute('role') !== 'img') els[g].setAttribute('role', 'img');
