@@ -29,6 +29,8 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ### Fixed
 
+- **Fair values on narrow screens**: on the Dashboard the fair value under
+  each bar no longer breaks in two in German or Spanish.
 - **Watchlist after a restart** says it is loading your stocks, instead of
   asking you to wait for the next screener refresh.
 
