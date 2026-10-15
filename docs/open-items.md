@@ -175,7 +175,6 @@ since, so verify before starting.
 
 | # | Item |
 | --- | --- |
-| P1 | Wide tables at 1024px: values wrap in de/es; idea: horizontal scroll below a per-table minimum width. |
 | P2 | Tablet layout (about 640–900px) and phone layout (under 640px): a design project of its own (see `docs/design/visual-review-2026-10-04.md` G13). |
 | P3 | First-run tour; texts parked in `uvalu/i18n_planned.py`. |
 | P4 | Rebalancing and stress-test texts are translated but not shown anywhere (see L9). |

@@ -34,6 +34,13 @@ of that month); earlier releases used SemVer. Rules in
 
 ### Fixed
 
+- Tables at 1024px in German and Spanish (P1): a measured pass over every
+  table (Screener, Watchlist, Dashboard and Risk holdings, Portfolio,
+  dividends, cash) found one value still breaking: the Dashboard ladder's
+  fair-value label ("FW 23,90 €") split and ran into the price. Each label
+  now stays whole and the fair value moves, whole, to its own line when
+  both don't fit. No horizontal scroll was needed; long column headers
+  keep their ellipsis and tooltip.
 - Watchlist right after a restart (P9): while the peer reference is rebuilt
   or the universe rescored, before the fetch starts, the card said "No
   screener data yet … after the next screener refresh" as if nothing was

@@ -935,9 +935,16 @@ def _fair_value_bar_html(price: float | None, fair_value: float | None, mos_pct:
     scale = max(price, fair_value) * 1.08
     price_pct = min(100.0, price / scale * 100)
     fair_pct = min(100.0, fair_value / scale * 100)
-    # Single-line — see the matching note in holdings_row_html().
-    return (f'<div style="display:flex;justify-content:space-between;font:400 10.5px var(--uv-mono);margin-bottom:5px">'
-           f'<span style="color:var(--text)">{fmt_money(price, ccy)}</span><span style="color:var(--muted)">{h_("fv {amount}", amount=fmt_money(fair_value, ccy))}</span></div>'
+    # Single-line — see the matching note in holdings_row_html(). P1: in a
+    # narrow column (1024px, German "FW 23,90 €") the fair-value label broke
+    # in two and ran into the price. Each label now stays whole; when both
+    # don't fit side by side the fair value moves, whole, to its own line on
+    # the right (no figure is split or cut off).
+    return (f'<div style="display:flex;flex-wrap:wrap;justify-content:space-between;column-gap:6px;'
+           f'font:400 10.5px var(--uv-mono);margin-bottom:5px">'
+           f'<span style="color:var(--text);white-space:nowrap">{fmt_money(price, ccy)}</span>'
+           f'<span style="color:var(--muted);white-space:nowrap;margin-left:auto">'
+           f'{h_("fv {amount}", amount=fmt_money(fair_value, ccy))}</span></div>'
            f'<div style="position:relative;height:7px;border-radius:4px;background:var(--uv-track);">'
            f'<div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;width:{price_pct:.1f}%;background:{color};"></div>'
            f'<div style="position:absolute;top:-4px;width:0;height:15px;border-left:1.5px dashed var(--axis,#5F5E5A);'
