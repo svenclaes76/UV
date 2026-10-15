@@ -180,5 +180,4 @@ since, so verify before starting.
 | P3 | First-run tour; texts parked in `uvalu/i18n_planned.py`. |
 | P4 | Rebalancing and stress-test texts are translated but not shown anywhere (see L9). |
 | P7 | Settings: structured target-allocation editor instead of the text areas; a "View change log" link (needs a change-log page). |
-| P9 | Watchlist: empty bordered box while loading (not reproduced; re-check after a cold start). |
 | P11 | Paywall / payments (Q4 2026 roadmap); none exists yet. |

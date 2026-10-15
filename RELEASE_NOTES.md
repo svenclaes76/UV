@@ -27,6 +27,11 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
   S&P 500's, so they match the index your portfolio's beta is measured
   against. Your risk score can change slightly; signals don't.
 
+### Fixed
+
+- **Watchlist after a restart** says it is loading your stocks, instead of
+  asking you to wait for the next screener refresh.
+
 ## [2026.10.8] — 2026-10-15
 
 **Easier to read and to use with a keyboard or screen reader, and more

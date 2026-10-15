@@ -32,6 +32,14 @@ of that month); earlier releases used SemVer. Rules in
   scenario feeds the tail part of the risk score, so a portfolio's risk
   score can rise slightly. Methodology beta 1.5.
 
+### Fixed
+
+- Watchlist right after a restart (P9): while the peer reference is rebuilt
+  or the universe rescored, before the fetch starts, the card said "No
+  screener data yet … after the next screener refresh" as if nothing was
+  happening; it now says it is loading and keeps polling until the rows
+  appear. The "empty bordered box" itself did not reproduce on a cold start.
+
 ## [2026.10.8] — 2026-10-15
 
 **No score changes.** Security, accessibility and wording. **Do:** install
