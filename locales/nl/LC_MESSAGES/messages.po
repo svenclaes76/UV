@@ -526,7 +526,7 @@ msgid "2022 rate hike cycle"
 msgstr "Renteverhogingen van 2022"
 
 #: risk.py:190
-#, fuzzy
+#
 msgid "Nov 2021–Sep 2022"
 msgstr "nov. 2021–sep. 2022"
 
