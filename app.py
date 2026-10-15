@@ -92,7 +92,7 @@ if not st.session_state.get("_pf_prefetched"):
     from uvalu.data import prefetch_portfolio_data
     prefetch_portfolio_data()
 
-# Keep the localStorage/cookie JWT fresh for the next full page load — the
+# Keep the uv_jwt cookie fresh for the next full page load — the
 # cookie is what recover_session_from_cookie() (uvalu/authgate.py) actually
 # reads server-side to survive a reload (e.g. the top bar's theme toggle).
 with st.container(key="uv_hidden_util_jwt"):

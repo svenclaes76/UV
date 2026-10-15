@@ -30,6 +30,8 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
   so their text is easier to read.
 - **"Mid score" in French, Italian and Spanish** now says "intermediate"
   instead of a word that also means "average".
+- **Your sign-in is kept in one place**: only in the session cookie, which
+  ends after 24 hours, no longer also in your browser's storage.
 - **Charts and loading messages for screen readers**: the value and price
   charts are described in one sentence with their figures, and the
   Screener says when results arrive and how many match your filters.
