@@ -91,6 +91,11 @@ of that month); earlier releases used SemVer. Rules in
 
 ### Changed
 
+- Analysis price chart through the provider module (L23): it reads
+  `marketdata.price_history` (shared disk cache, retries, logging) instead
+  of calling `yf.Ticker().history` itself, asking for the Risk page's
+  10-year period so a first view doesn't leave the shared cache with one
+  year, and keeps the last year. A failed fetch is not cached.
 - Translation glossary (TR3, docs/translation-review.md T6/T7):
   `locales/glossary.csv` drops BUY / MONITOR / AVOID / VETO and "Hard
   veto", and adds the model signal, the signal labels, model fair value,

@@ -3,9 +3,12 @@ Market-data provider — one wrapper around yfinance for the whole app.
 
 Today it owns a single job: batch daily price history, disk-cached per ticker
 under ``.cache/history/{ticker}.csv`` and extended incrementally so only each
-ticker's missing tail is refetched. ``risk._fetch_history`` delegates here;
-``prices.py`` and ``screener.py`` keep their own yfinance access for now and
-migrate later (they don't need this for correctness).
+ticker's missing tail is refetched. ``risk._fetch_history`` and the Analysis
+page's 1-year chart (L23) delegate here; ``prices.py`` and ``screener.py``
+keep their own yfinance access for now and migrate later (they don't need
+this for correctness). Callers share one cache per ticker, which is only
+ever extended forward, so ask for the longest period anyone uses
+(``risk.STRESS_HISTORY_PERIOD``) and slice.
 
 The retry/backoff for Yahoo's 429s and dropped connections mirrors
 ``screener._run_fetch``'s per-ticker loop, adapted for ``yf.download``'s

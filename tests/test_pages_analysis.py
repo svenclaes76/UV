@@ -1,8 +1,8 @@
 """AppTest coverage for uvalu/pages_/analysis.py."""
 import pandas as pd
-import yfinance as yf
 from streamlit.testing.v1 import AppTest
 
+import marketdata
 import portfolio
 from uvalu.pages_ import analysis as analysis_page
 from tests.conftest import make_screener_data_tuple, make_scored_row, make_scored_df, make_portfolio_df, USER_SETUP_SRC
@@ -12,14 +12,7 @@ def _run(monkeypatch, ticker="AAA.BR", screener_tuple=None) -> AppTest:
     monkeypatch.setattr(analysis_page, "_load_all_screener_data",
                         lambda *a, **k: screener_tuple or make_screener_data_tuple())
 
-    class FakeTicker:
-        def __init__(self, t):
-            pass
-
-        def history(self, period="1y"):
-            return pd.DataFrame()
-
-    monkeypatch.setattr(yf, "Ticker", FakeTicker)
+    monkeypatch.setattr(marketdata, "price_history", lambda tickers, period="5y": pd.DataFrame())
 
     # AppTest.from_function re-executes a function's SOURCE TEXT with no
     # closure over enclosing variables (see tests/test_pages_admin.py), so
@@ -164,15 +157,21 @@ def test_renders_price_chart_when_history_available(isolated_data, monkeypatch):
     monkeypatch.setattr(analysis_page, "_load_all_screener_data",
                         lambda *a, **k: make_screener_data_tuple())
 
-    class FakeTicker:
-        def __init__(self, t):
-            pass
+    asked = []
 
-        def history(self, period="1y"):
-            dates = pd.bdate_range("2023-01-01", periods=30, tz="UTC")
-            return pd.DataFrame({"Close": [100.0 + i for i in range(30)]}, index=dates)
+    def fake_history(tickers, period="5y"):
+        # L23: the chart goes through the provider module, with the Risk
+        # page's long period so the shared disk cache is filled in full.
+        asked.append((list(tickers), period))
+        today = pd.Timestamp.now().normalize()
+        # 30 days from over a year ago (€50) must be cut off; the last 200
+        # business days run from €100 up to €129.
+        old = pd.bdate_range(end=today - pd.Timedelta(days=400), periods=30)
+        recent = pd.bdate_range(end=today, periods=200)
+        closes = [50.0] * 30 + [100.0 + min(i, 29) for i in range(200)]
+        return pd.DataFrame({tickers[0]: closes}, index=old.append(recent))
 
-    monkeypatch.setattr(yf, "Ticker", FakeTicker)
+    monkeypatch.setattr(marketdata, "price_history", fake_history)
 
     at = AppTest.from_string(
         USER_SETUP_SRC + """
@@ -186,10 +185,12 @@ analysis_page.render()
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert len(at.get("plotly_chart")) == 1
+    assert asked == [(["AAA.BR"], "10y")]
     # AC6: the chart is one image for screen readers, named by a summary.
     name, pressed, role = at.session_state["_uv_aria"]["an_price_chart"]
     assert role == "img" and name.startswith("Chart: over the past year the price moved between")
     assert "€100" in name and "€129" in name
+    assert "€50" not in name
 
 
 def test_model_summary_is_the_last_card_with_the_closing_sentence(isolated_data, monkeypatch):
