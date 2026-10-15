@@ -176,11 +176,18 @@ def band_tone(label: str) -> str:
 # gate the "replay the held basket's own drawdown" path in _stage6_stress —
 # when port_rets covers a window, that scenario's portfolio_drawdown is the
 # basket's real peak-to-trough over it rather than beta × benchmark.
+#
+# Q3 (docs/quant-review.md §3): the EURO STOXX 50's own peak-to-trough falls
+# and dates (closing prices), the index the portfolio beta is measured on
+# (BENCHMARK_TICKER). They were the S&P 500's, so the two crises older than
+# the 10-year history were US moves times a European beta. 2007 onwards:
+# ^STOXX50E closes from Yahoo Finance; 2000–2003: Dow Jones STOXX factsheet
+# (record close 5,464.43 on 6 Mar 2000, low 1,849.64 on 12 Mar 2003).
 HISTORICAL_SCENARIOS = [
-    (N_("Dot-com crash"),        "2000–2002",        -0.49, "2000-03-10", "2002-10-09"),
-    (N_("Financial crisis"),     "2007–2009",        -0.57, "2007-10-09", "2009-03-09"),
-    (N_("COVID crash"),          N_("Feb–Mar 2020"), -0.34, "2020-02-19", "2020-03-23"),
-    (N_("2022 rate hike cycle"), N_("Jan–Oct 2022"), -0.25, "2022-01-03", "2022-10-12"),
+    (N_("Dot-com crash"),        "2000–2003",             -0.662, "2000-03-06", "2003-03-12"),
+    (N_("Financial crisis"),     "2007–2009",             -0.603, "2007-07-16", "2009-03-09"),
+    (N_("COVID crash"),          N_("Feb–Mar 2020"),      -0.383, "2020-02-19", "2020-03-18"),
+    (N_("2022 rate hike cycle"), N_("Nov 2021–Sep 2022"), -0.255, "2021-11-16", "2022-09-29"),
 ]
 
 CYCLICAL_SECTORS = {

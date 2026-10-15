@@ -109,10 +109,12 @@ Parametric VaR uses inline z-multipliers `1.645` (95%) and `2.326` (99%); both c
 
 | Scenario | Window | Benchmark drawdown |
 |---|---|---|
-| Dot-com crash | 2000-03 – 2002-10 | −49% |
-| Global financial crisis | 2007-10 – 2009-03 | −57% |
-| COVID crash | 2020-02 – 2020-03 | −34% |
-| 2022 rate hike cycle | 2022-01 – 2022-10 | −25% |
+| Dot-com crash | 2000-03-06 – 2003-03-12 | −66.2% |
+| Global financial crisis | 2007-07-16 – 2009-03-09 | −60.3% |
+| COVID crash | 2020-02-19 – 2020-03-18 | −38.3% |
+| 2022 rate hike cycle | 2021-11-16 – 2022-09-29 | −25.5% |
+
+The EURO STOXX 50's own closing peak and trough (Q3, 15 October 2026), the index the portfolio beta is measured on; until then these were S&P 500 figures.
 
 When the held basket's own 10-year EUR return series covers a window (≥60% of its business days), that scenario's portfolio drawdown is the basket's real peak-to-trough; otherwise it's `portfolio_beta × benchmark_drawdown`.
 

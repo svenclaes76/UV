@@ -20,6 +20,13 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+### Improved
+
+- **Stress tests based on European markets**: the past-crisis scenarios on
+  the Risk page now use the EURO STOXX 50's own falls instead of the
+  S&P 500's, so they match the index your portfolio's beta is measured
+  against. Your risk score can change slightly; signals don't.
+
 ## [2026.10.8] — 2026-10-15
 
 **Easier to read and to use with a keyboard or screen reader, and more

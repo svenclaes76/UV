@@ -7,11 +7,13 @@ Other IDs: REC-2..7, REC-10, DIS-3, DIS-4.
 Beta-readiness review 5 October 2026: history wording made true from day one (records start with the beta),
 24-month retention (D4) stated, change-log date set. MODEL_VERSION "M1" and MIN_MOS_FLOOR 0.10 checked.
 14 October 2026 (beta 1.2): model M2 — coverage, currency conversion, stability rule, incomplete updates.
+15 October 2026 (beta 1.5): stress tests on the EURO STOXX 50's own falls and dates (Q3). Signals unchanged,
+so the model version stays M4.
 -->
 
 # Methodology — free beta
 
-**Version:** beta 1.4 · **Last updated:** 14 October 2026 · **Model version:** M4
+**Version:** beta 1.5 · **Last updated:** 15 October 2026 · **Model version:** M4
 
 This page explains how Uvalu calculates fair values, scores, model signals and risk figures. Everything described here is a model output: an estimate based on public data and assumptions. It is not a fact and not personal advice.
 
@@ -147,7 +149,7 @@ These figures describe the portfolio you entered. They do not judge whether it s
 | Volatility, drawdown, Sharpe and Sortino ratios | Size and pattern of past fluctuations | Daily returns in euro over the past 5 years; risk-free rate 3% |
 | Beta | Sensitivity to the EURO STOXX 50 | Weighted average of position betas, and a direct regression |
 | Factor exposures | Sensitivity to market, size, value, profitability, investment and momentum factors | Regression of the portfolio's daily excess returns on the Fama-French Developed markets factors |
-| Stress tests | Effect of past crises and hypothetical shocks | Replay of four historical periods (2000–2002, 2007–2009, 2020, 2022) where the history allows, otherwise beta × index fall; five hypothetical shocks |
+| Stress tests | Effect of past crises and hypothetical shocks | Four past falls of the EURO STOXX 50 (2000–2003, 2007–2009, 2020, 2021–2022), replayed on your holdings where the price history allows, otherwise beta × that index's fall; five hypothetical shocks |
 | Monte Carlo simulation | Range of possible portfolio values | 10,000 simulated paths; resampling of 20-day blocks of the portfolio's own returns with an expected return of 3% + beta × 5%; horizons 1, 3 and 5 years |
 | Composite risk score | Summary of the figures above on a 0–100 scale | Bands: Low (0–25), Moderate (25–50), Elevated (50–70), High (70–85), Critical (85–100) |
 
@@ -183,3 +185,4 @@ Signals and valuations are produced by Sven Claes, trading as Uvalu, Pol Heynsst
 | 14 October 2026 | M2 | Coverage limited to home listings that trade. Reported figures in another currency are converted before valuation. Stability rule at the signal edges (2 points). Incomplete data updates keep the last complete figures. Signals of some stocks change. |
 | 14 October 2026 | M3 | Graham and P/E models use normalised earnings per share (3–4 years of net income) instead of the latest year; the P/E growth adjustment uses multi-year growth. A one-off gain no longer inflates fair values. Signals of some stocks change. |
 | 14 October 2026 | M4 | No Undervalued signal when the models disagree by more than a factor 3 (the range is shown) or when the margin of safety is above 50% (a likely data error). Signals of some stocks change. |
+| 15 October 2026 | M4 | Stress tests use the EURO STOXX 50's own falls and dates (they were the S&P 500's). Signals are unchanged; a portfolio's risk score can change slightly. |

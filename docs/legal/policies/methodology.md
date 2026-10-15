@@ -151,7 +151,7 @@ These figures describe the portfolio you entered. They do not judge whether it s
 | Volatility, drawdown, Sharpe and Sortino ratios | Size and pattern of past fluctuations | Daily returns in euro over the past 5 years; risk-free rate 3% |
 | Beta | Sensitivity to the EURO STOXX 50 | Weighted average of position betas, and a direct regression |
 | Factor exposures | Sensitivity to market, size, value, profitability, investment and momentum factors | Regression of the portfolio's daily excess returns on the Fama-French Developed markets factors |
-| Stress tests | Effect of past crises and hypothetical shocks | Replay of four historical periods (2000–2002, 2007–2009, 2020, 2022) where the history allows, otherwise beta × index fall; five hypothetical shocks |
+| Stress tests | Effect of past crises and hypothetical shocks | Four past falls of the EURO STOXX 50 (2000–2003, 2007–2009, 2020, 2021–2022), replayed on your holdings where the price history allows, otherwise beta × that index's fall; five hypothetical shocks |
 | Monte Carlo simulation | Range of possible portfolio values | 10,000 simulated paths; resampling of 20-day blocks of the portfolio's own returns with an expected return of 3% + beta × 5%; horizons 1, 3 and 5 years |
 | Composite risk score | Summary of the figures above on a 0–100 scale | Bands: Low (0–25), Moderate (25–50), Elevated (50–70), High (70–85), Critical (85–100) |
 
