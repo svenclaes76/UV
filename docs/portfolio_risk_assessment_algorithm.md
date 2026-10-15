@@ -298,10 +298,12 @@ Each scenario carries an explicit window. When the held basket's own 10-year EUR
 
 | Scenario | Window | Benchmark drawdown |
 |---|---|---|
-| Dot-com crash | 2000-03 – 2002-10 | −49% |
-| Global financial crisis | 2007-10 – 2009-03 | −57% |
-| COVID crash | 2020-02-19 – 2020-03-23 | −34% |
-| 2022 rate hike cycle | 2022-01 – 2022-10 | −25% |
+| Dot-com crash | 2000-03-06 – 2003-03-12 | −66.2% |
+| Global financial crisis | 2007-07-16 – 2009-03-09 | −60.3% |
+| COVID crash | 2020-02-19 – 2020-03-18 | −38.3% |
+| 2022 rate hike cycle | 2021-11-16 – 2022-09-29 | −25.5% |
+
+The EURO STOXX 50's own closing peak and trough (Q3, 15 October 2026), the index the portfolio beta is measured on; until then these were S&P 500 figures.
 
 ### 6b. Hypothetical / Factor Scenarios
 

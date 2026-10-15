@@ -21,6 +21,17 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+### Changed
+
+- Stress scenarios on the EURO STOXX 50 (Q3, docs/quant-review.md §3):
+  `risk.HISTORICAL_SCENARIOS` holds the index's own peak-to-trough falls and
+  dates instead of the S&P 500's: dot-com −66.2% (6 Mar 2000 – 12 Mar
+  2003), financial crisis −60.3%, COVID −38.3%, 2022 −25.5% (16 Nov 2021 –
+  29 Sep 2022). The portfolio beta is measured on that index, so the
+  beta-estimated scenarios now match it. Signals are unchanged; the worst
+  scenario feeds the tail part of the risk score, so a portfolio's risk
+  score can rise slightly. Methodology beta 1.5.
+
 ## [2026.10.8] — 2026-10-15
 
 **No score changes.** Security, accessibility and wording. **Do:** install

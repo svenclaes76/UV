@@ -103,7 +103,6 @@ in model M2 (14 October 2026).
 | # | Item | Do it before |
 | --- | --- | --- |
 | Q1 | **Re-measure the signal flicker after a week of M2.** Hysteresis (2 points), carried-forward inputs and `changed_inputs` shipped in M2 (merged 14 October 2026); replayed on 4–13 October they halve the changes (842 → 437). How: count `signal_change` records in `data/compliance/signal_history.jsonl` from 14 to 21 October (changes per day, stocks with 3+ changes, the `changed_inputs` that drive them) against the 4–13 October baseline of 805 changes on 242 stocks; check the `data_quality.summary` / `data_quality.alert` log lines. Then decide whether the daily build (S4) is still needed before the EODHD switch. | 21 October 2026 |
-| Q3 | **Stress scenarios** use S&P 500 drawdowns and dates; use the EURO STOXX 50's own (dot-com and 2008 are never replayed with 10 years of history). | Paid launch |
 | Q4 | **Risk-band calibration:** run ~8 reference portfolios, adjust sub-score mappings, publish the reference points. | Paid launch |
 | Q5 | **Small-cap betas:** weekly or Dimson-adjusted returns for illiquid holdings. | Paid launch |
 | Q6 | **Methodology wording:** VaR window limits, dividend-adjusted prices, the stability rule, no backtests on restated data. | With Q1–Q4 |

@@ -2573,12 +2573,13 @@ class TestStage6Stress:
         pf, cache, conc = inputs
         s = _stage6_stress(pf, cache, 1.0, 1000.0, None, conc)
         covid = next(r for r in s.historical if "COVID" in r.name)
-        assert covid.portfolio_drawdown == pytest.approx(-0.34)
-        assert covid.portfolio_value_loss == pytest.approx(340.0)
+        # Q3: the EURO STOXX 50's own COVID fall (−38.3%), not the S&P 500's.
+        assert covid.portfolio_drawdown == pytest.approx(-0.383)
+        assert covid.portfolio_value_loss == pytest.approx(383.0)
 
         s2 = _stage6_stress(pf, cache, 2.0, 1000.0, None, conc)
         covid2 = next(r for r in s2.historical if "COVID" in r.name)
-        assert covid2.portfolio_drawdown == pytest.approx(-0.68)
+        assert covid2.portfolio_drawdown == pytest.approx(-0.766)
 
     def test_factor_scenarios(self, inputs):
         pf, cache, conc = inputs
@@ -2666,7 +2667,7 @@ class TestStage6HistoricalReplay:
         # 6y of history so the 2022 window is fully covered, dot-com/GFC are not
         idx = pd.bdate_range("2020-06-01", periods=1500)
         rets = np.full(len(idx), 0.0003)
-        w = (idx >= "2022-01-03") & (idx <= "2022-10-12")
+        w = (idx >= "2021-11-16") & (idx <= "2022-09-29")
         rets[w] = np.log(0.75) / w.sum()          # −25% over the window
         port_rets = pd.Series(rets, index=idx)
 
@@ -2676,7 +2677,8 @@ class TestStage6HistoricalReplay:
         assert by["2022 rate hike cycle"].portfolio_drawdown == pytest.approx(-0.25, abs=0.02)
         # not covered → beta × benchmark drawdown
         assert by["Dot-com crash"].method == "beta-estimated"
-        assert by["Dot-com crash"].portfolio_drawdown == pytest.approx(1.3 * -0.49, abs=1e-6)
+        assert by["Dot-com crash"].portfolio_drawdown == pytest.approx(1.3 * -0.662, abs=1e-6)
+        assert by["Dot-com crash"].period == "2000–2003"
 
     def test_no_history_all_beta_estimated(self):
         pf = pd.DataFrame([{"ticker": "A", "current_value": 1000.0,
