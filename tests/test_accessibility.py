@@ -62,7 +62,7 @@ def test_early_render_keeps_the_previous_names(monkeypatch):
     seen = []
     monkeypatch.setattr(a11y.st, "iframe", lambda body, **kw: seen.append(body))
     a11y.render("risk", names=False)
-    assert "var aria = null;" in seen[0]
+    assert "var aria = null, tabs = null;" in seen[0]
 
 
 def test_names_cannot_close_the_script():
@@ -141,3 +141,24 @@ def test_gauge_ring_is_hidden_and_header_can_be_a_live_region():
     live = page_heading_html("Value screener", "12 of 30 stocks pass your filters", live=True)
     assert 'role="status" aria-live="polite"' in live
     assert "aria-live" not in page_heading_html("Value screener", "plain")
+
+
+def test_table_registration_reaches_the_page_script(monkeypatch):
+    """AC2: a grid registered with a11y.table() is described to the page
+    script (role table / row / cell / columnheader, aria-sort)."""
+    import json
+    from uvalu import a11y
+    seen = []
+    monkeypatch.setattr(a11y.st, "iframe", lambda body, **kw: seen.append(body))
+    a11y.begin_run()
+    a11y.table("scr_table_card", "Value screener", header="scr_col_header",
+               rows=["scr_row_0_ASML.AS"], header_names={0: "Watchlist"},
+               sorted_by="scr_sort_score", descending=True)
+    a11y.render("screener")
+    expected = {"key": "scr_table_card", "name": "Value screener", "header": "scr_col_header",
+                "rows": ["scr_row_0_ASML-AS"], "prefix": None, "names": {"0": "Watchlist"},
+                "sort": ["scr_sort_score", "descending"]}
+    assert "var aria = " in seen[0] and json.dumps([expected]) in seen[0]
+    for js in ("setRole(box, 'table')", "setRole(head, 'row')", "setRole(c, 'columnheader')",
+               "setRole(c, 'cell')", "aria-sort", '"details": "Details"'):
+        assert js in seen[0], js

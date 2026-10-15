@@ -50,6 +50,10 @@ def test_shows_ticker_row_at_the_default_filters(isolated_data, monkeypatch):
     html = "".join(m.value for m in at.markdown)
     assert "AAA.BR" in html
     assert "Alpha Corp" in html
+    # AC2: the rows are registered as a table, sorted by composite score.
+    (table,) = [t for t in at.session_state["_uv_tables"] if t["key"] == "scr_table_card"]
+    assert table["header"] == "scr_col_header" and any("AAA-BR" in r for r in table["rows"])
+    assert table["sort"] == ["scr_sort_score", "descending"] and table["names"] == {"0": "Watchlist"}
 
 
 def test_min_score_filter_excludes_low_scoring_row(isolated_data, monkeypatch):

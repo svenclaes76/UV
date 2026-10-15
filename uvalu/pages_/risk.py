@@ -469,6 +469,9 @@ def render() -> None:
                     if not _sel_row.empty:
                         _risk_dlg_pending.append((_sel_row.iloc[0],))
 
+        # AC2: the rows are a table for screen readers (uvalu/a11y.py).
+        a11y.table("risk_card_holdings", _("Risk contribution by holding"), header="risk_col_header",
+                   rows=[f"risk_hold_{_i}_{_row['p'].ticker}" for _i, _row in enumerate(_contrib_rows)])
         st.caption(
             _("Percent contribution to portfolio variance — each holding's weight × its marginal contribution, from its own volatility and its correlation to the rest of the book.")
             if _contrib_method == "variance" else

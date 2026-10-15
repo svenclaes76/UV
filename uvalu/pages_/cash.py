@@ -135,6 +135,9 @@ def render_page(*, invested_value: float, is_viewer: bool, on_back) -> None:
         st.info(_("No cash entries yet. Record a deposit, or an Adjustment to set an opening balance. Buys never wait for cash: a shortfall is covered by an automatic top-up deposit."))
     else:
         with st.container(key="pf_card_cash_full", border=True):
+            # AC2: a table for screen readers (uvalu/a11y.py).
+            a11y.table("pf_card_cash_full", _("Cash activity"), header="pf_col_header_cash_full",
+                       row_prefix="pf_cash_row_", header_names={-1: _("Edit entry")})
             with st.container(key="pf_cash_filter_row", horizontal=True, vertical_alignment="center",
                               horizontal_alignment="distribute"):
                 group = st.pills(_("Filter"), options=list(cash.FILTER_GROUPS.keys()), default="All",

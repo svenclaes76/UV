@@ -137,6 +137,9 @@ def test_shows_holdings_ladder_row(isolated_data, monkeypatch):
     html = "".join(m.value for m in at.markdown)
     assert "AAA.BR" in html
     assert "Holdings" in html
+    # AC2: the rows are registered as a table.
+    (table,) = [t for t in at.session_state["_uv_tables"] if t["key"] == "db_holdings_card"]
+    assert table["header"] == "db_holdings_colheader" and table["rows"] == ["db_hold_0"]
 
 
 def test_shows_no_history_caption_when_value_history_missing(isolated_data, monkeypatch):

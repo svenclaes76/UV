@@ -154,14 +154,14 @@ From the accessibility review (13 October 2026,
 [`accessibility-review.md`](accessibility-review.md)). Uvalu is exempt from the
 EAA as a micro-enterprise; these are for real users and for later. AC1 and AC4
 done 14 October 2026 (`feature/ac1-ac4-landmarks`), AC3 and the button
-half of AC2 the same day (`feature/ac2-ac3-row-buttons`), AC5 too
+half of AC2 the same day (`feature/ac2-ac3-row-buttons`), the rest of AC2
+(tables) on 15 October 2026 (`feature/ac2-table-semantics`), AC5 too
 (`feature/ac5-button-contrast`), AC6 on 15 October 2026
 (`feature/ac6-chart-summaries`); git history keeps
 their rows. The Admin page's own sidebar is not yet marked as navigation.
 
 | # | Item | Do it before |
 | --- | --- | --- |
-| AC2 | **Tables (rest of AC2):** the row buttons have names and states (14 October 2026); the Screener, Holdings and Risk grids still have no table semantics. `role=table`/`row`/`cell` and `aria-sort` on the sort column, which needs the row markup reworked (Streamlit columns with a full-row overlay button). | Paid launch |
 | AC7 | **Specialist audit** with screen readers (NVDA, VoiceOver), keyboard only and 200% zoom. The statement is published (15 October 2026, `docs/legal/policies/accessibility.md`); update its gaps list and date whenever an item here closes. | Paid launch |
 
 ## Design and code

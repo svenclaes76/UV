@@ -74,6 +74,20 @@ of that month); earlier releases used SemVer. Rules in
   data, zoom and narrow screens, target size, row focus, small labels, Admin,
   English-only legal texts) and a contact. English only, like the other
   legal texts.
+- Table semantics (rest of AC2): `a11y.table(key, name, header=, rows=,
+  header_names=, sorted_by=)` makes the Screener, Watchlist, Dashboard
+  holdings and Risk holdings grids `role="table"` with `row`, `columnheader`
+  and `cell` roles: the page script takes a row's st.columns or the
+  children of its CSS grid as cells, makes the row-wide "View" button a
+  cell of its own and adds a visually hidden "Details" column header for
+  it (`.uv-sr-only`). The Screener's sorted column has `aria-sort` and its
+  sort buttons read "Sort by …". The Portfolio page's seven grids (open,
+  closed and dividends on the overview and full pages, the dividend log,
+  the cash ledger) register with `row_prefix=`; a column that holds a grid
+  of several cells (the [grid | pencil] split) counts as those cells, and
+  pencil columns are named "Edit position / trade / dividend / entry".
+  Pencil names now show the row's formatted date (they read "2026-11-25
+  00:00:00"). Accessibility statement 1.1 drops the tables from its gaps.
 
 ### Changed
 

@@ -608,6 +608,9 @@ def render() -> None:
                         if st.button(_("View details"), key=f"db_holdbtn_{_hidx}"):
                             _drawer_target = _hidx
 
+            # AC2: the rows are a table for screen readers (uvalu/a11y.py).
+            a11y.table("db_holdings_card", _("Holdings · price vs fair value"), header="db_holdings_colheader",
+                       rows=[f"db_hold_{_i}" for _i in range(len(_hold))])
             if _drawer_target is not None:
                 open_drawer(_hold.iloc[_drawer_target])
         elif _db_ref_pending:

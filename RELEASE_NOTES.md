@@ -35,6 +35,9 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
   Screener says when results arrive and how many match your filters.
 - **Accessibility statement**: what works for screen readers and keyboards,
   what doesn't yet, and how to tell us (footer › Accessibility).
+- **Tables for screen readers**: every table (Screener, Watchlist, holdings,
+  positions, dividends and cash activity) is read as a table with column
+  headers, and the Screener says which column it is sorted by.
 
 ### Fixed
 

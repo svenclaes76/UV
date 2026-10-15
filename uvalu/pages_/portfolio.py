@@ -320,6 +320,9 @@ def render() -> None:
 
         # ── Open positions (every open position, largest first) ──────────────
         with st.container(key="pf_card_open_ov", border=True):
+            # AC2: a table for screen readers (uvalu/a11y.py).
+            a11y.table("pf_card_open_ov", _("Open positions"), header="pf_col_header_open_ov",
+                       row_prefix="pf_open_row_ov_", header_names={-1: _("Edit position")})
             with st.container(key="pf_panel_title_open_ov", horizontal=True, vertical_alignment="center",
                               horizontal_alignment="distribute"):
                 st.markdown(_("Open positions"))
@@ -365,6 +368,9 @@ def render() -> None:
         _oc1, _oc2 = st.columns([1.55, 1], gap="large")
         with _oc1:
             with st.container(key="pf_card_closed_ov", border=True):
+                # AC2: a table for screen readers (uvalu/a11y.py).
+                a11y.table("pf_card_closed_ov", _("Closed positions"), header="pf_col_header_closed_ov",
+                           row_prefix="pf_closed_row_ov_", header_names={-1: _("Edit trade")})
                 with st.container(key="pf_panel_title_closed_ov", horizontal=True, vertical_alignment="center",
                                   horizontal_alignment="distribute"):
                     st.markdown(f'{h_("Closed positions")} <span style="font-size:12px;color:var(--muted);font-weight:400;">{h_("· realised")}</span>',
@@ -404,6 +410,9 @@ def render() -> None:
                         st.caption(_("No closed positions yet."))
         with _oc2:
             with st.container(key="pf_card_div_ov", border=True):
+                # AC2: a table for screen readers (uvalu/a11y.py).
+                a11y.table("pf_card_div_ov", _("Dividends received"), header="pf_col_header_div_ov",
+                           row_prefix="pf_div_row_ov_", header_names={-1: _("Edit dividend")})
                 with st.container(key="pf_panel_title_div_ov", horizontal=True, vertical_alignment="center",
                                   horizontal_alignment="distribute"):
                     st.markdown(_("Dividends received"))
@@ -469,6 +478,9 @@ def render() -> None:
                 edit_position_dialog(str(_tid), live_price=_live_price_for(_tid))
 
         with st.container(key="pf_card_open_full", border=True):
+            # AC2: a table for screen readers (uvalu/a11y.py).
+            a11y.table("pf_card_open_full", _("Open positions"), header="pf_col_header_open_full",
+                       row_prefix="pf_open_row_", header_names={-1: _("Edit position")})
             _open_w, _open_l, _open_r = _layout(_OPEN_COLUMNS, name_w=240, edit=True)
             with st.container(key="pf_col_header_open_full"):
                 _col_header(_open_w, _open_l, _open_r)
@@ -533,6 +545,9 @@ def render() -> None:
             ).sort_values("_sort_date", ascending=False)
 
             with st.container(key="pf_card_closed_full", border=True):
+                # AC2: a table for screen readers (uvalu/a11y.py).
+                a11y.table("pf_card_closed_full", _("Closed positions"), header="pf_col_header_closed_full",
+                           row_prefix="pf_closed_row_", header_names={-1: _("Edit trade")})
                 _closed_w, _closed_l, _closed_r = _layout(_CLOSED_COLUMNS, edit=True)
                 with st.container(key="pf_col_header_closed_full"):
                     _col_header(_closed_w, _closed_l, _closed_r)
@@ -626,6 +641,9 @@ def render() -> None:
                              sub=h_("weighted, remaining cost basis"), icon="trend", size="md")
 
             with st.container(key="pf_card_div_full", border=True):
+                # AC2: a table for screen readers (uvalu/a11y.py).
+                a11y.table("pf_card_div_full", _("Dividends received"), header="pf_col_header_div_full",
+                           row_prefix="pf_div_row_", header_names={-1: _("Edit dividend")})
                 with st.container(key="pf_col_header_div_full"):
                     _hc = st.columns(DIVIDEND_LOG_COL_SPLIT, vertical_alignment="center", gap="small")
                     with _hc[0]:

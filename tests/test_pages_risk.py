@@ -92,6 +92,9 @@ def test_shows_holdings_contribution_rows(isolated_data, monkeypatch):
     at = _run(monkeypatch)
     html = "".join(m.value for m in at.markdown)
     assert "AAA.BR" in html
+    # AC2: the rows are registered as a table.
+    (table,) = [t for t in at.session_state["_uv_tables"] if t["key"] == "risk_card_holdings"]
+    assert table["header"] == "risk_col_header" and table["rows"] == ["risk_hold_0_AAA-BR"]
 
 
 def test_uses_cached_risk_report_within_ttl(isolated_data, monkeypatch):
