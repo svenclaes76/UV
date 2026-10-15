@@ -853,8 +853,9 @@ msgstr "Sottovalutato"
 #. Describes the score, not the stock; pairs with "Low score". Avoid words that read
 #. like an analyst rating (Neutral, Hold).
 #: screener.py:328
+#
 msgid "Mid score"
-msgstr "Punteggio medio"
+msgstr "Punteggio intermedio"
 
 #: screener.py:329
 msgid "Low score"
@@ -1079,7 +1080,7 @@ msgstr "un margine di sicurezza superiore a {limit} è più spesso un errore nei
 #: screener.py:2033
 #, python-brace-format
 msgid "Mid score: {reasons}."
-msgstr "Punteggio medio: {reasons}."
+msgstr "Punteggio intermedio: {reasons}."
 
 #: screener.py:2034
 msgid "Model score is between the lower and upper thresholds."
@@ -5215,7 +5216,7 @@ msgstr "Punteggio composito del modello sotto {low}."
 #: uvalu/pages_/help.py:98
 #, python-brace-format
 msgid "{a} Undervalued · {b} Mid score · {c} Low score · {d} Screened out"
-msgstr "{a} Sottovalutato · {b} Punteggio medio · {c} Punteggio basso · {d} Escluso"
+msgstr "{a} Sottovalutato · {b} Punteggio intermedio · {c} Punteggio basso · {d} Escluso"
 
 #. Context: Help › explanation of the Graham Number. Use the local decimal
 #. separator in 22.5.

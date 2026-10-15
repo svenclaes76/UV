@@ -139,14 +139,13 @@ users is in the same file. UX2–UX4 done (14 October 2026,
 
 From the financial terminology review (13 October 2026,
 [`translation-review.md`](translation-review.md)). Label changes are legal-text
-changes: run them through the fuzzy-review loop; L6 stays open. TR1 done
-(14 October 2026, `feature/tr1-labels`); git history keeps its row. The
-glossary (TR3) should take over the new terms.
+changes: run them through the fuzzy-review loop; L6 stays open. TR1 and TR3
+(glossary, "Mid score") done 14 October 2026; git history keeps their rows.
+The glossary marks the TR2 decisions as open.
 
 | # | Item | Do it before |
 | --- | --- | --- |
 | TR2 | **Decisions:** one fair-value concept across languages (nl says intrinsic value, fr/es/it use the IFRS accounting term), with lawyer #1; *vous* instead of *tu* for French legal texts (exception to G-04). | Anyone uses French, Spanish or Italian |
-| TR3 | **Glossary:** drop BUY/MONITOR/AVOID/VETO and "Hard veto", add the signal labels, Model signal, risk bands, model fair value; "Mid score" as "intermédiaire / intermedia / intermedio". | Sending the glossary to translators |
 | TR4 | **In-context review** by native financial translators, per language, in the running app. | Paid launch |
 
 ## Accessibility

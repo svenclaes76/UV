@@ -62,6 +62,18 @@ of that month); earlier releases used SemVer. Rules in
 
 ### Changed
 
+- Translation glossary (TR3, docs/translation-review.md T6/T7):
+  `locales/glossary.csv` drops BUY / MONITOR / AVOID / VETO and "Hard
+  veto", and adds the model signal, the signal labels, model fair value,
+  quality screens and the four risk bands, each with the app's current
+  translations and the wording rules the reviews settled; the TR2
+  decisions (one fair-value concept, *vous* in French legal texts) are
+  marked open. `tests/test_i18n_glossary.py` fails when a glossary row and
+  the app's translation drift apart. docs/i18n-spec.md L-03, G-02, S-01,
+  8.1 and §14 no longer describe the English badges.
+- "Mid score" in French, Italian and Spanish: *Score intermédiaire*,
+  *Punteggio intermedio*, *Puntuación intermedia* instead of the words for
+  "average" (T6), in the label, the signal reason and the distribution line.
 - Invite and password-reset tokens are stored as their SHA-256 (SR7), so a
   copy of the user store gives no working links. Invite links created
   before this version stop working: send the invitation again. The
