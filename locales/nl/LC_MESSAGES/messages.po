@@ -6968,7 +6968,7 @@ msgstr[0] "Gegevens ophalen voor je {count} ticker op de volglijst… {done}/{to
 msgstr[1] "Gegevens ophalen voor je {count} tickers op de volglijst… {done}/{total} bedrijven gescoord."
 
 #: uvalu/pages_/watchlist.py:192
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Loading screener data for your {count} watchlisted ticker…"
 msgid_plural "Loading screener data for your {count} watchlisted tickers…"
 msgstr[0] "Screenergegevens laden voor je {count} ticker op de volglijst…"

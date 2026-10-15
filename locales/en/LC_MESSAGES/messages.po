@@ -6960,7 +6960,7 @@ msgstr[0] "Fetching data for your {count} watchlisted ticker… {done}/{total} c
 msgstr[1] "Fetching data for your {count} watchlisted tickers… {done}/{total} companies scored."
 
 #: uvalu/pages_/watchlist.py:192
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Loading screener data for your {count} watchlisted ticker…"
 msgid_plural "Loading screener data for your {count} watchlisted tickers…"
 msgstr[0] "Loading screener data for your {count} watchlisted ticker…"

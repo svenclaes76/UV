@@ -6968,7 +6968,7 @@ msgstr[0] "Récupération des données de ton {count} ticker suivi… {done}/{to
 msgstr[1] "Récupération des données de tes {count} tickers suivis… {done}/{total} sociétés notées."
 
 #: uvalu/pages_/watchlist.py:192
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Loading screener data for your {count} watchlisted ticker…"
 msgid_plural "Loading screener data for your {count} watchlisted tickers…"
 msgstr[0] "Chargement des données du screener pour ton {count} ticker suivi…"
