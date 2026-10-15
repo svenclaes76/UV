@@ -16,6 +16,7 @@ from screener import (_fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS,
                       sector_for, signal_reason)
 from settings import (load_shared_settings, get_veto_thresholds, get_score_weights,
                       ALL_EXCHANGES, get_dividend_withholding)
+from uvalu import a11y
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import (_esc, back_link, fmt_mos_pct, model_signal_badge_html, signal_provenance_html, founder_notice_html,
@@ -385,7 +386,8 @@ def render() -> None:
         # A placeholder so the skeleton (shown only on a genuine cache miss —
         # see _fetch_price_history_1y) is replaced by the real chart in place
         # rather than both stacking on the page.
-        _chart_slot = st.empty()
+        with st.container(key="an_price_chart"):
+            _chart_slot = st.empty()
         if ticker not in st.session_state.get("_an_hist_cache_warm", set()):
             _chart_slot.markdown(skeleton_chart_html(height=200), unsafe_allow_html=True)
         _hist = _fetch_price_history_1y(ticker)
@@ -411,6 +413,15 @@ def render() -> None:
                 hoverlabel=brand_hoverlabel(_C),
             )
             localize_fig(_fig)
+            # AC6: one sentence for screen readers instead of the chart's points.
+            _close = _hist["Close"].dropna()
+            if not _close.empty:
+                _summary = _("Chart: over the past year the price moved between {low} and {high}; it is {last} now.",
+                             low=_fmt_eur(float(_close.min())), high=_fmt_eur(float(_close.max())),
+                             last=_fmt_eur(float(_close.iloc[-1])))
+                if pd.notna(_fv_val):
+                    _summary += " " + _("The model fair value is {amount}.", amount=_fmt_eur(float(_fv_val)))
+                a11y.image("an_price_chart", _summary)
             _chart_slot.plotly_chart(_fig, width="stretch", height=200, config=_CHART_CONFIG)
         else:
             _chart_slot.empty()

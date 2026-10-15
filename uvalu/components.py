@@ -1623,7 +1623,8 @@ def radial_gauge_svg(score: float, color: str, size: int = 96, stroke: int = 10,
     circumference = 2 * 3.141592653589793 * r
     score = max(0.0, min(100.0, score))
     offset = circumference * (1 - score / 100)
-    return f"""<svg viewBox="0 0 100 100" style="width:{size}px;height:{size}px;transform:rotate(-90deg)">
+    # aria-hidden (AC6): the score is printed over the ring as text.
+    return f"""<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false" style="width:{size}px;height:{size}px;transform:rotate(-90deg)">
   <circle cx="50" cy="50" r="{r}" fill="none" style="stroke:{track_color}" stroke-width="{stroke}"/>
   <circle cx="50" cy="50" r="{r}" fill="none" stroke="{color}" stroke-width="{stroke}"
           stroke-linecap="round" stroke-dasharray="{circumference:.2f}" stroke-dashoffset="{offset:.2f}"/>
@@ -2270,27 +2271,31 @@ def _rail_item(label: str, href: str, *, active: bool, index: int, plain: bool =
         st.page_link(page, label=label, query_params=dict(parse_qsl(parts.query)) or None, width="stretch")
 
 
-def page_heading_html(title: str, subtitle: str = "", provenance: str = "", *, title_suffix: str = "") -> str:
+def page_heading_html(title: str, subtitle: str = "", provenance: str = "", *, title_suffix: str = "",
+                      live: bool = False) -> str:
     """The left side of a data page's header: 24px title, 13px subtitle 2px
     below it, then the provenance line (``provenance_bar_html``, 8px below).
     ``subtitle`` is plain text; ``**bold**`` in it is kept as bold.
-    ``title_suffix`` is ready-made HTML after the title (e.g. "· realised")."""
+    ``title_suffix`` is ready-made HTML after the title (e.g. "· realised").
+    ``live`` makes the subtitle a polite status region (AC6): a screen reader
+    hears it when it changes (loading progress, the number of results)."""
     import html as _html_mod
     sub = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", _html_mod.escape(subtitle))
+    _live = ' role="status" aria-live="polite"' if live else ""
     return (f'<div class="uv-page-head"><div class="uv-page-title" role="heading" aria-level="1">'
             f'{_html_mod.escape(title)}{title_suffix}</div>'
-            + (f'<div class="uv-page-sub">{sub}</div>' if subtitle else "")
+            + (f'<div class="uv-page-sub"{_live}>{sub}</div>' if subtitle else "")
             + provenance + "</div>")
 
 
 def page_header(title: str, subtitle: str = "", *, provenance: str = "", title_suffix: str = "",
-                key: "str | None" = None):
+                key: "str | None" = None, live: bool = False):
     """Data-page header row: title, subtitle and provenance left, actions
     right (they wrap under the title on a narrow window). Returns the
     actions container."""
     with st.container(key=key, horizontal=True, vertical_alignment="center", horizontal_alignment="distribute"):
         with st.container(width="content"):
-            st.markdown(page_heading_html(title, subtitle, provenance, title_suffix=title_suffix),
+            st.markdown(page_heading_html(title, subtitle, provenance, title_suffix=title_suffix, live=live),
                         unsafe_allow_html=True)
         actions = st.container(horizontal=True, gap="small", width="content", vertical_alignment="center")
     return actions

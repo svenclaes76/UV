@@ -213,7 +213,8 @@ def render() -> None:
             page_header(_("Value screener"),
                         _("Loading the screening universe… {done}/{total} companies scored — results appear here as they land.",
                           done=_prog['done'], total=_prog['total']) if _prog["running"] and _prog["total"] > 0 else
-                        _("Loading the screening universe — results appear as soon as the background fetch returns."))
+                        _("Loading the screening universe — results appear as soon as the background fetch returns."),
+                        live=True)
         # Filter-bar and column-header shapes, matching the loaded page's own
         # containers/widths (scr_filter_panel, scr_table_card, the same
         # _hh_widths stock_row's real header uses) so there's zero layout
@@ -373,7 +374,8 @@ def render() -> None:
             _scr_caption += " " + _("Small universe ({count} stocks) — composite scores are percentile ranks within it, so a high score carries less weight here.",
                                     count=len(_all_df))
         # REC-4 / REC-5: the provenance is the third line of the page header.
-        _scr_actions = page_header(_("Value screener"), _scr_caption, provenance=list_provenance_html(_all_df))
+        _scr_actions = page_header(_("Value screener"), _scr_caption, provenance=list_provenance_html(_all_df),
+                                   live=True)
         with _scr_actions.container(key="scr_header_btns", horizontal=True, gap="small", width="content"):
             with st.container(key="scr_reset_btn"):
                 if st.button(_("Reset filters"), key="scr_reset", icon=":material/refresh:", type="tertiary"):

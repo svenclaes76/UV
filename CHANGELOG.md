@@ -59,6 +59,14 @@ of that month); earlier releases used SemVer. Rules in
   `#12664F`. Also the Watchlist "Add" button and Admin's popover buttons.
   Signal Teal stays for bars, selected states and the logo (brand
   guidelines token table updated).
+- Charts and status (AC6): the Dashboard value chart and the Analysis price
+  chart are each one image for screen readers (`a11y.image()`, `role="img"`),
+  named by a sentence with the figures ("Chart: your holdings were worth …
+  on … and … on …; amount invested …"). The score gauges' SVG ring is
+  `aria-hidden` (the score is printed on it as text). The Screener's loading
+  progress and result count (`page_header(..., live=True)`) and the
+  Watchlist's fetch progress are polite status regions, so a screen reader
+  hears when results arrive and how many match.
 
 ### Changed
 

@@ -20,7 +20,7 @@ from uvalu.data import (_load_portfolio_scored, peer_reference_pending, _fetch_p
 from uvalu.dialogs import add_position_dialog
 from uvalu.drawer import open_drawer
 from uvalu.formatting import display_name, safe_pct as _safe_pct
-from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_num, fmt_pct, fmt_total, h_,
+from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_num, fmt_pct, fmt_total, h_,
                         localize_fig, ngettext, pgettext, plotly_money_axis, to_display, tr)
 from uvalu.runtime import brand_hoverlabel, theme_colors, current_user
 from uvalu.components import (fair_value_legend_html, list_provenance_html, page_header, score_band_label,
@@ -348,7 +348,17 @@ def render() -> None:
                 hoverlabel=brand_hoverlabel(),
             )
             localize_fig(_db_vfig)
-            st.plotly_chart(_db_vfig, width="stretch", height=250, config=_CHART_CONFIG)
+            # AC6: screen readers get one sentence instead of the axis ticks.
+            _ch_start, _ch_end = fmt_date(_vh_view["date"].iloc[0]), fmt_date(_vh_view["date"].iloc[-1])
+            _ch_invested = fmt_total(float(_vh_view["invested"].iloc[-1]))
+            a11y.image("db_value_chart", _(
+                "Chart: your holdings were worth {first} on {start} and {last} on {end}; amount invested {invested}.",
+                first=fmt_total(float(_vh_view["value"].iloc[0])), start=_ch_start,
+                last=fmt_total(_db_last_val), end=_ch_end, invested=_ch_invested) if _ch_start != _ch_end else _(
+                "Chart: your holdings were worth {last} on {end}; amount invested {invested}.",
+                last=fmt_total(_db_last_val), end=_ch_end, invested=_ch_invested))
+            with st.container(key="db_value_chart"):
+                st.plotly_chart(_db_vfig, width="stretch", height=250, config=_CHART_CONFIG)
 
             # ── Unified legend bar — swatches for the two always-on series,
             # plus clickable chip toggles (st.pills, same idiom as the

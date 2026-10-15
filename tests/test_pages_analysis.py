@@ -186,6 +186,10 @@ analysis_page.render()
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
     assert len(at.get("plotly_chart")) == 1
+    # AC6: the chart is one image for screen readers, named by a summary.
+    name, pressed, role = at.session_state["_uv_aria"]["an_price_chart"]
+    assert role == "img" and name.startswith("Chart: over the past year the price moved between")
+    assert "€100" in name and "€129" in name
 
 
 def test_model_summary_is_the_last_card_with_the_closing_sentence(isolated_data, monkeypatch):
