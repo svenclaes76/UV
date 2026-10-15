@@ -80,6 +80,8 @@ The function's docstring intends unknown emails not to reveal anything, but the 
 3. Add a test that feeds `<img src=x onerror=…>` as a company name, ticker, note and display name through the main components, and asserts it comes out escaped.
 4. Longer term, drop the `localStorage` copy and rely on the cookie alone. Streamlit's sandboxed iframe was the reason for the current design, so this needs a spike.
 
+**Spike result (15 October 2026).** Nothing read the `localStorage` copy: since the move to `recover_session_from_cookie()`, the session is restored server-side from the cookie (`st.context.cookies`), so the copy was a leftover. It is no longer written, and `session_cookie_js` removes it from browsers that still hold one. The cookie itself stays JavaScript-set and so cannot be `HttpOnly`: Streamlit offers no hook to set response headers from the app, and only its own OIDC routes set HttpOnly cookies. Making it HttpOnly would need a small endpoint in front of Streamlit (at the proxy, or a Starlette route) that sets the cookie from a one-time code, a change for after the paid launch. Until then the protections are `SameSite=Strict`, `Secure` on HTTPS, the 24-hour lifetime, server-side session revocation, output escaping and the CSP (#4).
+
 ## 4. Production deployment (medium)
 
 The repo has a localhost launcher with a self-signed certificate. The architecture doc itself says "not for production use". Nothing describes how the server is exposed: TLS termination, reverse proxy, firewall, security headers, process user, or where `.env` lives and with what file permissions.

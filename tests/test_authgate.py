@@ -6,6 +6,8 @@ branch is exercised by monkeypatching the `cookies` property directly on
 streamlit's ContextProxy CLASS (confirmed it's a plain class-level
 `property`, not per-instance state).
 """
+from pathlib import Path
+
 import streamlit as st
 import streamlit.runtime.context as st_context
 import pytest
@@ -963,6 +965,16 @@ class TestCookieAttributes:
         assert "SameSite=Strict" in js
         assert "protocol==='https:'?'; Secure'" in js
         assert "max-age=86400" in js
+
+    def test_token_is_kept_in_the_cookie_only(self):
+        """SR4: no copy in localStorage (readable by any script, outliving
+        the cookie); an old copy is removed on the next sign-in or render."""
+        from uvalu import authgate
+        js = authgate.session_cookie_js("abc.def")
+        assert "localStorage.setItem" not in js
+        assert "localStorage.removeItem('uv_jwt')" in js
+        src = (Path(authgate.__file__)).read_text(encoding="utf-8")
+        assert "localStorage.setItem('uv_jwt'" not in src
 
     def test_trusted_device_cookie_uses_the_same_attributes(self):
         from uvalu import authgate

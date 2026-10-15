@@ -82,7 +82,7 @@ If a data breach is likely to put you at high risk, we tell you without undue de
 
 | Cookie / storage | Purpose | Type | Duration |
 | --- | --- | --- | --- |
-| `uv_jwt` (cookie and browser storage) | Keeps you logged in | Strictly necessary | 24 hours |
+| `uv_jwt` | Keeps you logged in | Strictly necessary | 24 hours |
 | `uv_td` | Remembers a device you trusted for two-step verification, so you are not asked for a code on it again | Strictly necessary; only set if you tick "Remember this device" | 30 days |
 | `_streamlit_xsrf` | Protects forms against misuse | Strictly necessary | Session |
 | `_streamlit_user`, `_streamlit_user_tokens` | Keep your Google sign-in session | Strictly necessary; only set if you sign in with Google | 30 days, or until you sign out |

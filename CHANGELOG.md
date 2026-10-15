@@ -96,6 +96,14 @@ of that month); earlier releases used SemVer. Rules in
   of calling `yf.Ticker().history` itself, asking for the Risk page's
   10-year period so a first view doesn't leave the shared cache with one
   year, and keeps the last year. A failed fetch is not cached.
+- Session token in the cookie only (SR4, docs/security-review.md #3): the
+  `localStorage` copy of `uv_jwt`, which nothing read since sessions are
+  restored server-side from the cookie, is no longer written, and
+  `authgate.session_cookie_js` removes it from browsers that still hold
+  one. Spike result: the cookie stays JavaScript-set (no HttpOnly without
+  an endpoint in front of Streamlit). Beta privacy notice 1.4 (not yet in
+  effect) and the launch notice: the `uv_jwt` row no longer lists browser
+  storage.
 - Translation glossary (TR3, docs/translation-review.md T6/T7):
   `locales/glossary.csv` drops BUY / MONITOR / AVOID / VETO and "Hard
   veto", and adds the model signal, the signal labels, model fair value,

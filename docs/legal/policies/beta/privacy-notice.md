@@ -24,6 +24,9 @@ action record kept 24 months (L16), the per-IP sign-in limit (IP in memory 15 mi
 so effective 14 days after notice (section 11): 28 October 2026. Still blocked from publishing to anyone new
 until the mailbox provider (section 4, open item L5) is filled in.
 Requirement IDs: GDPR-1..14, SEC-1..10 of "Uvalu — Legal Requirements for Launch".
+15 October 2026 (still beta 1.4, before it takes effect): `uv_jwt` is kept in the cookie only (SR4); the
+browser-storage copy, which nothing read, is no longer written and is removed from browsers that hold one.
+Only removes processing (section 11), so no new notice; the section 7 row was narrowed accordingly.
 -->
 
 # Privacy notice — free beta
@@ -99,7 +102,7 @@ If a data breach is likely to put you at high risk, we tell you without undue de
 
 | Cookie / storage | Purpose | Type | Duration |
 | --- | --- | --- | --- |
-| `uv_jwt` (cookie and browser storage) | Keeps you logged in | Strictly necessary | Cookie: 24 hours. Browser storage: until you sign out; the sign-in it holds stops working after at most 7 days |
+| `uv_jwt` | Keeps you logged in | Strictly necessary | 24 hours |
 | `uv_td` | Remembers a device you trusted for two-step verification, so you are not asked for a code on it again | Strictly necessary; only set if you tick "Remember this device" | 30 days |
 | `_streamlit_xsrf` | Protects forms against misuse | Strictly necessary | Session |
 | Browser storage of the app framework | Remembers light or dark mode | Functional | Until you clear your browser data |

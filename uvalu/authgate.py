@@ -69,7 +69,7 @@ def handle_logout() -> None:
                   "uv_oauth_handled", "uv_oauth_refused"):
             st.session_state.pop(_k, None)
         logkit.auth_event("logout", outcome="ok", user_id=_who)
-        # Expire the uv_jwt cookie/localStorage entry, THEN reload, both
+        # Expire the uv_jwt cookie (and any old localStorage copy), THEN reload, both
         # inside the same script so the clearing genuinely finishes first.
         # An earlier version called st.rerun() right after queuing this
         # iframe — st.rerun() halts the script and starts a new run
@@ -122,10 +122,16 @@ _COOKIE_ATTRS_JS = ("'; path=/; SameSite=Strict' + (function(){try{return "
 
 
 def session_cookie_js(token: str) -> str:
-    """JavaScript that stores the session token in localStorage and the
-    uv_jwt cookie. Shared by every sign-in path and app.py's per-render
-    refresh, so the cookie attributes live in one place."""
-    return (f"localStorage.setItem('uv_jwt',{repr(token)});"
+    """JavaScript that stores the session token in the uv_jwt cookie. Shared
+    by every sign-in path and app.py's per-render refresh, so the cookie
+    attributes live in one place.
+
+    SR4 (docs/security-review.md #3): the token is in the cookie only. An
+    older version also kept a copy in localStorage that nothing ever read
+    (recover_session_from_cookie() reads the cookie server-side); the copy
+    outlived the cookie and was readable by any script on the page, so it is
+    removed here from browsers that still hold one."""
+    return ("try{localStorage.removeItem('uv_jwt')}catch(e){}"
             f"document.cookie='uv_jwt='+encodeURIComponent({repr(token)})"
             f"+'; max-age=86400'+{_COOKIE_ATTRS_JS};")
 
@@ -136,8 +142,8 @@ def trusted_device_cookie_js(device_id: str) -> str:
 
 
 def _sync_cookie_script(token: str) -> None:
-    """Same localStorage+cookie sync every successful sign-in path needs
-    (password, invite acceptance, OAuth)."""
+    """Same cookie sync every successful sign-in path needs (password,
+    invite acceptance, OAuth)."""
     st.iframe(f"<script>{session_cookie_js(token)}</script>", height=1)
 
 

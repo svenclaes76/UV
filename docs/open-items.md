@@ -119,7 +119,7 @@ penetration test. SR1, SR3 and SR5 were fixed on 13 October 2026
 | # | Item | Do it before |
 | --- | --- | --- |
 | SR2 | **Production deployment baseline:** written and in the repo (13 October 2026): `deploy/` (Caddyfile with HTTPS and headers, systemd service, offsite backup job), `docs/deployment.md` (firewall, SSH, unprivileged user, `.env` permissions), per-IP sign-in limit in the app. Still to do: create the server and apply it step by step, then switch the CSP from report-only to enforcing. | Inviting anyone you don't know personally |
-| SR4 | **Session token, rest:** cookie flags (`SameSite=Strict`, `Secure` on HTTPS) and the escaping test are done (13 October 2026). Still open: a CSP at the reverse proxy (with SR2) and a spike on dropping the localStorage copy of the token. | Inviting anyone you don't know personally |
+| SR4 | **Session token, rest:** cookie flags and the escaping test (13 October 2026), and the token in the cookie only, no localStorage copy (15 October 2026, spike result in `docs/security-review.md` #3). Still open: a CSP at the reverse proxy (with SR2). Later, optional: an HttpOnly cookie set by a small endpoint in front of Streamlit. | Inviting anyone you don't know personally |
 | SR6 | **Keys and restores:** offline copy of `.env`, the borg passphrase and the exported borg key; written rotation procedures for both secrets; the restore test (procedure and log in `docs/deployment.md` §9) done once and dated. | Restore test: with the server set-up; rotation: paid launch |
 
 ## Usability
