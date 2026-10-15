@@ -15,6 +15,7 @@ from settings import load_shared_settings, get_veto_thresholds, get_score_weight
 from screener import get_fetch_progress, signal_distribution
 from uvalu.data import (_load_all_screener_data, _cache_version, _bust_cache,
                         screener_refresh_signature)
+from uvalu import a11y
 from uvalu.drawer import open_drawer
 from uvalu.components import (page_header, fit_widths, header_cell_html, signal_badge_for, stock_row, is_hard_veto,
                               list_provenance_html, signal_share_label, empty_results_html,
@@ -424,6 +425,8 @@ def render() -> None:
                     with _hh:
                         st.button(tr(_label) + _arrow, key=f"scr_sort_{_slot}", type="tertiary",
                                  on_click=_sort_by, args=(_slot,))
+                    # AC2: the header says the sort itself (aria-sort), not the arrow.
+                    a11y.label(f"scr_sort_{_slot}", _("Sort by {column}", column=tr(_label)))
 
         # 25 rows at a time (the full list was ~125 rows, a 9 000px page);
         # back to the first page whenever the filters or the sort change.
@@ -435,9 +438,11 @@ def render() -> None:
         _shown = int(st.session_state.get("scr_page_rows", _PAGE_ROWS))
 
         _drawer_target = None
+        _row_keys = []
         for _rank, (_ridx, _row) in enumerate(_filtered.head(_shown).iterrows(), start=1):
             _ticker = _row["Ticker"]
             _in_wl = _ticker in _watchlist
+            _row_keys.append(f"scr_row_{_ridx}_{_ticker}")
             _result = stock_row(
                 key=f"scr_row_{_ridx}_{_ticker}",
                 ticker=_ticker, name=_row.get("Name", ""), rank=_rank,
@@ -462,6 +467,12 @@ def render() -> None:
             if _result["view"]:
                 _drawer_target = _ticker
 
+        # AC2: the rows are a table for screen readers (uvalu/a11y.py); the
+        # star column has no visible header.
+        a11y.table("scr_table_card", _("Value screener"), header="scr_col_header", rows=_row_keys,
+                   header_names={0: _("Watchlist")},
+                   sorted_by=f"scr_sort_{_sort_key}" if _sort_key in _sortable else None,
+                   descending=_sort_dir == "desc")
         if len(_filtered) > _shown:
             with st.container(key="scr_more", horizontal_alignment="center"):
                 _next = min(_PAGE_ROWS, len(_filtered) - _shown)

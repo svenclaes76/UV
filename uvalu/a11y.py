@@ -29,6 +29,7 @@ import streamlit as st
 from uvalu.i18n import _, pgettext
 
 _SS_KEY = "_uv_aria"
+_SS_TABLES = "_uv_tables"
 
 
 def css_key(key: str) -> str:
@@ -40,6 +41,33 @@ def css_key(key: str) -> str:
 def begin_run() -> None:
     """Start a fresh set of names for this run (app.py, before the page)."""
     st.session_state[_SS_KEY] = {}
+    st.session_state[_SS_TABLES] = []
+
+
+def table(key: str, name: str, *, header: str, rows: "list[str] | None" = None,
+          row_prefix: "str | None" = None, header_names: "dict[int, str] | None" = None,
+          sorted_by: "str | None" = None, descending: bool = False) -> None:
+    """Mark a grid of rows as a table for screen readers (AC2).
+
+    ``key`` is the container holding it, ``header`` the column-header row's
+    container, ``rows`` the row containers' keys, or ``row_prefix`` the
+    start they share (every keyed container inside the table whose key
+    starts with it). The page script finds the cells itself: the columns of
+    a row's st.columns block, or else the children of the row's CSS grid
+    (the HTML rows); a column holding a grid of several cells (the dividend
+    log's [grid | pencil] split) counts as those cells. A row button outside
+    the cells (the full-row "View" overlay) becomes a cell of its own, and
+    the header gets a visually hidden "Details" column for it.
+    ``header_names`` names header columns that show no text, by index
+    (negative counts from the end); ``sorted_by`` is the widget key of the
+    sorted column's header button."""
+    st.session_state.setdefault(_SS_TABLES, []).append({
+        "key": css_key(key), "name": name, "header": css_key(header),
+        "rows": [css_key(r) for r in rows or []],
+        "prefix": css_key(row_prefix) if row_prefix else None,
+        "names": {str(i): n for i, n in (header_names or {}).items()},
+        "sort": [css_key(sorted_by), "descending" if descending else "ascending"] if sorted_by else None,
+    })
 
 
 def label(key: str, text: str, *, pressed: bool | None = None) -> None:
@@ -56,6 +84,10 @@ def image(key: str, text: str) -> None:
 
 def labels() -> dict[str, list]:
     return dict(st.session_state.get(_SS_KEY, {}))
+
+
+def tables() -> list[dict]:
+    return list(st.session_state.get(_SS_TABLES, []))
 
 
 def stock_name(ticker: str, name: str | None = None) -> str:
@@ -118,6 +150,79 @@ _PAGE_SCRIPT = r"""
         }
       }
     }
+    (cfg.tables || []).forEach(function(t){ applyTable(t, cfg.labels.details); });
+  }
+  function cellsOf(el){
+    // The columns of the row's st.columns block, or the children of its
+    // CSS grid (HTML rows), in order.
+    var hb = el.querySelector('[data-testid="stHorizontalBlock"]');
+    if (hb) {
+      var out = [];
+      for (var i = 0; i < hb.children.length; i++) {
+        var col = hb.children[i];
+        if (col.getAttribute('data-testid') !== 'stColumn') continue;
+        var cg = gridOf(col);
+        if (cg && cg.children.length > 1) out = out.concat(Array.prototype.slice.call(cg.children));
+        else out.push(col);
+      }
+      return out;
+    }
+    var g = gridOf(el);
+    return g ? Array.prototype.slice.call(g.children) : [];
+  }
+  // React re-serialises inline styles ("display: grid"), so match both.
+  function gridOf(el){ return el.querySelector('[style*="display:grid"], [style*="display: grid"]'); }
+  function rowsOf(t, box){
+    var out = [];
+    t.rows.forEach(function(k){ var r = one(k); if (r) out.push(r); });
+    if (t.prefix) {
+      var c = box.querySelectorAll('[data-testid="stVerticalBlock"][class*="st-key-' + t.prefix + '"]');
+      for (var i = 0; i < c.length; i++) {
+        var ks = (c[i].className.match(/st-key-\S+/g) || []);
+        if (ks.some(function(x){ return x.indexOf('st-key-' + t.prefix) === 0; })) out.push(c[i]);
+      }
+    }
+    return out;
+  }
+  function one(cls){ var e = d.getElementsByClassName('st-key-' + cls); return e.length ? e[0] : null; }
+  function setRole(e, role){ if (e.getAttribute('role') !== role) e.setAttribute('role', role); }
+  function applyTable(t, details){
+    var box = one(t.key), head = one(t.header);
+    if (!box || !head) return;
+    setRole(box, 'table');
+    if (box.getAttribute('aria-label') !== t.name) box.setAttribute('aria-label', t.name);
+    setRole(head, 'row');
+    var hcells = cellsOf(head).filter(function(c){ return !c.classList.contains('uv-sr-only'); });
+    hcells.forEach(function(c, i){
+      setRole(c, 'columnheader');
+      // Only a header column that shows no text of its own gets a name.
+      var n = t.names[String(i)] || t.names[String(i - hcells.length)];
+      if (n && !c.textContent.trim() && c.getAttribute('aria-label') !== n) c.setAttribute('aria-label', n);
+      var sorted = t.sort && c.getElementsByClassName('st-key-' + t.sort[0]).length;
+      if (sorted) { if (c.getAttribute('aria-sort') !== t.sort[1]) c.setAttribute('aria-sort', t.sort[1]); }
+      else if (c.hasAttribute('aria-sort')) c.removeAttribute('aria-sort');
+    });
+    var most = 0;
+    rowsOf(t, box).forEach(function(r){
+      setRole(r, 'row');
+      var cells = cellsOf(r);
+      cells.forEach(function(c){ setRole(c, 'cell'); });
+      // A button outside the cells (the row-wide "View" overlay) is a cell too.
+      var bs = r.querySelectorAll('button'), extra = 0;
+      for (var i = 0; i < bs.length; i++) {
+        if (bs[i].closest('[role="cell"]')) continue;
+        var w = bs[i].closest('[data-testid="stElementContainer"]');
+        if (w && r.contains(w)) { setRole(w, 'cell'); extra++; }
+      }
+      most = Math.max(most, cells.length + extra);
+    });
+    // Hidden header cells for those extra row cells, so the columns line up.
+    var hidden = head.querySelectorAll(':scope > .uv-sr-only[role="columnheader"]');
+    for (var m = hcells.length + hidden.length; m < most; m++) {
+      var h = d.createElement('div');
+      h.className = 'uv-sr-only'; h.setAttribute('role', 'columnheader'); h.textContent = details;
+      head.appendChild(h);
+    }
   }
   function schedule(){ if (!pending) { pending = true; setTimeout(apply, 60); } }
   window.__uvA11yApply = schedule;
@@ -140,8 +245,11 @@ def render(page_path: str, *, names: bool = True) -> None:
     are part of the iframe, so it reloads, and the names update, whenever
     they change."""
     # "<" escaped: a stock name can't close the <script> it sits in.
-    cfg = _js({"skip": _("Skip to content"), "nav": pgettext("landmark", "Main")})
+    cfg = _js({"skip": _("Skip to content"), "nav": pgettext("landmark", "Main"),
+               # Translators: screen readers only: the hidden header of a table's "View" button column.
+               "details": _("Details")})
     aria = _js(labels()) if names else "null"
+    tabs = _js(tables()) if names else "null"
     page_script = _js(_PAGE_SCRIPT)
     with st.container(key="uv_hidden_util_a11y" if names else "uv_hidden_util_a11y_early"):
         st.iframe(f"""
@@ -152,8 +260,9 @@ def render(page_path: str, *, names: bool = True) -> None:
     var w = window.parent, d = w.document;
     var c = w.__uvA11y || {{labels: {{}}, aria: {{}}}};
     c.labels = {cfg};
-    var aria = {aria};
+    var aria = {aria}, tabs = {tabs};
     if (aria !== null) c.aria = aria;
+    if (tabs !== null) c.tables = tabs;
     w.__uvA11y = c;
     if (!d.getElementById('uv-a11y-script')) {{
       var s = d.createElement('script');

@@ -63,6 +63,16 @@ def fmt_mos_pct(pct, *, compact: bool = False) -> str:
     return h_("price {ratio}× fair value", ratio=fmt_num(1.0 - v / 100.0, 1))
 
 
+def _label_date(value) -> str:
+    """A row's date for a button's screen-reader name, formatted like the
+    row shows it (never "2026-11-25 00:00:00")."""
+    try:
+        ts = pd.Timestamp(value)
+    except (TypeError, ValueError):
+        return str(value or "")
+    return "" if pd.isna(ts) else fmt_date(ts)
+
+
 def _name_html(name) -> str:
     """A company name for row markup: tidied for display (display_name,
     visual review G5) and HTML-escaped (names come from the data provider)."""
@@ -1870,7 +1880,7 @@ def portfolio_closed_row(*, key: str, ticker: str, exchange: str | None, name: s
         if show_edit:
             with _cols[5]:
                 a11y.label(f"{key}_edit", _("Edit trade: {stock}, {date}",
-                                            stock=a11y.stock_name(ticker, display_name(name)), date=closed_date))
+                                            stock=a11y.stock_name(ticker, display_name(name)), date=_label_date(closed_date)))
                 _edit_clicked = st.button("✎", key=f"{key}_edit", type="tertiary", help=_("Edit trade"),
                                           disabled=edit_disabled)
         else:
@@ -1957,7 +1967,7 @@ def portfolio_dividend_row(*, key: str, name: str, ticker: str, date: str, amoun
         if show_edit:
             with _cols[_edit_col]:
                 a11y.label(f"{key}_edit", _("Edit dividend: {stock}, {date}",
-                                            stock=a11y.stock_name(ticker, display_name(name)), date=date))
+                                            stock=a11y.stock_name(ticker, display_name(name)), date=_label_date(date)))
                 _edit_clicked = st.button("✎", key=f"{key}_edit", type="tertiary", help=_("Edit dividend"),
                                           disabled=edit_disabled)
         else:
@@ -2064,7 +2074,7 @@ def dividend_log_row(*, key: str, ticker: str, exchange: str | None, name: str,
             st.markdown(_html, unsafe_allow_html=True)
         with _cols[1]:
             a11y.label(f"{key}_edit", _("Edit dividend: {stock}, {date}",
-                                        stock=a11y.stock_name(ticker, display_name(name)), date=pay_date))
+                                        stock=a11y.stock_name(ticker, display_name(name)), date=_label_date(pay_date)))
             _edit_clicked = st.button("✎", key=f"{key}_edit", type="tertiary", help=_("Edit dividend"),
                                       disabled=edit_disabled)
     return {"edit": _edit_clicked}

@@ -189,6 +189,12 @@ GLOBAL_CSS = """
     text-decoration: none;
   }
   .uv-skip:focus { top: 12px; outline: 2px solid var(--link); outline-offset: 2px; }
+  /* Read by screen readers, not shown (e.g. a table's hidden "Details"
+     column header, uvalu/a11y.py). */
+  .uv-sr-only {
+    position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
 
   /* ── Invisible helper elements (localStorage-sync iframes, theme/density
      scripts) render nothing but still occupy a full row-gap in Streamlit's

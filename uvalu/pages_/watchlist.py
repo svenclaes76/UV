@@ -11,6 +11,7 @@ import streamlit as st
 from portfolio import (load_watchlist, save_watchlist,
                        load_manual_tickers, save_manual_tickers)
 from settings import load_shared_settings, get_veto_thresholds, get_score_weights, ALL_EXCHANGES
+from uvalu import a11y
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import list_provenance_html, page_header, fit_widths, header_cell_html, stock_row, empty_results_html, skeleton_rows
 from uvalu.drawer import open_drawer
@@ -195,6 +196,10 @@ def render() -> None:
             _col_header()
 
         _drawer_target = None
+        # AC2: the rows are a table for screen readers (uvalu/a11y.py).
+        a11y.table("wl_table_card", _("Watchlist"), header="wl_col_header",
+                   rows=[f"wl_row_{_i}_{_t}" for _i, _t in wl_df["Ticker"].items()],
+                   header_names={len(_HH_LABELS) - 1: _("Remove from watchlist")})
         for _ridx, _row in wl_df.iterrows():
             _ticker = _row["Ticker"]
             _result = stock_row(

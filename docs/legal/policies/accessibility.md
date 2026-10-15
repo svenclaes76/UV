@@ -8,7 +8,7 @@ Only what was checked in the running app 14–15 October 2026 is claimed as work
 
 # Accessibility statement
 
-**Version:** 1.0 · **Last updated:** 15 October 2026
+**Version:** 1.1 · **Last updated:** 15 October 2026
 
 We want Uvalu to be usable by everyone, including people who use a screen reader, a keyboard instead of a mouse, or a larger text size.
 
@@ -30,6 +30,7 @@ No accessibility specialist has tested Uvalu yet. A test with screen readers (NV
 - Every page has a heading structure, a main navigation, a main content area and a footer, plus a **Skip to content** link as the first thing you reach with the Tab key.
 - Each browser tab shows the page name, and the page language follows the language you chose.
 - Buttons say what they do and to which stock, for example "View Investor AB (INVE-B.ST)". The watchlist stars say whether a stock is on your watchlist. Icon names are not read out.
+- Every table (Screener, Watchlist, Dashboard and Risk holdings, and the Portfolio page's positions, dividends and cash activity) is a table for screen readers, with column headers, and the Screener says which column it is sorted by.
 - The value and price charts are described in one sentence with their figures.
 - Loading progress on the Screener and the Watchlist, and the number of Screener results, are announced when they change.
 - In our checks, text had a contrast of at least 4.5:1 against its background, in both themes.
@@ -38,7 +39,6 @@ No accessibility specialist has tested Uvalu yet. A test with screen readers (NV
 
 ## 4. Known gaps
 
-- **Tables.** The Screener, the Dashboard holdings and the Risk page's holdings are not yet marked up as tables, and the sort column is not announced. A screen reader reads each row as a list of values.
 - **Charts.** The charts have a one-sentence summary, but no table view of the underlying data.
 - **Narrow screens and zoom.** Uvalu is designed for a desktop window. At 200% zoom or on a phone, some content may need horizontal scrolling. Tablet and phone layouts are planned.
 - **Small targets.** Some small buttons, such as the watchlist stars, may be smaller than 24 × 24 pixels.

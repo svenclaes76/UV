@@ -832,3 +832,10 @@ def test_fmt_mos_pct_reads_a_price_far_above_fair_value_as_a_multiple():
     assert fmt_mos_pct(-125.3, compact=True).startswith("< ")
     assert fmt_mos_pct(-40.0).startswith("-") or fmt_mos_pct(-40.0).startswith("−")
     assert fmt_mos_pct(None) == "—" and fmt_mos_pct(float("nan")) == "—"
+
+
+def test_label_date_is_formatted_like_the_row():
+    """A pencil's screen-reader name shows the date as the row does."""
+    from uvalu.components import _label_date
+    assert "00:00" not in _label_date("2026-11-25 00:00:00")
+    assert _label_date(None) == ""
