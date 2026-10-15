@@ -102,7 +102,7 @@ Page bodies live in `uvalu/pages_/*.py`; each exposes a single `render()` functi
 The authentication gate, run in order during boot:
 
 - `recover_session_from_cookie()` — when there's no active session, restore one server-side from the `uv_jwt` cookie via `st.context.cookies` (survives a full page reload, e.g. the top bar's theme toggle, with no client-side redirect).
-- `handle_logout()` — clear session + query params on `?logout=1`, and expire the `uv_jwt` cookie/localStorage entry.
+- `handle_logout()` — clear session + query params on `?logout=1`, and expire the `uv_jwt` cookie (and remove any old localStorage copy).
 - `auth_wall()` — verify the session JWT, or render the login form and `st.stop()` if unauthenticated.
 
 #### `uvalu/nav.py`
@@ -210,7 +210,7 @@ Email/password authentication with JWT sessions.
 - `verify_token(token)` → `(email, role)`.
 - `list_users()`, `set_role()`, `set_status()`, `delete_user()` — admin helpers, surfaced in the Admin portal's Users tab. `reset_password()` exists but isn't wired into the Admin portal yet (see [backend-feature-gaps.md](backend-feature-gaps.md)).
 
-The JWT is persisted in browser `localStorage` (`uv_jwt`) and reloaded on each refresh via the `uvalu.authgate` bridge.
+The JWT is kept in the `uv_jwt` cookie only (SR4, 15 October 2026; set from JavaScript by `authgate.session_cookie_js`, `SameSite=Strict`, `Secure` on HTTPS) and read server-side on reload by `authgate.recover_session_from_cookie()`.
 
 #### `portfolio.py`
 
