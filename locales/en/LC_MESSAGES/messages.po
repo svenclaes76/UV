@@ -4094,7 +4094,7 @@ msgid "Complaints & Consumer Mediation Service"
 msgstr "Complaints & Consumer Mediation Service"
 
 #: uvalu/compliance/disclosures.py:97
-#, fuzzy
+#
 msgid "Accessibility statement"
 msgstr "Accessibility statement"
 
@@ -4103,7 +4103,7 @@ msgid "Complaints"
 msgstr "Complaints"
 
 #: uvalu/compliance/disclosures.py:101
-#, fuzzy
+#
 msgid "Accessibility"
 msgstr "Accessibility"
 

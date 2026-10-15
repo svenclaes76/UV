@@ -4108,7 +4108,7 @@ msgid "Complaints & Consumer Mediation Service"
 msgstr "Klachten en Consumentenombudsdienst"
 
 #: uvalu/compliance/disclosures.py:97
-#, fuzzy
+#
 msgid "Accessibility statement"
 msgstr "Toegankelijkheidsverklaring"
 
@@ -4117,7 +4117,7 @@ msgid "Complaints"
 msgstr "Klachten"
 
 #: uvalu/compliance/disclosures.py:101
-#, fuzzy
+#
 msgid "Accessibility"
 msgstr "Toegankelijkheid"
 
