@@ -21,6 +21,13 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+## [2026.10.8] — 2026-10-15
+
+**No score changes.** Security, accessibility and wording. **Do:** install
+from the new `requirements-lock.txt` and restart (Authlib, cryptography and
+PyJWT upgrades); send any open invitation again, because invite links made
+before this version no longer work (tokens are now stored hashed).
+
 ### Added
 
 - Production pins (SR7, docs/security-review.md): `requirements-lock.txt`
