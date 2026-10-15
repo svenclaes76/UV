@@ -12,10 +12,11 @@ Final texts of the six public legal pages, kept as the reference for building th
 | Data sources | [data-sources.md](data-sources.md) | `/data-sources` | REC-3, REC-4, DATA-1..6 |
 | Conflicts of interest | [conflicts-of-interest.md](conflicts-of-interest.md) | `/conflicts` | REC-1, REC-8, REC-9, PER-7 |
 | Complaints | [complaints.md](complaints.md) | `/complaints` | TOU-8 |
+| Accessibility statement | [accessibility.md](accessibility.md) | `/legal?doc=accessibility` | AC7 (added 15 October 2026; not a legal requirement while exempt) |
 
 Each file starts with an HTML comment holding its status and its counsel points. Strip the comment when rendering.
 
-**Free beta.** While `disclosures.BETA` is on, the app shows the versions in [`beta/`](beta/) (decision B4), all six reviewed for beta readiness and dated 5 October 2026. Each beta file's header comment lists what that review changed and what must still be built before the beta opens.
+**Free beta.** While `disclosures.BETA` is on, the app shows the versions in [`beta/`](beta/) (decision B4), the first six reviewed for beta readiness and dated 5 October 2026 (the accessibility statement was added on 15 October 2026). Each beta file's header comment lists what that review changed and what must still be built before the beta opens.
 
 ## 1. Decisions (Oct 3, 2026)
 
@@ -76,7 +77,7 @@ Find them with `grep -rn "\[TBD" docs/legal/policies`.
 These pages promise behaviour. Each item below must be true in the app before the matching page goes live.
 
 **Linking and display**
-- A footer on every screen and on the sign-in/sign-up screens, linking all six pages. The Methodology page is also linked from every signal badge (BDG-2).
+- A footer on every screen and on the sign-in/sign-up screens, linking all seven pages. The Methodology page is also linked from every signal badge (BDG-2).
 - The pages render in all six app languages. They are legal texts: a fluent reviewer translates them (INT-1, INT-4). English stays the reference version (Terms §17).
 - Each page shows its version and date. Keep earlier versions retrievable (Terms §15).
 - The Methodology page is rendered from `screener.methodology()` and the `risk.REF_*` constants, so the numbers can't drift. This file is the reference text and layout. It also shows the live signal distribution (`signal_distribution()`) and the weighting in force.

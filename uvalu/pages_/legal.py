@@ -1,5 +1,5 @@
 """Legal pages — Terms of use, Privacy notice, Methodology, Data sources,
-Conflicts of interest, Complaints — rendered from docs/legal/policies/
+Conflicts of interest, Complaints, Accessibility statement — rendered from docs/legal/policies/
 (Uvalu.dc.html's "Legal" screen; TOU-9, GDPR-1, REC-3, REC-5, REC-8, TOU-8).
 
 Linked from the footer on every screen (uvalu/shell.py), from the badges'

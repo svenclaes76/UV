@@ -93,7 +93,7 @@ class TestLegalPages:
     @pytest.mark.parametrize("lang", ["nl", "fr", "de", "it", "es"])
     def test_every_page_is_available_in_english_for_every_language(self, lang):
         """English-only beta texts (Oct 5 2026): every enabled language gets
-        the English version of all six pages, never "not available"."""
+        the English version of every page, never "not available"."""
         for _key, _title, file_name in disclosures.LEGAL_DOCS:
             path, _t = legal.resolve_doc_path(file_name, lang, beta=True)
             assert path is not None and path.exists(), (lang, file_name)

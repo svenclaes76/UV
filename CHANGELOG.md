@@ -67,6 +67,13 @@ of that month); earlier releases used SemVer. Rules in
   progress and result count (`page_header(..., live=True)`) and the
   Watchlist's fetch progress are polite status regions, so a screen reader
   hears when results arrive and how many match.
+- Accessibility statement (AC7, docs/accessibility-review.md A9): a seventh
+  document on the Legal page (`docs/legal/policies/accessibility.md` and its
+  beta copy), linked from the footer as "Accessibility": target WCAG 2.2 AA,
+  how and when it was checked, what works, the known gaps (tables, chart
+  data, zoom and narrow screens, target size, row focus, small labels, Admin,
+  English-only legal texts) and a contact. English only, like the other
+  legal texts.
 
 ### Changed
 
