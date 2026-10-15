@@ -183,7 +183,7 @@ def render() -> None:
             # exact padding; a bare st.caption() here would sit flush against
             # the card's raw edge instead of aligned with those 20px-indented
             # children. Same padding loading_skeleton_html() used to carry.
-            st.markdown(f'<div style="padding:22px 20px 8px;font-size:13px;color:var(--muted);">{_wl_msg}</div>',
+            st.markdown(f'<div role="status" aria-live="polite" style="padding:22px 20px 8px;font-size:13px;color:var(--muted);">{_wl_msg}</div>',
                        unsafe_allow_html=True)
             with st.container(key="wl_col_header"):
                 _col_header()

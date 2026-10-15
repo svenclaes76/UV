@@ -120,3 +120,24 @@ def test_primary_button_fill_has_4_5_to_1_with_white():
         assert 1.05 / (_luminance(m.group(1)) + 0.05) >= 4.5, (token, m.group(1))
     assert re.search(r'button\[data-testid="stBaseButton-primary"\],\s*button\[data-testid='
                      r'"stBaseButton-primaryFormSubmit"\] \{\s*background-color: var\(--primary-fill\)', css)
+
+
+def test_image_names_a_container_and_the_script_applies_it(monkeypatch):
+    """AC6: a chart is one image named by its summary sentence."""
+    from uvalu import a11y
+    seen = []
+    monkeypatch.setattr(a11y.st, "iframe", lambda body, **kw: seen.append(body))
+    a11y.begin_run()
+    a11y.image("db_value_chart", "Chart: your holdings were worth €1,000.")
+    a11y.render("dashboard")
+    import json
+    assert '"db_value_chart": ' + json.dumps(["Chart: your holdings were worth €1,000.", None, "img"]) in seen[0]
+    assert "setAttribute('role', 'img')" in seen[0]
+
+
+def test_gauge_ring_is_hidden_and_header_can_be_a_live_region():
+    from uvalu.components import page_heading_html, radial_gauge_svg
+    assert 'aria-hidden="true"' in radial_gauge_svg(42, "#1DD6A4")
+    live = page_heading_html("Value screener", "12 of 30 stocks pass your filters", live=True)
+    assert 'role="status" aria-live="polite"' in live
+    assert "aria-live" not in page_heading_html("Value screener", "plain")

@@ -167,6 +167,11 @@ def test_shows_value_chart_when_history_present(isolated_data, monkeypatch):
     at = _run(monkeypatch)
     assert not at.exception, [str(e.value) for e in at.exception]
     assert len(at.get("plotly_chart")) >= 1
+    # AC6: the chart is one image for screen readers, named by a summary.
+    name, _pressed, role = at.session_state["_uv_aria"]["db_value_chart"]
+    # The chart opens on the past year, so only today's point (1,100) is in view.
+    assert role == "img" and name.startswith("Chart: your holdings were worth €1,100 on ")
+    assert "amount invested" in name
 
 
 def test_refresh_button_clears_cache_and_reruns(isolated_data, monkeypatch):

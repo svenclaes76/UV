@@ -48,6 +48,12 @@ def label(key: str, text: str, *, pressed: bool | None = None) -> None:
     st.session_state.setdefault(_SS_KEY, {})[css_key(key)] = [text, pressed]
 
 
+def image(key: str, text: str) -> None:
+    """Make the keyed container one image named ``text`` for screen readers
+    (AC6): a chart's summary sentence instead of its axis ticks and points."""
+    st.session_state.setdefault(_SS_KEY, {})[css_key(key)] = [text, None, "img"]
+
+
 def labels() -> dict[str, list]:
     return dict(st.session_state.get(_SS_KEY, {}))
 
@@ -93,6 +99,13 @@ _PAGE_SCRIPT = r"""
     for (var i = 0; i < icons.length; i++) icons[i].setAttribute('aria-hidden', 'true');
     for (var k in cfg.aria) {
       var v = cfg.aria[k], els = d.getElementsByClassName('st-key-' + k);
+      if (v[2] === 'img') {
+        for (var g = 0; g < els.length; g++) {
+          if (els[g].getAttribute('role') !== 'img') els[g].setAttribute('role', 'img');
+          if (els[g].getAttribute('aria-label') !== v[0]) els[g].setAttribute('aria-label', v[0]);
+        }
+        continue;
+      }
       for (var j = 0; j < els.length; j++) {
         // Every button in the keyed element: Streamlit draws a button with a
         // tooltip twice (one per layout) and sets aria-label="" on an icon one.
