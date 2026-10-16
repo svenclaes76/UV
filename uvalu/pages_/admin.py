@@ -74,13 +74,11 @@ _STATUS_STYLE = {
     "Suspended": ("var(--down-bg)",  "var(--down-txt)"),
 }
 
-# Real ticker suffix per exchange (matches uvalu/data.py's _fetch_map) — used
+# Real ticker suffix per exchange (the registry, uvalu/exchanges.py) — used
 # only for an honest "what does this feed cover" description, never for a
 # fabricated latency/health number (there's no real per-feed telemetry).
-_EXCHANGE_SUFFIX = {
-    "brussels": ".BR", "amsterdam": ".AS", "paris": ".PA",
-    "milan": ".MI", "frankfurt": ".DE", "swiss": ".SW",
-}
+from uvalu import exchanges as _exchanges
+_EXCHANGE_SUFFIX = {e.key: e.suffix for e in _exchanges.EXCHANGES}
 
 
 def _status_badge(status: str) -> str:

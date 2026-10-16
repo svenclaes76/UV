@@ -13,9 +13,7 @@ import streamlit as st
 
 from prices import fetch_prices
 from uvalu.market_hours import is_market_hours, MARKET_TZ
-from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
-                            fetch_paris_tickers, fetch_milan_tickers,
-                            fetch_frankfurt_tickers, fetch_swiss_tickers, list_status)
+from fetch_tickers import FETCHERS, list_status
 from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_cache,
                       load_fundamentals_cache, backfill_thin_rows_from_screener_lane,
                       run_screener_from_df, fetch_fundamentals_nowait,
@@ -199,14 +197,6 @@ def _build_all_screener_data(enabled: tuple,
     stockanalysis.com ticker-list scrapes.
     """
     _max_de, _max_payout, _min_mos, _buy_threshold = thresholds
-    _fetch_map = {
-        "brussels":  (fetch_brussels_tickers,  ".BR"),
-        "amsterdam": (fetch_amsterdam_tickers, ".AS"),
-        "paris":     (fetch_paris_tickers,     ".PA"),
-        "milan":     (fetch_milan_tickers,     ".MI"),
-        "frankfurt": (fetch_frankfurt_tickers, ".DE"),
-        "swiss":     (fetch_swiss_tickers,     ".SW"),
-    }
     enabled_set = set(enabled)
     empty = pd.DataFrame(columns=["Ticker"])
 
@@ -217,7 +207,7 @@ def _build_all_screener_data(enabled: tuple,
     _cached_country = {t: r.get("country") for t, r in _load_cache().items()}
     stock_lists: dict[str, list[dict]] = {}
     _all_listed: set[str] = set()      # every listed ticker, foreign or not: kept by prune_cache
-    for key, (fetch_fn, _) in _fetch_map.items():
+    for key, fetch_fn in FETCHERS.items():
         if key in enabled_set:
             _raw = fetch_fn()
             _all_listed.update(s["ticker"] for s in _raw)
@@ -245,7 +235,7 @@ def _build_all_screener_data(enabled: tuple,
         prune_cache(_all_listed | set(extra_tickers))
 
     if all_fund.empty:
-        return tuple(empty for _ in ALL_EXCHANGES) + (empty,)
+        return (empty, empty)
 
     _country = (dict(zip(all_fund["Ticker"], all_fund["country"]))
                 if "country" in all_fund.columns else {})
@@ -299,12 +289,15 @@ def _build_all_screener_data(enabled: tuple,
         tickers = {s["ticker"] for s in stock_list}
         return scored[scored["Ticker"].isin(tickers)].reset_index(drop=True)
 
-    exchange_dfs = tuple(
-        _subset(stock_lists[key]) if key in stock_lists else empty
-        for key in ALL_EXCHANGES
-    )
+    # EX-W2: one frame for the whole public universe with an exchange_key
+    # column (pages map it to the registry's name), instead of one frame per
+    # exchange matched to its key by position.
+    _key_of = {s["ticker"]: key for key, stocks in stock_lists.items() for s in stocks}
+    universe_df = _subset(all_stocks[:len(all_stocks) - len(_extra_stocks)])
+    if not universe_df.empty:
+        universe_df = universe_df.assign(exchange_key=universe_df["Ticker"].map(_key_of))
     _extra_df = _subset(_extra_stocks) if _extra_stocks else empty
-    return exchange_dfs + (_extra_df,)
+    return (universe_df, _extra_df)
 
 
 def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, changes: int) -> None:

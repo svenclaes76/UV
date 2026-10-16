@@ -1,7 +1,8 @@
 """Pure value formatters shared across pages."""
 import re
 
-from uvalu.i18n import N_, fmt_money, tr
+from uvalu import exchanges
+from uvalu.i18n import fmt_money, tr
 
 
 def fmt_eur(v) -> str:
@@ -18,8 +19,8 @@ def row_currency(row) -> str:
     ccy = get("Currency")
     if isinstance(ccy, str) and len(ccy.strip()) == 3 and ccy.strip().isalpha():
         return ccy.strip().upper()
-    from portfolio import currency_for_ticker
-    return currency_for_ticker(str(get("Ticker") or get("ticker") or ""))
+    ex = exchanges.for_ticker(get("Ticker") or get("ticker"))
+    return ex.currency if ex else "EUR"
 
 
 def safe_pct(numerator: float, denominator: float) -> float:
@@ -27,23 +28,14 @@ def safe_pct(numerator: float, denominator: float) -> float:
     return numerator / denominator * 100 if denominator else 0
 
 
-# Ticker suffix → exchange, for rows that carry no "Exchange" field (the
-# portfolio lane, the risk table) — one map instead of a copy per page.
-TICKER_SUFFIX_EXCHANGE = {
-    ".BR": N_("Brussels"), ".AS": N_("Amsterdam"), ".PA": N_("Paris"),
-    ".MI": N_("Milan"), ".DE": N_("Frankfurt"), ".SW": N_("Swiss"),
-}
-
-
 def exchange_label(ticker, exchange=None) -> str:
-    """The row's own exchange name when it has one, else the one its ticker
-    suffix implies, translated; "—" when neither is known."""
+    """The row's own exchange name when it has one, else the official name of
+    its ticker's exchange (uvalu/exchanges.py, never translated: D11); "—"
+    when neither is known."""
     if isinstance(exchange, str) and exchange.strip():
         return tr(exchange)
-    for suffix, label in TICKER_SUFFIX_EXCHANGE.items():
-        if str(ticker or "").endswith(suffix):
-            return tr(label)
-    return "—"
+    ex = exchanges.for_ticker(ticker)
+    return ex.name if ex else "—"
 
 
 # Legal forms and acronyms that stay upper case when an ALL-CAPS name is
@@ -99,7 +91,9 @@ def display_name(name) -> str:
 
 # Exchange short codes shown next to a ticker (Screener, Watchlist): the
 # venue's own abbreviation, never translated (glossary: exchange names stay).
-EXCHANGE_CODES = {"BR": "BRU", "PA": "PAR", "AS": "AMS", "MI": "MIL", "DE": "XET", "SW": "SWX",
+# Covered exchanges from the registry; a few venues users hold outside the
+# covered set keep a readable code too.
+EXCHANGE_CODES = {**{e.suffix.lstrip("."): e.badge for e in exchanges.EXCHANGES},
                   "L": "LON", "MC": "MAD", "HE": "HEL", "ST": "STO"}
 
 

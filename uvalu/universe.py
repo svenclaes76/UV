@@ -18,20 +18,15 @@ No Streamlit import; unit-tested in tests/test_universe.py.
 """
 from __future__ import annotations
 
-EXCHANGE_COUNTRY: dict[str, str] = {
-    ".BR": "Belgium",
-    ".AS": "Netherlands",
-    ".PA": "France",
-    ".MI": "Italy",
-    ".DE": "Germany",
-    ".SW": "Switzerland",
-}
+from uvalu import exchanges
+
+EXCHANGE_COUNTRY: dict[str, str] = {e.suffix: e.country for e in exchanges.EXCHANGES}
 
 
 def exchange_country(ticker: str) -> str | None:
     """The covered country of the ticker's exchange suffix, or None."""
-    dot = ticker.rfind(".")
-    return EXCHANGE_COUNTRY.get(ticker[dot:]) if dot >= 0 else None
+    ex = exchanges.for_ticker(ticker)
+    return ex.country if ex else None
 
 
 def is_home_listing(ticker: str, country: object) -> bool:

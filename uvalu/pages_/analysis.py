@@ -29,10 +29,8 @@ from uvalu.i18n import (N_, _, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h
 from uvalu.runtime import brand_hoverlabel, theme_colors, current_user
 from uvalu.ui import _CHART_CONFIG
 
-_EXCHANGE_LABELS = {
-    "brussels": N_("Brussels"), "amsterdam": N_("Amsterdam"), "paris": N_("Paris"),
-    "milan": N_("Milan"), "frankfurt": N_("Frankfurt"), "swiss": N_("Swiss"),
-}
+# Official exchange names from the registry, never translated (D10, D11).
+from uvalu.exchanges import name as _exchange_name
 
 
 @st.cache_data(show_spinner=False, ttl=3600)
@@ -284,11 +282,10 @@ def render() -> None:
     _dfs = _load_all_screener_data(
         _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
         get_veto_thresholds(), get_score_weights())
-    _exch_dfs, _extra_df = list(_dfs[:-1]), _dfs[-1]
-    all_df = pd.concat([
-        d.assign(Exchange=_EXCHANGE_LABELS.get(k, k))
-        for k, d in zip(ALL_EXCHANGES, _exch_dfs)
-    ] + [_extra_df], ignore_index=True)
+    _universe_df, _extra_df = _dfs
+    if not _universe_df.empty and "exchange_key" in _universe_df.columns:
+        _universe_df = _universe_df.assign(Exchange=_universe_df["exchange_key"].map(_exchange_name))
+    all_df = pd.concat([_universe_df, _extra_df], ignore_index=True)
     _match = all_df[all_df["Ticker"] == ticker]
     if _match.empty:
         st.warning(_("No data found for **{ticker}**.", ticker=ticker))

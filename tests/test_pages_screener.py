@@ -131,12 +131,12 @@ def test_bust_cache_triggered_when_fair_value_column_missing(isolated_data, monk
     assert calls == [True]
 
 
-def test_bust_cache_triggered_when_a_non_first_exchange_is_stale(isolated_data, monkeypatch):
-    # The staleness check used to only look at _exch_dfs[0] (brussels) --
-    # since each ticker's cache entry refreshes independently, a schema
-    # migration could leave a LATER exchange still missing the new column
-    # while brussels already has it, and the reset would never fire. Put
-    # good data in brussels (index 0) and stale data in amsterdam (index 1).
+def test_bust_cache_triggered_when_some_rows_are_stale(isolated_data, monkeypatch):
+    # Each ticker's cache entry refreshes independently, so a schema
+    # migration can leave some rows missing a new column while others
+    # already have it. In the single universe frame (EX-W2) a column missing
+    # on part of the rows comes back as NaN; a frame without the column at
+    # all must trigger the reset.
     calls = []
 
     def _bust_cache_stub():
@@ -145,13 +145,10 @@ def test_bust_cache_triggered_when_a_non_first_exchange_is_stale(isolated_data, 
         st.stop()
 
     monkeypatch.setattr(screener_page, "_bust_cache", _bust_cache_stub)
-    good_df = make_scored_df([make_scored_row()])
     stale_row = make_scored_row(Ticker="BBB.AS")
     del stale_row["fair_value"]
     stale_df = make_scored_df([stale_row])
-    empty = pd.DataFrame(columns=["Ticker"])
-    tuple7 = (good_df, stale_df, empty, empty, empty, empty, empty)
-    _run(monkeypatch, screener_tuple=tuple7)
+    _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=stale_df))
     assert calls == [True]
 
 
@@ -183,15 +180,13 @@ def test_sector_filter_narrows_results(isolated_data, monkeypatch):
 
 
 def test_market_filter_narrows_results(isolated_data, monkeypatch):
-    exch_df = make_scored_df([make_scored_row()])
-    extra_df = make_scored_df([make_scored_row(Ticker="BBB.BR", Name="Beta Corp")])
-    # Put BBB.BR in a DIFFERENT real exchange slot (amsterdam) so it gets a
-    # different "Exchange" label than AAA.BR's "Brussels".
-    tup = list(make_screener_data_tuple(exchange_df=exch_df))
-    tup[1] = extra_df  # ALL_EXCHANGES[1] == "amsterdam"
-    at = _run(monkeypatch, screener_tuple=tuple(tup))
+    # Two rows on different exchanges (EX-W2: one frame, keyed per row); the
+    # Market filter shows the registry's official names (D10).
+    df = make_scored_df([make_scored_row(),
+                         make_scored_row(Ticker="BBB.AS", Name="Beta Corp")])
+    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=df))
     market_sel = at.selectbox(key="scr_market")
-    market_sel.set_value("Amsterdam")
+    market_sel.set_value("Euronext Amsterdam")
     at.run()
     assert not at.exception, [str(e.value) for e in at.exception]
     html = "".join(m.value for m in at.markdown)

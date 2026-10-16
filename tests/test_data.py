@@ -316,12 +316,9 @@ _FUND_ROW = {
 
 class TestLoadAllScreenerData:
     def _patch_fetchers(self, monkeypatch, brussels_stocks, fund_df):
-        monkeypatch.setattr(data_module, "fetch_brussels_tickers", lambda: brussels_stocks)
-        monkeypatch.setattr(data_module, "fetch_amsterdam_tickers", lambda: [])
-        monkeypatch.setattr(data_module, "fetch_paris_tickers", lambda: [])
-        monkeypatch.setattr(data_module, "fetch_milan_tickers", lambda: [])
-        monkeypatch.setattr(data_module, "fetch_frankfurt_tickers", lambda: [])
-        monkeypatch.setattr(data_module, "fetch_swiss_tickers", lambda: [])
+        monkeypatch.setattr(data_module, "FETCHERS", {
+            key: ((lambda: brussels_stocks) if key == "brussels" else (lambda: []))
+            for key in ("brussels", "amsterdam", "paris", "milan", "frankfurt", "swiss")})
         monkeypatch.setattr(data_module, "fetch_fundamentals_nowait", lambda stocks, **kw: fund_df)
         monkeypatch.setattr(data_module, "_load_cache", lambda *a, **k: {})
 
@@ -341,7 +338,7 @@ class TestLoadAllScreenerData:
         real = data_module.run_screener_from_df
         monkeypatch.setattr(data_module, "run_screener_from_df",
                             lambda df, **kw: seen.append(sorted(df.loc[kw["peer_mask"], "Ticker"])) or real(df, **kw))
-        brussels, *_, extra = data_module._build_all_screener_data(("brussels",))
+        brussels, extra = data_module._build_all_screener_data(("brussels",))
         assert seen == [["AAA.BR"]]
         assert list(brussels["Ticker"]) == ["AAA.BR"]
         assert extra.empty
@@ -369,7 +366,7 @@ class TestLoadAllScreenerData:
              {"name": "Apple", "isin": "", "ticker": "AAPL.BR", "mic": "XBRU"}],
             pd.DataFrame([_FUND_ROW, foreign]),
         )
-        brussels, *_, extra = data_module._build_all_screener_data(("brussels",), ("AAPL.BR",), ("Apple",))
+        brussels, extra = data_module._build_all_screener_data(("brussels",), ("AAPL.BR",), ("Apple",))
         assert list(brussels["Ticker"]) == ["AAA.BR"]
         assert list(extra["Ticker"]) == ["AAPL.BR"]
 
@@ -387,10 +384,10 @@ class TestLoadAllScreenerData:
         at = AppTest.from_function(_script, default_timeout=60)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
-        assert at.text[0].value == "7"
+        assert at.text[0].value == "2"      # (universe, extra) — EX-W2
         assert at.text[1].value == "True"
 
-    def test_splits_scored_data_per_exchange(self, monkeypatch):
+    def test_universe_rows_carry_their_exchange_key(self, monkeypatch):
         self._patch_fetchers(
             monkeypatch,
             [{"name": "Alpha Corp", "isin": "", "ticker": "AAA.BR", "mic": "XBRU"}],
@@ -400,17 +397,16 @@ class TestLoadAllScreenerData:
         def _script():
             from uvalu.data import _build_all_screener_data
             import streamlit as st
-            result = _build_all_screener_data(("brussels",))
-            *exch_dfs, extra_df = result
-            st.text(exch_dfs[0].iloc[0]["Ticker"])  # brussels (ALL_EXCHANGES[0])
-            st.text(exch_dfs[1].empty)  # amsterdam untouched
+            universe_df, extra_df = _build_all_screener_data(("brussels",))
+            st.text(universe_df.iloc[0]["Ticker"])
+            st.text(universe_df.iloc[0]["exchange_key"])   # EX-W2: one frame, keyed per row
             st.text(extra_df.empty)
 
         at = AppTest.from_function(_script, default_timeout=60)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
         assert at.text[0].value == "AAA.BR"
-        assert at.text[1].value == "True"
+        assert at.text[1].value == "brussels"
         assert at.text[2].value == "True"
 
     def test_extra_portfolio_tickers_come_back_separately(self, monkeypatch):
@@ -424,9 +420,8 @@ class TestLoadAllScreenerData:
         def _script():
             from uvalu.data import _build_all_screener_data
             import streamlit as st
-            result = _build_all_screener_data(("brussels",), ("BBB.BR",), ("Beta Corp",))
-            *exch_dfs, extra_df = result
-            st.text(set(exch_dfs[0]["Ticker"]))
+            universe_df, extra_df = _build_all_screener_data(("brussels",), ("BBB.BR",), ("Beta Corp",))
+            st.text(set(universe_df["Ticker"]))
             st.text(extra_df.iloc[0]["Ticker"])
 
         at = AppTest.from_function(_script, default_timeout=60)
@@ -448,7 +443,7 @@ class TestLoadAllScreenerData:
             # AAA.BR is already covered by the brussels exchange list, so it
             # should NOT be duplicated into the "extra" tickers/df.
             result = _build_all_screener_data(("brussels",), ("AAA.BR",), ("Alpha Corp",))
-            *_, extra_df = result
+            _universe, extra_df = result
             st.text(extra_df.empty)
 
         at = AppTest.from_function(_script, default_timeout=60)

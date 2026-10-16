@@ -48,9 +48,9 @@ def test_display_name(raw, shown):
 # ── exchange_label (visual review DR3) ──────────────────────────────────────
 
 @pytest.mark.parametrize("ticker, exchange, shown", [
-    ("SYENS.BR", None, "Brussels"),          # the portfolio lane has no Exchange field
-    ("SYENS.BR", "", "Brussels"),
-    ("CEK.DE", None, "Frankfurt"),
+    ("SYENS.BR", None, "Euronext Brussels"),          # the portfolio lane has no Exchange field
+    ("SYENS.BR", "", "Euronext Brussels"),
+    ("CEK.DE", None, "Xetra"),           # official names (D10)
     ("AAA.PA", "Paris", "Paris"),            # the row's own field wins
     ("BDC", None, "—"),
     (None, None, "—"),

@@ -346,14 +346,18 @@ def fake_portfolio_scored(override=None):
 
 def make_screener_data_tuple(exchange_df: pd.DataFrame | None = None,
                              extra_df: pd.DataFrame | None = None) -> tuple:
-    """Build the 7-tuple _load_all_screener_data() normally returns:
-    one DataFrame per settings.ALL_EXCHANGES entry, then the "extra"
-    (portfolio-only) tickers DataFrame. Puts all fake data in the
-    "brussels" slot (index 0) since every fake ticker uses a ".BR" suffix."""
+    """Build the pair _load_all_screener_data() normally returns (EX-W2):
+    the scored public universe with an ``exchange_key`` column, then the
+    "extra" (portfolio-only) tickers DataFrame. A frame without an
+    exchange_key gets one from each ticker's suffix (fake tickers are ".BR")."""
+    from uvalu import exchanges
     empty = pd.DataFrame(columns=["Ticker"])
     exchange_df = exchange_df if exchange_df is not None else make_scored_df()
+    if "exchange_key" not in exchange_df.columns and "Ticker" in exchange_df.columns:
+        exchange_df = exchange_df.assign(exchange_key=[
+            (exchanges.for_ticker(t).key if exchanges.for_ticker(t) else None) for t in exchange_df["Ticker"]])
     extra_df = extra_df if extra_df is not None else empty
-    return (exchange_df, empty, empty, empty, empty, empty, extra_df)
+    return (exchange_df, extra_df)
 
 
 def fake_cached_fn(return_value):

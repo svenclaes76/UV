@@ -88,7 +88,7 @@ def _coverage_line() -> str:
         manual = load_manual_tickers()
         dfs = _load_all_screener_data(_cache_version(), enabled, tuple(manual.keys()), tuple(manual.values()),
                                       get_veto_thresholds(), get_score_weights())
-        frames = [d for d in dfs[:-1] if d is not None and not d.empty]
+        frames = [d for d in dfs[:1] if d is not None and not d.empty]
         dist = signal_distribution(pd.concat(frames, ignore_index=True)) if frames else {}
     except Exception:
         dist = {}

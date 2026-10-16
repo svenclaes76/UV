@@ -40,12 +40,15 @@ LIST_RETRY_MINUTES   = 60     # after a failed or rejected scrape, wait this lon
 LIST_SHRINK_GUARD    = 0.70   # a new list under this share of the last good one is rejected
 BACKGROUND_REFRESH   = True   # refresh a stale list off the caller's thread (tests set False)
 
-STOCKANALYSIS_URL     = "https://stockanalysis.com/list/euronext-brussels/"
-STOCKANALYSIS_AMS_URL = "https://stockanalysis.com/list/euronext-amsterdam/"
-STOCKANALYSIS_PAR_URL = "https://stockanalysis.com/list/euronext-paris/"
-STOCKANALYSIS_MIL_URL = "https://stockanalysis.com/list/borsa-italiana/"
-STOCKANALYSIS_ETR_URL = "https://stockanalysis.com/list/frankfurt-stock-exchange/"
-STOCKANALYSIS_SWX_URL = "https://stockanalysis.com/list/six-swiss-exchange/"
+from uvalu.exchanges import BY_KEY as _EX
+
+# List URLs come from the exchange registry (uvalu/exchanges.py).
+STOCKANALYSIS_URL     = _EX["brussels"].list_url
+STOCKANALYSIS_AMS_URL = _EX["amsterdam"].list_url
+STOCKANALYSIS_PAR_URL = _EX["paris"].list_url
+STOCKANALYSIS_MIL_URL = _EX["milan"].list_url
+STOCKANALYSIS_ETR_URL = _EX["frankfurt"].list_url
+STOCKANALYSIS_SWX_URL = _EX["swiss"].list_url
 
 HEADERS = {
     "User-Agent": (
@@ -513,3 +516,14 @@ def _hardcoded_ftse_mib() -> list[dict]:
         ("OVS",                "OVS"),   ("Salvatore Ferragamo","SFER"),
         ("Tod's",              "TOD"),   ("Tamburi",           "TIP"),
     ], ".MI", "XMIL", "FTSE MIB")
+
+
+# Exchange key (uvalu/exchanges.py) → its ticker-list function.
+FETCHERS = {
+    "brussels":  fetch_brussels_tickers,
+    "amsterdam": fetch_amsterdam_tickers,
+    "paris":     fetch_paris_tickers,
+    "milan":     fetch_milan_tickers,
+    "frankfurt": fetch_frankfurt_tickers,
+    "swiss":     fetch_swiss_tickers,
+}

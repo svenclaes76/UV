@@ -20,10 +20,8 @@ from uvalu.i18n import N_, _, h_, ngettext, tr
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun, poll_while_fetching
 
-_EXCHANGE_LABELS = {
-    "brussels": N_("Brussels"), "amsterdam": N_("Amsterdam"), "paris": N_("Paris"),
-    "milan": N_("Milan"), "frankfurt": N_("Frankfurt"), "swiss": N_("Swiss"),
-}
+# Official exchange names from the registry, never translated (D10, D11).
+from uvalu.exchanges import name as _exchange_name
 
 # 8 widths matching stock_row's show_remove=True layout exactly (the 7
 # shared data columns, then the "×" remove column) — shared by the real
@@ -92,11 +90,10 @@ def render() -> None:
     _exch_dfs = _load_all_screener_data(
         _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
         get_veto_thresholds(), get_score_weights())
-    *_per_exchange, extra_df = _exch_dfs
-    all_df = pd.concat([
-        d.assign(Exchange=_EXCHANGE_LABELS.get(k, k))
-        for k, d in zip(ALL_EXCHANGES, _per_exchange)
-    ] + [extra_df], ignore_index=True)
+    universe_df, extra_df = _exch_dfs
+    if not universe_df.empty and "exchange_key" in universe_df.columns:
+        universe_df = universe_df.assign(Exchange=universe_df["exchange_key"].map(_exchange_name))
+    all_df = pd.concat([universe_df, extra_df], ignore_index=True)
 
     # ── Add ticker form — same card treatment as the rest of the app
     # (background/border/radius/shadow, panel-2 inputs, filled teal submit)

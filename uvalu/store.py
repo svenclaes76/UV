@@ -19,11 +19,11 @@ import time
 
 import pandas as pd
 
-from settings import ALL_EXCHANGES
 from uvalu import logkit
 
 _EMPTY = pd.DataFrame(columns=["Ticker"])
-_EMPTY_TUPLE = tuple(_EMPTY for _ in ALL_EXCHANGES) + (_EMPTY,)
+# (scored universe with an exchange_key column, extra tickers) — EX-W2.
+_EMPTY_TUPLE = (_EMPTY, _EMPTY)
 
 # Don't respawn a worker for the same key within this many seconds of the last
 # attempt: throttles the cold-start / fetch-complete / manual-refresh bursts
