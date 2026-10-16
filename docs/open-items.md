@@ -171,7 +171,8 @@ Plan: [exchange-expansion-plan.md](exchange-expansion-plan.md) (decisions in §0
 
 | # | Item | Do it before |
 | --- | --- | --- |
-| EX1 | **Release 1** (EX-W0, W1a, W1, W2): euro sign on SIX prices, ticker-list cache, fetch hygiene, atomic cache write, exchange registry. No signal changes. | Can start now |
+| EX1 | **Release 1** (EX-W0, W1a, W1, W2) **implemented 17 October 2026** on `feature/exchange-expansion` (`524bb38` … `54334f5`), full test suite green, checked in the app; **not merged or released yet.** Next: release notes + CHANGELOG, merge, tag. | Release |
+| EX7 | **Holdings are never converted to EUR** (plan §10 P12): Dashboard, Portfolio, Risk and the drawer add native-currency values to the EUR total. No effect on a euro-only portfolio; must be fixed before any non-euro holding is likely. | Release 2 |
 | EX2 | **Risk-free rate per currency** (D33): choose the official 10-year yield series per currency and who updates it each quarter. | EX-W5b |
 | EX3 | **Shadow build** for a week after 21 October (Q1 done), as a check before release 2: per-market signal mix, data quality, pooled vs. regional medians. | Release 2 |
 | EX4 | **Oslo Børs official branding:** confirm the name to show (D10). | EX-W6 |
