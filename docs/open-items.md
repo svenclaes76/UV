@@ -4,7 +4,7 @@ One list of what is still open, so nothing has to be rediscovered. Tick an
 item off by deleting it (git history keeps it) and add new ones under the
 right heading with a date and a trigger: *when* it has to be done.
 
-Last updated: 13 October 2026.
+Last updated: 17 October 2026.
 
 The items whose trigger is "inviting anyone you don't know personally" are put in order in
 [before-strangers-plan.md](before-strangers-plan.md).
@@ -75,6 +75,9 @@ must be confirmed by an ITAA accountant.
 | L26 | **VAT and billing set-up:** Mollie + OSS or a merchant of record; small-business exemption or normal VAT; prices incl. VAT per country; country evidence in the checkout. Consumer-only, or Peppol-ready for business subscribers. | Medium | Building the checkout (L18) | Founder + accountant |
 | L27 | **Sole trader vs BV break-even** with the real salary and expected profit; the trigger may come before v3's revenue gate. | Medium | Paid launch | Accountant |
 | L28 | **Yearly tax-rate review:** check the dividend withholding rules in the app every January and bump `TAX_RULES_REVIEWED`. | Low | Every January | Founder |
+| L29 | **stockanalysis.com as a source** (exchange expansion plan, 17 October 2026): the ticker lists are scraped from it, but it isn't named on the Data sources page. Check its terms of use, and list it as a source or replace it (EODHD's symbol lists). | Medium | Release 2 of the exchange expansion | Founder |
+| L30 | **Withholding defaults per country** ([exchange-expansion-plan.md](exchange-expansion-plan.md) §5b, P11): tax advisor checks the statutory rates and the EPV tax rule for offshore registrations; this is the TAX-7 review for the new feature. | Medium | Release 2 of the exchange expansion | Accountant |
+| L31 | **Add to the L20 question list:** display of LSE, Nasdaq Nordic & Baltic, BME, Euronext Athens/Dublin/Lisbon/Oslo, Wiener Börse and GPW data; index constituent lists and index names (STOXX, FTSE Russell, Euronext, Nasdaq, Deutsche Börse, SIX, BME, GPW). | Medium–high | Sending L20 | Founder |
 
 ## Valuation model
 
@@ -161,6 +164,19 @@ their rows. The Admin sidebar is a navigation landmark since 15 October 2026.
 | # | Item | Do it before |
 | --- | --- | --- |
 | AC7 | **Specialist audit** with screen readers (NVDA, VoiceOver), keyboard only and 200% zoom. The statement is published (15 October 2026, `docs/legal/policies/accessibility.md`); update its gaps list and date whenever an item here closes. | Paid launch |
+
+## Exchange expansion
+
+Plan: [exchange-expansion-plan.md](exchange-expansion-plan.md) (decisions in §0, order in §7). Reviews: [UX](ux-review-exchange-expansion.md), [architecture](architecture-review-exchange-expansion.md), [model](model-review-exchange-expansion.md). Not started as of 17 October 2026.
+
+| # | Item | Do it before |
+| --- | --- | --- |
+| EX1 | **Release 1** (EX-W0, W1a, W1, W2): euro sign on SIX prices, ticker-list cache, fetch hygiene, atomic cache write, exchange registry. No signal changes. | Can start now |
+| EX2 | **Risk-free rate per currency** (D33): choose the official 10-year yield series per currency and who updates it each quarter. | EX-W5b |
+| EX3 | **Shadow build** for a week after 21 October (Q1 done), as a check before release 2: per-market signal mix, data quality, pooled vs. regional medians. | Release 2 |
+| EX4 | **Oslo Børs official branding:** confirm the name to show (D10). | EX-W6 |
+| EX5 | **Model M5** (rate per currency, liquidity in EUR): bump `MODEL_VERSION`, methodology change log, release-note explanation. | Release 2 |
+| EX6 | **Index snapshot refresh** after each quarterly index review (third Friday of March, June, September, December), with `tools/refresh_index_members.py`. | Each quarter after release 2 |
 
 ## Design and code
 
