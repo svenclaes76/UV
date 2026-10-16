@@ -20,7 +20,7 @@ from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_ca
                       load_fundamentals_cache, backfill_thin_rows_from_screener_lane,
                       run_screener_from_df, fetch_fundamentals_nowait,
                       cancel_background_fetch, clear_live_cache, get_fetch_progress,
-                      peer_mask_for, load_founder_holdings)
+                      peer_mask_for, load_founder_holdings, prune_cache)
 from settings import ALL_EXCHANGES, get_veto_thresholds, get_score_weights
 from uvalu import logkit, universe
 from uvalu.store import get_scored_universe, clear_scored_universe
@@ -216,9 +216,12 @@ def _build_all_screener_data(enabled: tuple,
     # once their country is known.
     _cached_country = {t: r.get("country") for t, r in _load_cache().items()}
     stock_lists: dict[str, list[dict]] = {}
+    _all_listed: set[str] = set()      # every listed ticker, foreign or not: kept by prune_cache
     for key, (fetch_fn, _) in _fetch_map.items():
         if key in enabled_set:
-            stock_lists[key] = [s for s in fetch_fn()
+            _raw = fetch_fn()
+            _all_listed.update(s["ticker"] for s in _raw)
+            stock_lists[key] = [s for s in _raw
                                 if not universe.known_foreign(s["ticker"], _cached_country.get(s["ticker"]))]
     _listed = [s for stocks in stock_lists.values() for s in stocks]
     # Lineage (EX-W1a): which cached list, of which date, this build used.
@@ -235,6 +238,11 @@ def _build_all_screener_data(enabled: tuple,
         "building scored universe for %d stocks", len(_listed) + len(_fetch_extra),
         extra={"event": "universe.build", "stocks": len(_listed) + len(_fetch_extra)})
     all_fund = fetch_fundamentals_nowait(_listed + _fetch_extra)
+    # EX-22: drop rows of lines that left every list (and no user holds) a
+    # month ago. Only when every exchange is enabled, so switching one off in
+    # Admin doesn't throw away its rows.
+    if enabled_set >= set(ALL_EXCHANGES):
+        prune_cache(_all_listed | set(extra_tickers))
 
     if all_fund.empty:
         return tuple(empty for _ in ALL_EXCHANGES) + (empty,)

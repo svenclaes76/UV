@@ -41,6 +41,7 @@ import io
 import json
 import logging
 import math
+import os
 import random
 import threading
 import time
@@ -461,6 +462,16 @@ CACHE_TTL_SHORT_HOURS = 3
 _THIN_ROW_RETRIES     = 2
 MIN_FV_MODELS         = 2
 
+# EX-W1 (exchange expansion plan, D29 / EX-19 / EX-20): rows that stay thin or
+# dead are fetched less and less often, and a rate limit pauses every worker.
+# On 16 Oct 2026 992 of 4,059 priced rows sat on the 3-hour short TTL (about 8
+# fetches a day each, for companies that are simply data-poor) and about 4,100
+# rows with no price and no country (symbols Yahoo doesn't know, mostly
+# Frankfurt) were fetched every day.
+THIN_TTL_STEPS_HOURS = (3, 12)          # 1st and 2nd thin result in a row; then the normal TTL
+DEAD_BACKOFF_DAYS    = (1, 2, 4, 8, 16, 30)   # no price and no country, n times in a row
+CACHE_PRUNE_DAYS     = 30               # a row in no list and no portfolio this long is removed
+
 
 class _Fetcher:
     """All background-fetch state for one fundamentals cache file, shared
@@ -484,6 +495,34 @@ class _Fetcher:
         self.row_lock   = threading.Lock()           # guards live_cache dict + done counter
         self.state: dict = {"done": 0, "total": 0, "running": False}
         self.state_lock = threading.Lock()
+
+
+# EX-20: one cool-down shared by every fetch worker in both lanes. When any
+# worker is rate-limited, all of them pause until it ends, instead of the
+# other workers carrying on hitting Yahoo. In memory: it coordinates the
+# threads of this one process (one Streamlit process per deployment).
+_cooldown_lock  = threading.Lock()
+_cooldown_until = 0.0     # time.monotonic() deadline
+
+
+def _start_cooldown(seconds: float) -> None:
+    global _cooldown_until
+    with _cooldown_lock:
+        until = time.monotonic() + seconds
+        if until > _cooldown_until:
+            _cooldown_until = until
+            _log.info("rate limited: pausing all fetch workers for %.0f s", seconds,
+                            extra={"event": "fetch.cooldown", "seconds": round(seconds, 1)})
+
+
+def _wait_for_cooldown(cancelled: "threading.Event | None" = None) -> None:
+    """Block until the shared cool-down is over (or the fetch is cancelled)."""
+    while True:
+        with _cooldown_lock:
+            left = _cooldown_until - time.monotonic()
+        if left <= 0 or (cancelled is not None and cancelled.is_set()):
+            return
+        time.sleep(min(left, 1.0))
 
 
 SCREENER_FETCH  = _Fetcher(Path(__file__).parent / ".cache" / "fundamentals.json")
@@ -552,9 +591,22 @@ def _load_cache(fetcher: "_Fetcher | None" = None) -> dict:
 
 
 def _save_cache(cache: dict, fetcher: "_Fetcher | None" = None) -> None:
+    """Atomic write (EX-W1, D28): written to a temporary file and moved into
+    place, so a crash or restart mid-write can't leave a truncated file, which
+    _load_cache would read as empty and trigger a refetch of everything. No
+    indent: a third smaller and faster to parse."""
     f = fetcher or SCREENER_FETCH
     f.cache_file.parent.mkdir(parents=True, exist_ok=True)
-    f.cache_file.write_text(json.dumps(cache, indent=2), encoding="utf-8")
+    tmp = f.cache_file.with_name(f.cache_file.name + ".tmp")
+    tmp.write_text(json.dumps(cache), encoding="utf-8")
+    for attempt in range(5):
+        try:
+            os.replace(tmp, f.cache_file)
+            return
+        except PermissionError:      # Windows: a reader has the file open for a moment
+            if attempt == 4:
+                raise
+            time.sleep(0.2)
 
 
 def load_fundamentals_cache() -> dict:
@@ -702,6 +754,73 @@ def _next_fetch_at(short: bool = False) -> str:
     else:
         base, jitter = CACHE_TTL_HOURS, random.uniform(-CACHE_TTL_JITTER, CACHE_TTL_JITTER)
     return (datetime.now(timezone.utc) + timedelta(hours=base + jitter)).isoformat()
+
+
+def _apply_refetch_schedule(row: dict, previous: "dict | None") -> dict:
+    """When a row is fetched next, by what it came back as (EX-W1):
+
+    - **Dead** (no price and no country: a symbol Yahoo doesn't know, or a
+      not-found): retried after 1, 2, 4, 8, 16, then every 30 days
+      (`dead_streak`). Back to the normal TTL as soon as a fetch returns a price.
+    - **Thin** (priced but too thin to value, flagged `_thin` by the fetch
+      loop): 3 h, then 12 h, then the normal TTL while it stays thin
+      (`thin_streak`). A full row resets it.
+    """
+    previous = previous or {}
+    row = dict(row)
+    is_thin = bool(row.pop("_thin", False))
+    if row.get("Price") is None and not row.get("country"):
+        streak = int(previous.get("dead_streak") or 0) + 1
+        days = DEAD_BACKOFF_DAYS[min(streak, len(DEAD_BACKOFF_DAYS)) - 1]
+        row["dead_streak"] = streak
+        row["next_fetch_at"] = (datetime.now(timezone.utc)
+                                + timedelta(days=days, hours=random.uniform(0, 4))).isoformat()
+        row.pop("thin_streak", None)
+        return row
+    row.pop("dead_streak", None)
+    if is_thin:
+        streak = int(previous.get("thin_streak") or 0) + 1
+        row["thin_streak"] = streak
+        if streak <= len(THIN_TTL_STEPS_HOURS):
+            hours = THIN_TTL_STEPS_HOURS[streak - 1]
+            row["next_fetch_at"] = (datetime.now(timezone.utc)
+                                    + timedelta(hours=hours * random.uniform(0.8, 1.2))).isoformat()
+        else:
+            row["next_fetch_at"] = _next_fetch_at()
+        return row
+    row.pop("thin_streak", None)
+    return row
+
+
+def prune_cache(keep: "set[str]", fetcher: "_Fetcher | None" = None,
+                max_age_days: int = CACHE_PRUNE_DAYS) -> int:
+    """Remove rows for tickers in no current list and no portfolio (`keep`)
+    whose last fetch is older than `max_age_days` (EX-22): delisted lines
+    otherwise stay in the file forever. Skipped while a fetch is running.
+    Returns the number of rows removed."""
+    f = fetcher or SCREENER_FETCH
+    if f.bg_thread is not None and f.bg_thread.is_alive():
+        return 0
+    _warm_live_cache(f)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+    with f.row_lock:
+        drop = []
+        for t, r in f.live_cache.items():
+            if t in keep:
+                continue
+            when = _row_fetch_time(r) if isinstance(r, dict) else None
+            if when is not None and when.tzinfo is None:
+                when = when.replace(tzinfo=timezone.utc)
+            if when is None or when < cutoff:
+                drop.append(t)
+        for t in drop:
+            del f.live_cache[t]
+    if drop:
+        with f.file_lock:
+            _save_cache(f.live_cache, f)
+        _log.info("pruned %d cached rows no longer listed", len(drop),
+                  extra={"event": "cache.pruned", "rows": len(drop), "sample": drop[:10]})
+    return len(drop)
 
 
 # ── Data fetching ─────────────────────────────────────────────────────────────
@@ -1125,6 +1244,7 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
         row = None
         thin_tries = 0
         for attempt in range(MAX_RETRIES + 1):
+            _wait_for_cooldown(f.cancelled)
             if f.cancelled.is_set():
                 return
             try:
@@ -1151,6 +1271,7 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
                     time.sleep(min(2 ** thin_tries * 3, 20))
                     continue
                 row["next_fetch_at"] = _next_fetch_at(short=True)
+                row["_thin"] = True
                 break
             except Exception as e:
                 msg = str(e)
@@ -1166,9 +1287,8 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
                     if attempt < MAX_RETRIES:
                         continue
                 elif is_rate_limit:
-                    wait = 2 ** attempt * 5
                     if attempt < MAX_RETRIES:
-                        time.sleep(wait)
+                        _start_cooldown(2 ** attempt * 5)   # EX-20: every worker waits, not just this one
                         continue
                 _fetch_log.warning(
                     "fundamentals fetch failed for %s", ticker,
@@ -1181,6 +1301,7 @@ def _run_fetch(stale: list[dict], cache: dict, fetcher: "_Fetcher | None" = None
             row = {"Name": stock["name"], "Ticker": ticker,
                    "ISIN": stock["isin"], "fetched_at": ""}
         row = _carry_forward(row, cache.get(ticker))
+        row = _apply_refetch_schedule(row, cache.get(ticker))
         time.sleep(REQUEST_DELAY)
         # Narrow critical section: only dict write + counter; save check happens outside
         with f.row_lock:

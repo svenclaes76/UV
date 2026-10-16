@@ -676,3 +676,105 @@ class TestBackfillThinRows:
     def test_empty_frame_passes_through(self):
         empty = pd.DataFrame(columns=["Ticker"])
         assert screener.backfill_thin_rows_from_screener_lane(empty).empty
+
+
+# ── EX-W1: fetch hygiene ──────────────────────────────────────────────────
+
+def _hours_until(row):
+    nxt = datetime.fromisoformat(row["next_fetch_at"])
+    return (nxt - datetime.now(timezone.utc)).total_seconds() / 3600
+
+
+class TestRefetchSchedule:
+    def test_dead_row_backs_off_and_caps_at_30_days(self):
+        prev = None
+        days = []
+        for _ in range(8):
+            row = screener._apply_refetch_schedule({"Ticker": "X0.DE", "Price": None, "country": None,
+                                                    "fetched_at": "", "next_fetch_at": "x"}, prev)
+            days.append(round(_hours_until(row) / 24))
+            prev = row
+        assert days == [1, 2, 4, 8, 16, 30, 30, 30]
+        assert prev["dead_streak"] == 8
+
+    def test_price_returning_resets_the_dead_streak(self):
+        prev = {"dead_streak": 5}
+        row = screener._apply_refetch_schedule({"Price": 10.0, "country": "Germany",
+                                                "next_fetch_at": screener._next_fetch_at()}, prev)
+        assert "dead_streak" not in row
+        assert _hours_until(row) > 15          # the normal ~24 h TTL, untouched
+
+    def test_thin_rows_step_3h_12h_then_normal(self):
+        prev, hours = None, []
+        for _ in range(3):
+            row = screener._apply_refetch_schedule({"Price": 5.0, "country": "Italy", "_thin": True,
+                                                    "next_fetch_at": screener._next_fetch_at(short=True)}, prev)
+            hours.append(_hours_until(row))
+            prev = row
+        assert 2 < hours[0] < 4
+        assert 9 < hours[1] < 15
+        assert hours[2] > 15
+        assert "_thin" not in prev and prev["thin_streak"] == 3
+
+    def test_full_row_resets_the_thin_streak(self):
+        row = screener._apply_refetch_schedule({"Price": 5.0, "country": "Italy",
+                                                "next_fetch_at": screener._next_fetch_at()}, {"thin_streak": 2})
+        assert "thin_streak" not in row
+
+    def test_not_found_stub_gets_a_next_fetch_time(self):
+        """EX-21: a 404 stub used to have no next_fetch_at, so it was stale on every rebuild."""
+        row = screener._apply_refetch_schedule({"Name": "Gone", "Ticker": "GONE.BR", "ISIN": "",
+                                                "fetched_at": ""}, None)
+        assert screener._is_fresh(row)
+
+
+class TestSharedCooldown:
+    def test_cooldown_blocks_every_waiter_until_it_ends(self, monkeypatch):
+        clock = {"t": 1000.0}
+        monkeypatch.setattr(screener.time, "monotonic", lambda: clock["t"])
+        monkeypatch.setattr(screener, "_cooldown_until", 0.0)
+        slept = []
+
+        def _sleep(sec):
+            slept.append(sec)
+            clock["t"] += sec
+        monkeypatch.setattr(screener.time, "sleep", _sleep)
+        screener._start_cooldown(5)
+        screener._wait_for_cooldown()
+        assert sum(slept) == pytest.approx(5, abs=0.01)
+        slept.clear()
+        screener._wait_for_cooldown()              # over: a second worker doesn't wait again
+        assert slept == []
+
+    def test_cancel_ends_the_wait(self, monkeypatch):
+        monkeypatch.setattr(screener, "_cooldown_until", screener.time.monotonic() + 3600)
+        ev = threading.Event()
+        ev.set()
+        screener._wait_for_cooldown(ev)            # returns at once instead of waiting an hour
+
+
+class TestAtomicSaveAndPrune:
+    def test_save_leaves_no_temp_file_and_reads_back(self):
+        f = screener.SCREENER_FETCH
+        screener._save_cache({"AAA.BR": {"Ticker": "AAA.BR", "Price": 1.0}}, f)
+        assert json.loads(f.cache_file.read_text(encoding="utf-8"))["AAA.BR"]["Price"] == 1.0
+        assert not list(f.cache_file.parent.glob("*.tmp"))
+
+    def test_prune_drops_old_unlisted_rows_only(self):
+        f = screener.SCREENER_FETCH
+        old = (datetime.now(timezone.utc) - timedelta(days=40)).isoformat()
+        new = datetime.now(timezone.utc).isoformat()
+        f.live_cache.update({
+            "LISTED.BR": {"fetched_at": old},      # still in a list: kept, however old
+            "GONE.BR":   {"fetched_at": old},      # delisted a while ago: removed
+            "RECENT.BR": {"fetched_at": new},      # not listed but fetched recently: kept
+        })
+        assert screener.prune_cache({"LISTED.BR"}, f) == 1
+        assert set(f.live_cache) == {"LISTED.BR", "RECENT.BR"}
+
+    def test_prune_waits_while_a_fetch_runs(self, monkeypatch):
+        f = screener.SCREENER_FETCH
+        f.live_cache["GONE.BR"] = {"fetched_at": "2000-01-01T00:00:00+00:00"}
+        monkeypatch.setattr(f, "bg_thread", type("T", (), {"is_alive": lambda self: True})())
+        assert screener.prune_cache(set(), f) == 0
+        assert "GONE.BR" in f.live_cache
