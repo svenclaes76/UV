@@ -29,7 +29,7 @@ from uvalu.components import (_esc, fmt_mos_pct, model_signal_badge_html, mos_te
                               six_model_ladder_reasons, six_model_ladder_caption,
                               veto_reason_str, is_hard_veto, header_width_px)
 from uvalu.dialogs import _dialog, add_position_dialog, sell_position_dialog
-from uvalu.formatting import display_name, exchange_label, fmt_eur as _fmt_eur
+from uvalu.formatting import display_name, exchange_label, row_currency
 from uvalu.i18n import N_, _, fmt_int, fmt_money, fmt_num, fmt_pct, h_, tr
 from uvalu.runtime import current_user
 from uvalu.ui import enter_dialog
@@ -190,6 +190,8 @@ def open_drawer(row: "pd.Series") -> None:
     # sale preset use the live quote when the row has one (dashboard.py merges
     # a 60s-fresh live_price in), so they match the page the user came from.
     _price = row.get("Price")
+    _ccy = row_currency(row)
+    _fmt_px = lambda v: fmt_money(v, _ccy)   # per-share figures, in the stock's own currency
     _live_price = row.get("live_price")
     _market_price = _live_price if pd.notna(_live_price) else _price
 
@@ -228,10 +230,10 @@ def open_drawer(row: "pd.Series") -> None:
     _tile = 'flex:1;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:13px 10px;'
     _label = 'font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;'
     _cells = [
-        (_("Price"), _fmt_eur(float(_price)) if pd.notna(_price) else "—", "inherit"),
+        (_("Price"), _fmt_px(float(_price)) if pd.notna(_price) else "—", "inherit"),
         # UX3: the fair value in a neutral colour (green read as "good"), and
         # a margin below −100% as "price N× fair value".
-        (_("Fair value"), _fv(row, "fair_value", _fmt_eur), "inherit"),
+        (_("Fair value"), _fv(row, "fair_value", _fmt_px), "inherit"),
         (_("Margin of safety"), _fv(row, "MoS %", fmt_mos_pct), _mos_color),
     ]
     _drawer_width_css([(label, value) for label, value, _c in _cells])
@@ -265,6 +267,7 @@ def open_drawer(row: "pd.Series") -> None:
             # Graham / P/E / EPV slot for loss-makers (see six_model_ladder_rows).
             models=six_model_ladder_rows(row),
             composite=row.get("fair_value"),
+            currency=_ccy,
             bar_width=96,
             reasons=six_model_ladder_reasons(row),           # FV-6
             basis_count=row.get("fv_model_count"),

@@ -1,7 +1,7 @@
 """Tests for uvalu/formatting.py's pure value formatters."""
 import pytest
 
-from uvalu.formatting import display_name, fmt_eur, safe_pct
+from uvalu.formatting import display_name, fmt_eur, row_currency, safe_pct
 
 
 class TestFmtEur:
@@ -66,3 +66,21 @@ def test_exchange_codes_match_the_design_reference():
     assert [exchange_code(t) for t in ("ULVR.L", "TEF.MC", "NDA-FI.HE", "VOLV-B.ST", "AED.BR")] == \
         ["LON", "MAD", "HEL", "STO", "BRU"]
     assert exchange_code("AAPL") is None
+
+
+class TestRowCurrency:
+    """EX-W0: per-share figures use the row's own currency."""
+
+    def test_row_currency_field_wins(self):
+        assert row_currency({"Ticker": "ALPN.SW", "Currency": "chf"}) == "CHF"
+
+    def test_falls_back_to_the_exchange_currency(self):
+        assert row_currency({"Ticker": "ALPN.SW"}) == "CHF"
+        assert row_currency({"ticker": "UCB.BR", "Currency": None}) == "EUR"
+
+    def test_unknown_suffix_is_eur(self):
+        assert row_currency({"Ticker": "AAPL"}) == "EUR"
+
+    def test_works_on_a_series(self):
+        import pandas as pd
+        assert row_currency(pd.Series({"Ticker": "NESN.SW", "Currency": float("nan")})) == "CHF"

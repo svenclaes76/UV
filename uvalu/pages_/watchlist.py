@@ -15,7 +15,7 @@ from uvalu import a11y
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import list_provenance_html, page_header, fit_widths, header_cell_html, stock_row, empty_results_html, skeleton_rows
 from uvalu.drawer import open_drawer
-from uvalu.formatting import exchange_code
+from uvalu.formatting import exchange_code, row_currency
 from uvalu.i18n import N_, _, h_, ngettext, tr
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun, poll_while_fetching
@@ -231,7 +231,7 @@ def render() -> None:
                 score=_row.get("Value Score"), mos_pct=_row.get("MoS %"), price=_row.get("Price"),
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
                 show_action=False, show_remove=True, remove_help=_("Remove from watchlist"),
-                action_disabled=_is_viewer, widths=_fitted_widths(),
+                action_disabled=_is_viewer, widths=_fitted_widths(), currency=row_currency(_row),
             )
             if _result["remove"]:
                 save_watchlist(watchlist - {_ticker})

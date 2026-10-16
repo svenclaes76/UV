@@ -9,6 +9,19 @@ def fmt_eur(v) -> str:
     return fmt_money(v, "EUR")
 
 
+def row_currency(row) -> str:
+    """The quote currency of a scored row or holding: its own ``Currency``
+    field, else the currency of its ticker's exchange, else EUR. Per-share
+    figures (price, fair value, EPS, DPS) are in this currency, never in a
+    fixed one (exchange expansion plan EX-39)."""
+    get = row.get if hasattr(row, "get") else (lambda _k, _d=None: _d)
+    ccy = get("Currency")
+    if isinstance(ccy, str) and len(ccy.strip()) == 3 and ccy.strip().isalpha():
+        return ccy.strip().upper()
+    from portfolio import currency_for_ticker
+    return currency_for_ticker(str(get("Ticker") or get("ticker") or ""))
+
+
 def safe_pct(numerator: float, denominator: float) -> float:
     """Return numerator/denominator*100, or 0 if denominator is zero."""
     return numerator / denominator * 100 if denominator else 0

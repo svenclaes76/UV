@@ -20,7 +20,7 @@ from uvalu.drawer import open_drawer
 from uvalu.components import (page_header, fit_widths, header_cell_html, signal_badge_for, stock_row, is_hard_veto,
                               list_provenance_html, signal_share_label, empty_results_html,
                               refresh_top_bar_html, skeleton_filter_bar_html, skeleton_rows, text_width_px)
-from uvalu.formatting import exchange_code
+from uvalu.formatting import exchange_code, row_currency
 from uvalu.i18n import N_, _, fmt_pct, frozen, h_, search_match, sort_key, tr
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun
@@ -452,7 +452,7 @@ def render() -> None:
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
                 action_active=_in_wl,
                 action_help=_("Remove from watchlist") if _in_wl else _("Add to watchlist"),
-                action_disabled=_is_viewer, widths=_widths,
+                action_disabled=_is_viewer, widths=_widths, currency=row_currency(_row),
             )
             if _result["action"]:
                 if _in_wl:
