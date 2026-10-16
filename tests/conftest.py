@@ -111,6 +111,15 @@ def _migrations_isolated(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _ticker_lists_isolated(tmp_path, monkeypatch):
+    """Never read or write the developer's real .cache/ticker_lists/, and
+    refresh a stale list synchronously so no test leaves a thread behind."""
+    import fetch_tickers
+    monkeypatch.setattr(fetch_tickers, "_LIST_CACHE_DIR", tmp_path / "ticker_lists")
+    monkeypatch.setattr(fetch_tickers, "BACKGROUND_REFRESH", False)
+
+
+@pytest.fixture(autouse=True)
 def _fx_isolated(tmp_path, monkeypatch):
     """Never call the real frankfurter.dev API and never touch the developer's
     real .cache/fx_frankfurter.json: every test gets an empty FX cache in

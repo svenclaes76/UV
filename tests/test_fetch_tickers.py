@@ -297,3 +297,76 @@ class TestFetchFrankfurtTickers:
         tickers = {s["ticker"] for s in result}
         assert "P911.DE" not in tickers
         assert "1COV.DE" not in tickers
+
+
+# ── Ticker-list cache (EX-W1a) ────────────────────────────────────────────
+
+class TestTickerListCache:
+    """A rebuild reads the cached list; scraping happens at most once per TTL,
+    a much smaller scrape never replaces the last good list, and a failure
+    falls back without retrying on every call."""
+
+    URL = "https://stockanalysis.com/list/euronext-brussels/"
+
+    def _get(self, symbols):
+        calls = []
+
+        def _fake(url, **kwargs):
+            calls.append(url)
+            return FakeResponse(_table_html(symbols, [f"{s} Corp" for s in symbols]))
+        return _fake, calls
+
+    def _list(self):
+        return fetch_tickers._cached_list(self.URL, ".BR", "XBRU", "Brussels",
+                                          fallback_fn=lambda: [{"ticker": "FALLBACK.BR"}])
+
+    def test_second_call_uses_the_cache(self, monkeypatch):
+        fake, calls = self._get(["AAA", "BBB"])
+        monkeypatch.setattr(requests, "get", fake)
+        first = self._list()
+        second = self._list()
+        assert [s["ticker"] for s in first] == ["AAA.BR", "BBB.BR"]
+        assert second == first
+        assert len(calls) == 1
+
+    def test_stale_list_is_served_and_refreshed(self, monkeypatch):
+        fake, calls = self._get(["AAA", "BBB"])
+        monkeypatch.setattr(requests, "get", fake)
+        self._list()
+        entry = fetch_tickers._read_list("Brussels")
+        old = "2000-01-01T00:00:00+00:00"
+        fetch_tickers._write_list("Brussels", {**entry, "fetched_at": old, "checked_at": old})
+        fake2, calls2 = self._get(["AAA", "BBB", "CCC"])
+        monkeypatch.setattr(requests, "get", fake2)
+        served = self._list()                       # the stale list, refreshed afterwards
+        assert len(served) == 2 and len(calls2) == 1
+        assert len(self._list()) == 3               # the refreshed list from now on
+
+    def test_shrunk_scrape_keeps_the_last_good_list(self, monkeypatch):
+        fake, _ = self._get([f"S{i}" for i in range(10)])
+        monkeypatch.setattr(requests, "get", fake)
+        self._list()
+        fake2, _ = self._get(["S1", "S2", "S3"])     # 30% of the last good list
+        monkeypatch.setattr(requests, "get", fake2)
+        assert fetch_tickers._refresh_list("Brussels", self.URL, ".BR", "XBRU") is None
+        assert len(self._list()) == 10
+
+    def test_failure_without_cache_falls_back_and_throttles(self, monkeypatch):
+        calls = []
+
+        def _boom(url, **kwargs):
+            calls.append(url)
+            raise ConnectionError("down")
+        monkeypatch.setattr(requests, "get", _boom)
+        assert self._list() == [{"ticker": "FALLBACK.BR"}]
+        assert self._list() == [{"ticker": "FALLBACK.BR"}]
+        assert len(calls) == 1                      # no second scrape within LIST_RETRY_MINUTES
+
+    def test_write_is_atomic_and_status_reports_it(self, monkeypatch):
+        fake, _ = self._get(["AAA"])
+        monkeypatch.setattr(requests, "get", fake)
+        self._list()
+        assert not list(fetch_tickers._LIST_CACHE_DIR.glob("*.tmp"))
+        status = fetch_tickers.list_status()
+        assert status["Brussels"]["stocks"] == 1
+        assert status["Brussels"]["source"] == "stockanalysis"
