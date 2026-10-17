@@ -77,7 +77,7 @@ must be confirmed by an ITAA accountant.
 | L28 | **Yearly tax-rate review:** check the dividend withholding rules in the app every January and bump `TAX_RULES_REVIEWED`. | Low | Every January | Founder |
 | L29 | **stockanalysis.com as a source** (exchange expansion plan, 17 October 2026): the ticker lists are scraped from it, but it isn't named on the Data sources page. Check its terms of use, and list it as a source or replace it (EODHD's symbol lists). | Medium | Release 2 of the exchange expansion | Founder |
 | L30 | **Withholding defaults per country** ([exchange-expansion-plan.md](exchange-expansion-plan.md) §5b, P11): tax advisor checks the statutory rates and the EPV tax rule for offshore registrations; this is the TAX-7 review for the new feature. | Medium | Release 2 of the exchange expansion | Accountant |
-| L31 | **Add to the L20 question list:** display of LSE, Nasdaq Nordic & Baltic, BME, Euronext Athens/Dublin/Lisbon/Oslo, Wiener Börse and GPW data; index constituent lists and index names (STOXX, FTSE Russell, Euronext, Nasdaq, Deutsche Börse, SIX, BME, GPW). | Medium–high | Sending L20 | Founder |
+| L31 | **Done 17 October 2026:** the 15 exchanges, index constituents and names, symbol lists with ISIN, and quote/reporting currencies are in the L20 question list ([data-licensing-review.md](legal/data-licensing-review.md) appendix, questions 1, 2, 8–10). Sending it is L20. | — | — | Founder |
 
 ## Valuation model
 

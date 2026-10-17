@@ -90,13 +90,22 @@ Already in place:
 
 ## Appendix: questions for EODHD, in writing
 
-1. Which plan allows displaying end-of-day prices, fundamentals, dividends and splits to **paying non-professional subscribers** in the EEA, inside a web app, about 3,900 listings today (fewer after open item V2) on Euronext (BR, AMS, PAR), Borsa Italiana, Xetra and SIX?
-2. Are **derived values** (fair values, scores, model signals, risk figures) free to display without restriction? Is attribution required for them?
-3. May we show **price charts** of 1 year of daily closes?
-4. Are **exchange fees** for that display included? Must we report users, or sign anything with the exchanges?
+*Updated 17 Oct 2026 for the exchange expansion ([exchange-expansion-plan.md](../exchange-expansion-plan.md), open items L20, L29, L31). The 13 Oct list had questions 1–7 and 11–13 for six exchanges; 8–10 are new.*
+
+Context to give first: Uvalu is a web app for paying non-professional subscribers in the EEA. It shows end-of-day data and values derived from it, and will cover about 21 European exchanges.
+
+1. Which plan allows displaying **end-of-day prices, fundamentals, dividends and splits** to **paying non-professional subscribers** in the EEA, inside a web app, for roughly 4,000–7,000 listings on: Euronext (Brussels, Amsterdam, Paris, Milan, Dublin, Lisbon, Oslo, Athens), Xetra, SIX Swiss Exchange, the London Stock Exchange, Bolsa de Madrid (BME), Nasdaq Stockholm, Copenhagen, Helsinki, Iceland, Tallinn, Riga and Vilnius, Wiener Börse and the Warsaw Stock Exchange (GPW)?
+2. Are **exchange fees** for that display included, per exchange? Must we report users, or sign anything with any exchange? We know least about London, Nasdaq Nordic and Baltic, BME, Wiener Börse and GPW.
+3. Are **derived values** (fair values, scores, model signals, risk figures) free to display without restriction? Is attribution required for them?
+4. May we show **price charts** of 1 year of daily closes?
 5. May we **store** data and keep it **after the contract ends**, at least a 12-month history of signals with the price each used?
 6. May users **export** their own portfolio records that contain sector names, dividend amounts and prices?
 7. Is **EURO STOXX 50** index data covered for computing beta, without displaying the index?
-8. What **attribution** text, placement and logo rules apply?
-9. How does the **price** scale with the number of subscribers? Is there a fixed fee up to a given number?
-10. What **notice** applies if EODHD changes the terms or ends the licence?
+8. **Index membership:** may we show which indices a stock belongs to and filter by them (EURO STOXX 50, STOXX Europe 50, AEX, BEL 20, CAC 40, DAX, FTSE MIB, SMI, IBEX 35, FTSE 100, OMXS30, OMXC25, OMXH25, OBX, PSI, ISEQ 20, ATX, FTSE/Athex Large Cap, OMXI15, WIG20, OMX Baltic Benchmark)? Does EODHD provide their constituent lists, and on what terms? May we use the index names (trademarks of STOXX, FTSE Russell, Euronext, Nasdaq, Deutsche Börse, SIX, BME, GPW)?
+9. **Symbol lists and identifiers:** does EODHD provide a full symbol list per exchange with **ISIN**, security type (common stock / fund / ETF) and the **primary listing**, usable to build our coverage list (replacing the public lists we read now)?
+10. **Currency and units:** do you give the **quote currency** per listing (including London prices in pence) and the **reporting currency** of the fundamentals? How complete are fundamentals for Athens, the Baltics, Iceland and Warsaw?
+11. What **attribution** text, placement and logo rules apply?
+12. How does the **price** scale with the number of subscribers? Is there a fixed fee up to a given number?
+13. What **notice** applies if EODHD changes the terms or ends the licence?
+
+Have ready when sending: the plan under consideration with its current terms saved as a dated PDF, and the expected subscribers for years 1–3 (see "Facts the review still needs").
