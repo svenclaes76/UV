@@ -21,10 +21,15 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
-**Amounts carry their currency code instead of a symbol, and dividend
-withholding is set per country of the company with statutory defaults.**
-No signal changes. Data schema: 3 (per-exchange withholding rates move to
-their country; non-zero rates are kept as the user's own).
+## [2026.10.10] — 2026-10-17
+
+**No signal changes.** Positions in another currency than the euro are
+now valued in EUR, amounts carry their currency code instead of a symbol,
+and dividend withholding is set per country of the company with statutory
+defaults; groundwork for the exchange expansion (planned exchanges, pence
+prices, index membership). **Do:** nothing beyond restarting; the
+migration runs at start-up. Data schema: 3 (per-exchange withholding rates
+move to their country; non-zero rates are kept as the user's own).
 
 ### Added
 
