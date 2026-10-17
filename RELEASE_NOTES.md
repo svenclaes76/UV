@@ -20,7 +20,18 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+## [2026.10.9] — 2026-10-17
+
+**Prices in the right currency, clearer market names, and stress tests based
+on European markets.** Signals don't change; your risk score can change
+slightly.
+
 ### Improved
+
+- **Official exchange names**: the Market filter and stock details now name
+  each exchange as it is officially called, such as Euronext Brussels or
+  Xetra.
+- **Faster screener updates**: new data shows up sooner after a restart.
 
 - **Stress tests based on European markets**: the past-crisis scenarios on
   the Risk page now use the EURO STOXX 50's own falls instead of the
@@ -29,6 +40,8 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ### Fixed
 
+- **Swiss stocks in Swiss francs**: prices and fair values of SIX Swiss
+  Exchange stocks are shown in CHF instead of with a euro sign.
 - **Fair values on narrow screens**: on the Dashboard the fair value under
   each bar no longer breaks in two in German or Spanish.
 - **Watchlist after a restart** says it is loading your stocks, instead of

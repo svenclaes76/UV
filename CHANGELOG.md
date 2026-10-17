@@ -21,8 +21,37 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+## [2026.10.9] — 2026-10-17
+
+**No signal changes; a portfolio's risk score can rise slightly** (stress
+scenarios on the EURO STOXX 50). Swiss prices show in CHF, exchanges are
+listed by their official names, and the screener rebuilds and refreshes with
+far fewer data requests. No action needed; the fundamentals cache is
+rewritten in a smaller format on its first save, and ticker lists are now
+cached in `.cache/ticker_lists/`.
+
 ### Changed
 
+- Exchanges are shown by their official names everywhere (Market filter,
+  Exchange column, drawer): Euronext Brussels, Euronext Amsterdam, Euronext
+  Paris, Euronext Milan, Xetra (the `.DE` prices are Xetra's) and SIX Swiss
+  Exchange. Names aren't translated. The keys in `enabled_exchanges` are
+  unchanged, so saved settings keep working. All facts about an exchange
+  (name, country, suffix, currency, list) now live in one registry,
+  `uvalu/exchanges.py`.
+- Universe rebuilds no longer scrape the exchange ticker lists. Lists are
+  cached per exchange for 24 hours; a stale list is used while it is
+  refreshed in the background, and a new list under 70% of the last good one
+  is rejected and logged (`tickers.shrunk`). A median rebuild took about
+  61 seconds, 55 of them scraping; it now takes a few seconds.
+- Fewer requests to the market-data provider: rows that stay too thin to
+  value are refetched after 3 hours, 12 hours, then daily (they were
+  refetched every 3 hours, about a quarter of all rows); symbols that return
+  no price and no country are retried after 1, 2, 4, 8, 16, then every 30
+  days. A rate limit now pauses every fetch worker, not just one. The
+  fundamentals cache is written atomically (a crash mid-write could leave an
+  empty cache and a full refetch), and rows of lines that left every list a
+  month ago are removed.
 - Stress scenarios on the EURO STOXX 50 (Q3, docs/quant-review.md §3):
   `risk.HISTORICAL_SCENARIOS` holds the index's own peak-to-trough falls and
   dates instead of the S&P 500's: dot-com −66.2% (6 Mar 2000 – 12 Mar
@@ -34,6 +63,12 @@ of that month); earlier releases used SemVer. Rules in
 
 ### Fixed
 
+- Prices of SIX Swiss Exchange stocks showed a euro sign: the Screener and
+  Watchlist rows, the stock drawer, the Analysis page (price, fair values,
+  sensitivity table, chart, EPS, dividend per share) and the Dashboard
+  fair-value bars now use each stock's own currency.
+- With an exchange switched off in Admin, the Screener labelled every later
+  exchange's stocks with the wrong market name.
 - Tables at 1024px in German and Spanish (P1): a measured pass over every
   table (Screener, Watchlist, Dashboard and Risk holdings, Portfolio,
   dividends, cash) found one value still breaking: the Dashboard ladder's
