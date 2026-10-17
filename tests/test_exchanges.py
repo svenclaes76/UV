@@ -75,15 +75,15 @@ def test_no_exchange_map_outside_the_registry():
     """F7 / EX-3: the facts about an exchange live only in uvalu/exchanges.py.
     A dict keyed by an exchange suffix or key anywhere else in the app is a
     copy that can drift (fetch_tickers.FETCHERS, the key → list function
-    map, is the one allowed exception)."""
+    map, is the one allowed exception; migrations are frozen by design)."""
     pattern = re.compile(r'"\.(%s)"\s*:|"(%s)"\s*:' % (
         "|".join(e.suffix.lstrip(".") for e in exchanges.EXCHANGES),
         "|".join(exchanges.keys())))
     offenders = []
     files = [*ROOT.glob("*.py"), *(ROOT / "uvalu").rglob("*.py")]
     for path in files:
-        if path.name == "exchanges.py":
-            continue
+        if path.name == "exchanges.py" or "migrations" in path.parts:
+            continue      # a migration is frozen at the data it was written for, not the live registry
         for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if pattern.search(line) and not (path.name == "fetch_tickers.py" and "_tickers," in line):
                 offenders.append(f"{path.relative_to(ROOT)}:{n}: {line.strip()}")

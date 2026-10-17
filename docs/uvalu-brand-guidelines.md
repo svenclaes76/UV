@@ -470,22 +470,25 @@ These texts are required and keep their wording; translations must keep their me
 - No emoji in core UI
 - No exclamation marks in data contexts
 - In the product, use "Uvalu" (not "we" or "the app") when describing the system's actions. Legal texts (terms, privacy, policies) use "we" for the operator.
-- Numeric values always include units: `34%`, `11.4×`, `€42.80`
-- Percentages use `%`, multiples use `×`, currency symbols follow the user's region format
+- Numeric values always include units: `34%`, `11.4×`, `EUR 42.80`
+- Percentages use `%`, multiples use `×`, amounts carry their three-letter currency code, placed where the user's region puts it (never a symbol: v1.4)
 - Translations keep the voice: no buy-voice, no hype and no exclamation marks in any language. The disclosures keep their meaning (§8).
 
 ### Numbers and dates
 
-Every number and date goes through the formatters in `uvalu/i18n.py` (`fmt_num`, `fmt_money`, `fmt_pct`, `fmt_compact`, `fmt_date`, `fmt_time`, `fmt_datetime`). They follow the user's region (CLDR), so `€42.80` in en-GB is `€ 42,80` in nl-BE and `42,80 €` in de-DE. Never format a number by hand.
+Every number and date goes through the formatters in `uvalu/i18n.py` (`fmt_num`, `fmt_money`, `fmt_pct`, `fmt_compact`, `fmt_date`, `fmt_time`, `fmt_datetime`). They follow the user's region (CLDR), so `EUR 42.80` in en-GB is `EUR 42,80` in nl-BE and `42,80 EUR` in de-DE. Never format a number by hand.
 
 | Rule | Example (en-GB) |
 |---|---|
-| Decimals: prices and amounts 2, percentages 1, multiples 1, scores 0 | `€42.80` · `34.2%` · `11.4×` · `82/100` |
-| A `+` sign only on changes (P&L, deltas, returns), never on levels | `+€126.60` · `-3.1%` |
-| The minus sign is the region's own, in front of the currency symbol | `-€86.01`, not `€-86.01` |
+| Decimals: prices and amounts 2, percentages 1, multiples 1, scores 0 | `EUR 42.80` · `34.2%` · `11.4×` · `82/100` |
+| Currency: always the ISO code, never a symbol, with a no-break space; in a price cell the code is set small and muted | `EUR 42.80` · `SEK 422.60` · `CHF 8.80` |
+| A price of 1,000 or more has no decimals | `DKK 24,270` |
+| An amount in another currency than the user's own gets a small muted second line in theirs | `SEK 422.60` / `≈ EUR 38.40` |
+| A `+` sign only on changes (P&L, deltas, returns), never on levels | `+EUR 126.60` · `-3.1%` |
+| The minus sign is the region's own, in front of the currency code | `-EUR 86.01`, not `EUR -86.01` |
 | No negative zero | `0.0%`, not `-0.0%` |
 | Compact notation only where space is tight (tiles, chart labels) | `1.2B` / `1,2 Mrd.` |
-| A converted amount carries `≈` | `≈ €1,240` |
+| A converted amount carries `≈` | `≈ EUR 1,240` |
 | A missing value is an em dash, never 0 or "n/a" | `—` |
 | Dates in the user's chosen style; chart ticks and compact labels use skeletons (`MMMd`, `yMMM`) | `7 Oct 2026` · `Oct 7` |
 | Times in the user's time zone, the region's clock | `21:15` |
@@ -527,6 +530,13 @@ Uvalu's identity is defined as much by what it rejects as what it embraces.
 ---
 
 ## Changes
+
+**v1.6 — 17 Oct 2026**
+
+- Currency: every amount carries its three-letter code, never a symbol (`EUR 42.80`, `55,86 EUR`), placed where the user's region puts it, with a no-break space. A list now mixes up to seven currencies and "kr" alone is SEK, NOK, DKK and ISK (exchange expansion plan D14).
+- In a price cell (Screener, Watchlist, Portfolio rows, drawer and Analysis hero) the code is set small and muted so the number keeps its weight, and a price of 1,000 or more has no decimals (`DKK 24,270`) (D22).
+- An amount in another currency than the user's own gets a small muted second line in theirs (`≈ EUR 38.40`), the same style as the dividend list's "… gross" line (D25).
+- Dialog labels name the currency of the field: "Total cost (EUR)", "Per share (CHF)".
 
 **v1.5 — 12 Oct 2026**
 

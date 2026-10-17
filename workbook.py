@@ -254,7 +254,6 @@ def _pct(v) -> str:
 def _settings_rows(user_settings: dict) -> list[dict]:
     """Every setting of the user, one row each, grouped by the Settings
     section it lives in: section · setting · value."""
-    from settings import ALL_EXCHANGES, EXCHANGE_LABELS
 
     not_set = _("Not set (default)")
 
@@ -268,9 +267,11 @@ def _settings_rows(user_settings: dict) -> list[dict]:
                        ("time_zone", _("Time zone")), ("week_start", _("First day of week"))):
         rows.append((lr, label, val(user_settings.get(key))))
     rows.append((_("Display"), _("Table density"), val(user_settings.get("density"))))
-    wh = user_settings.get("dividend_withholding") or {}
-    for ex in ALL_EXCHANGES:
-        rows.append((_("Dividend withholding"), EXCHANGE_LABELS.get(ex, ex), f"{float(wh.get(ex, 0.0) or 0):g}%"))
+    from uvalu import withholding
+    own = user_settings.get(withholding.SETTING_KEY) or {}
+    for country in withholding.countries():     # by country of the company (D13)
+        rows.append((_("Dividend withholding"), withholding.country_name(country),
+                     f"{withholding.rate_for(country, own):g}%"))
     targets = portfolio.load_targets()
     ta = _("Target allocation")
     for name, w in sorted((targets.get("sectors") or {}).items()):

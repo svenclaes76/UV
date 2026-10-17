@@ -164,8 +164,8 @@ def test_renders_price_chart_when_history_available(isolated_data, monkeypatch):
         # page's long period so the shared disk cache is filled in full.
         asked.append((list(tickers), period))
         today = pd.Timestamp.now().normalize()
-        # 30 days from over a year ago (€50) must be cut off; the last 200
-        # business days run from €100 up to €129.
+        # 30 days from over a year ago (EUR\xa050) must be cut off; the last 200
+        # business days run from EUR\xa0100 up to EUR\xa0129.
         old = pd.bdate_range(end=today - pd.Timedelta(days=400), periods=30)
         recent = pd.bdate_range(end=today, periods=200)
         closes = [50.0] * 30 + [100.0 + min(i, 29) for i in range(200)]
@@ -189,7 +189,7 @@ analysis_page.render()
     # AC6: the chart is one image for screen readers, named by a summary.
     name, pressed, role = at.session_state["_uv_aria"]["an_price_chart"]
     assert role == "img" and name.startswith("Chart: over the past year the price moved between")
-    assert "€100" in name and "€129" in name
+    assert "EUR\xa0100" in name and "EUR\xa0129" in name
     assert "€50" not in name
 
 

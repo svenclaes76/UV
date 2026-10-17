@@ -29,7 +29,8 @@ from uvalu.components import (_esc, fmt_mos_pct, model_signal_badge_html, mos_te
                               six_model_ladder_reasons, six_model_ladder_caption,
                               veto_reason_str, is_hard_veto, header_width_px)
 from uvalu.dialogs import _dialog, add_position_dialog, sell_position_dialog
-from uvalu.formatting import display_name, exchange_label, row_currency, share_class as _share_class
+from uvalu.formatting import (converted_line_html, display_name, exchange_label, price_html, row_currency,
+                               share_class as _share_class, text_width_chars)
 from uvalu.i18n import N_, _, fmt_int, fmt_money, fmt_num, fmt_pct, h_, tr
 from uvalu.runtime import current_user
 from uvalu.ui import enter_dialog
@@ -104,7 +105,7 @@ def _hero_row_px(cells: list[tuple[str, str]]) -> float:
     """Width the hero row needs: each tile fits its one-line label (10px
     uppercase, 0.02em tracking) and its value (21px mono, ~12.3px a glyph),
     plus 20px padding + border, with 8px gaps."""
-    tiles = [max((header_width_px(label) - 4) / 1.03 - 0.4 * len(label), 12.3 * len(value)) + 21
+    tiles = [max((header_width_px(label) - 4) / 1.03 - 0.4 * len(label), 12.3 * text_width_chars(value)) + 21
              for label, value in cells]
     return sum(tiles) + 8 * (len(tiles) - 1)
 
@@ -229,6 +230,7 @@ def open_drawer(row: "pd.Series") -> None:
     # (G24: no "Implied return" tile).
     _tile = 'flex:1;background:var(--panel-2);border:0.5px solid var(--line);border-radius:8px;padding:13px 10px;'
     _label = 'font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap;'
+    _fv_val = row.get("fair_value")
     _cells = [
         (_("Price"), _fmt_px(float(_price)) if pd.notna(_price) else "—", "inherit"),
         # UX3: the fair value in a neutral colour (green read as "good"), and
@@ -236,12 +238,21 @@ def open_drawer(row: "pd.Series") -> None:
         (_("Fair value"), _fv(row, "fair_value", _fmt_px), "inherit"),
         (_("Margin of safety"), _fv(row, "MoS %", fmt_mos_pct), _mos_color),
     ]
+    # Money tiles: the code small (D22) and, for a foreign stock, the value in
+    # the user's own currency underneath (D25).
+    _html_vals = [
+        (price_html(float(_price), _ccy) + converted_line_html(float(_price), _ccy)) if pd.notna(_price) else "—",
+        (price_html(float(_fv_val), _ccy) + converted_line_html(float(_fv_val), _ccy))
+        if _fv_val is not None and pd.notna(_fv_val) else _cells[1][1],
+        _cells[2][1],
+    ]
     _drawer_width_css([(label, value) for label, value, _c in _cells])
     st.markdown(
         '<div style="display:flex;gap:8px;margin-top:16px;">'
         + "".join(f'<div style="{_tile}"><div style="{_label}">{_html.escape(label)}</div>'
                   f'<div style="font-family:var(--uv-mono);font-size:21px;font-weight:500;margin-top:5px;'
-                  f'color:{color};">{value}</div></div>' for label, value, color in _cells)
+                  f'color:{color};">{shown}</div></div>'
+                  for (label, _value, color), shown in zip(_cells, _html_vals))
         + '</div>', unsafe_allow_html=True)
 
     if is_hard_veto(row.get("veto")):

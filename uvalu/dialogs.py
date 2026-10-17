@@ -32,7 +32,7 @@ import yfinance as yf
 
 from portfolio import add_dividend, add_closed_trade, record_buy, record_sell
 from uvalu.components import text_width_px
-from uvalu.i18n import N_, _, date_input_format, frozen, fmt_int, fmt_money, fmt_num, fmt_pct, lowercase_noun, ngettext, tr
+from uvalu.i18n import N_, _, date_input_format, frozen, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, lowercase_noun, ngettext, tr
 from uvalu.locale_ui import number_field
 from uvalu.ui import enter_dialog
 
@@ -380,6 +380,35 @@ def cash_after_html(kind: str, gross: float, fee: float, on=None) -> str:
                              cash.money(p["after"], base))
 
 
+def _trade_rate(ticker: str, on) -> "tuple[str, float | None]":
+    """(the stock's currency, EUR for 1 unit on the trade date) — None when
+    no ECB rate is available. Trade prices are entered in the stock's own
+    currency; positions and the cash ledger are kept in EUR (P12, EX-17)."""
+    import fx
+    from portfolio import currency_for_ticker
+    ccy = currency_for_ticker(ticker or "")
+    if ccy == "EUR":
+        return ccy, 1.0
+    try:
+        return ccy, float(fx.get_rate(ccy, base="EUR", on=on).rate)
+    except fx.FxUnavailable:
+        return ccy, None
+
+
+def _rate_line(ccy: str, rate: "float | None", on) -> None:
+    """Under a foreign price: the rate it is converted at, or that none is
+    available (codes on both sides, D14)."""
+    if ccy == "EUR":
+        return
+    if rate:
+        text = _("Converted to EUR at 1 {currency} = {rate} EUR ({date}).",
+                 currency=ccy, rate=fmt_num(rate, 4), date=fmt_date(on))
+    else:
+        text = _("No EUR rate for {currency} on {date}.", currency=ccy, date=fmt_date(on))
+    st.markdown(f'<div style="font-size:11.5px;color:var(--muted);margin-top:-4px;">{_html.escape(text)}</div>',
+                unsafe_allow_html=True)
+
+
 # ── Positions ────────────────────────────────────────────────────────────────
 # Standard layout (Add / Edit / Close alike): identity → dates row (date |
 # fees) → amounts row → Cash box → [Edit: cash-link slot, Sell link] →
@@ -405,7 +434,11 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
     with _c2:
         fee = _nz(number_field(_l1[1], min_value=0.0, step=0.01, value=0.0,
                                format="%.2f", key="dlg_ap_fee"), 0.0)
-    _l2 = [_("Shares *"), _("Total cost (€) *"), _("Price / share (opt.)")]
+    # The total is in EUR, like every position; the price per share is in
+    # the stock's own currency and converted at the buy date's rate (P12).
+    _ccy, _rate = _trade_rate(ticker_raw, pur_date)
+    # Translators: Add position › label of the optional price-per-share field (required fields end in *); {currency} is the stock's currency code, e.g. "Per share (CHF)", like the dividend dialog's "Per share ({currency}) *".
+    _l2 = [_("Shares *"), _("Total cost (EUR) *"), _("Per share ({currency})", currency=_ccy)]
     _c3, _c4, _c5 = field_cols(3, _l2, key="dlg_ap_amounts")
     with _c3:
         shares = _nz(number_field(_l2[0], min_value=1, step=1, value=1, key="dlg_ap_shares"))
@@ -415,7 +448,10 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
     with _c5:
         price = _nz(number_field(_l2[2], min_value=0.0, step=0.01,
                                  value=round(preset_price, 2), format="%.2f", key="dlg_ap_price"), 0.0)
-    _gross_preview = total_cost if total_cost > 0 else round(price * shares, 2)
+    if total_cost <= 0 and price > 0:
+        _rate_line(_ccy, _rate, pur_date)
+    _from_price = round(price * shares * _rate, 2) if _rate else 0.0
+    _gross_preview = total_cost if total_cost > 0 else _from_price
     st.markdown(cash_after_html("Buy", _gross_preview, fee, on=pur_date), unsafe_allow_html=True)
 
     _do_save = dialog_actions("dlg_ap")[0]
@@ -430,7 +466,10 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
         st.error(_("Ticker **{ticker}** not found. Check the symbol and try again.", ticker=ticker_raw))
         return
     _yf_name = _looked_up[0]
-    _total = total_cost if total_cost > 0 else round(price * shares, 2)
+    if total_cost <= 0 and price > 0 and not _rate:
+        st.error(_("No EUR rate for {currency}: enter the total cost in EUR instead.", currency=_ccy))
+        return
+    _total = total_cost if total_cost > 0 else _from_price
     if _total <= 0 or shares <= 0:
         st.error(_("Enter shares and either a total cost or a price per share."))
         return
@@ -494,7 +533,8 @@ def edit_position_dialog(trade_id: str, live_price: float | None = None) -> None
         _fee = _nz(number_field(_l1[1], min_value=0.0, step=0.01, value=_fee0, format="%.2f",
                                 key="dlg_eop_fee", disabled=not _linked,
                                 help=None if _linked else _("Fees only affect the linked cash entry.")), 0.0)
-    _l2 = [_("Shares *"), _("Total cost (€) *"), _("Price / share (opt.)")]
+    # Both in EUR: the price per share here is the stored EUR cost per share.
+    _l2 = [_("Shares *"), _("Total cost (EUR) *"), _("Per share (EUR)")]
     _c3, _c4, _c5 = field_cols(3, _l2, key="dlg_eop_amounts")
     with _c3:
         _shares = _nz(number_field(_l2[0], min_value=1, step=1, value=_sh0, key="dlg_eop_shares"), _sh0)
@@ -585,7 +625,11 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
     with _c2:
         fee = _nz(number_field(_l1[1], min_value=0.0, step=0.01, value=0.0,
                                format="%.2f", key="dlg_sell_fee"), 0.0)
-    _l2 = [_("Shares to sell *"), _("Sell price *")]
+    # The sell price is in the stock's own currency (the live price it is
+    # pre-filled with is too); proceeds are stored in EUR (P12).
+    _ccy, _rate = _trade_rate(ticker, sell_date)
+    # Translators: Record sale › label of the sell-price field; {currency} is the stock's currency code, e.g. "Sell price (CHF) *".
+    _l2 = [_("Shares to sell *"), _("Sell price ({currency}) *", currency=_ccy)]
     _c3, _c4 = field_cols(2, _l2, key="dlg_sell_amounts")
     with _c3:
         shares = _nz(number_field(_l2[0], min_value=1, max_value=max(_held_shares, 1),
@@ -593,7 +637,9 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
     with _c4:
         price = _nz(number_field(_l2[1], min_value=0.0, step=0.01, value=round(_live_price, 2),
                                  format="%.2f", key="dlg_sell_price"), 0.0)
-    st.markdown(cash_after_html("Sell", round(shares * price, 2), fee, on=sell_date), unsafe_allow_html=True)
+    _rate_line(_ccy, _rate, sell_date)
+    st.markdown(cash_after_html("Sell", round(shares * price * (_rate or 0.0), 2), fee, on=sell_date),
+                unsafe_allow_html=True)
 
     _do_save = dialog_actions("dlg_sell", save_label=_("Confirm sale"), danger_save=True)[0]
 
@@ -602,7 +648,10 @@ def sell_position_dialog(pf: "pd.DataFrame", ticker: str | None = None,
     if shares <= 0 or price <= 0:
         st.error(_("Enter the shares to sell and a sell price."))
         return
-    record_sell(ticker, shares, price, fee, pd.Timestamp(sell_date).isoformat())
+    if not _rate:
+        st.error(_("No EUR rate for {currency} on {date}.", currency=_ccy, date=fmt_date(sell_date)))
+        return
+    record_sell(ticker, shares, round(price * _rate, 6), fee, pd.Timestamp(sell_date).isoformat())
     st.rerun()
 
 
@@ -620,7 +669,7 @@ def _dividend_dates_error(ex_date, pay_date) -> str | None:
 
 @_dialog(N_("Add dividend"))
 def add_dividend_dialog(pf: "pd.DataFrame") -> None:
-    from portfolio import currency_for_ticker, exchange_key_for_ticker
+    from portfolio import currency_for_ticker
     from settings import get_dividend_withholding
     from uvalu.runtime import current_user
 
@@ -659,7 +708,7 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
         dps = _nz(number_field(_l2[1], min_value=0.0, step=0.0001, value=0.0,
                                format="%.4f", key="dlg_dv_ps"), 0.0)
     with _c7:
-        _default_tax = get_dividend_withholding(exchange_key_for_ticker(ticker_raw), current_user().email)
+        _default_tax = get_dividend_withholding(ticker_raw, current_user().email)
         tax_rate = _nz(number_field(_l2[2], min_value=0.0, max_value=100.0,
                                     step=0.5, value=_default_tax, key="dlg_dv_tax"), 0.0)
 
@@ -1027,7 +1076,7 @@ def _cash_rate_panel(ccy: str, base: str, d: "_dt.date", entry: dict | None) -> 
         _m1, _m2 = st.columns([0.9, 1.1], vertical_alignment="center")
         with _m1:
             st.markdown(f'<span style="font-family:var(--uv-mono);font-size:12.5px;color:var(--muted);'
-                        f'white-space:nowrap;">1 {ccy} = {"€" if base == "EUR" else base}</span>',
+                        f'white-space:nowrap;">1 {ccy} = {base}</span>',
                         unsafe_allow_html=True)
         with _m2:
             manual_rate = number_field(_("Rate"), min_value=0.0, step=0.0001, format="%.4f",

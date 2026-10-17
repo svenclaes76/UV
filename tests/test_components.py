@@ -166,11 +166,11 @@ def test_fair_value_ladder_renders_bars_and_composite_row():
 
     at = _run(_script)
     html = at.markdown[0].value
-    assert "€236" in html and "€261" in html and "€245" in html
+    assert "EUR\xa0236" in html and "EUR\xa0261" in html and "EUR\xa0245" in html
     # Composite is a flat label+value row (no bar/delta) — matches
     # Uvalu.dc.html's "Composite fair value" row exactly, distinct from the
     # per-model bar+value+delta rows above it.
-    assert "Composite fair value" in html and "€256" in html
+    assert "Composite fair value" in html and "EUR\xa0256" in html
 
 
 def test_fair_value_ladder_handles_missing_model_data():
@@ -368,7 +368,7 @@ def test_fair_value_bar_compact_flags_overvalued_vs_undervalued():
     assert "background:var(--amber-fill)" in at.markdown[1].value
     assert "background:var(--axis)" in at.markdown[2].value  # within the near-fair band
     # Shows the absolute price/fair-value figures instead of a below/above label
-    assert "€100.00" in at.markdown[0].value and "fv €120.00" in at.markdown[0].value
+    assert "EUR\xa0100.00" in at.markdown[0].value and "fv EUR\xa0120.00" in at.markdown[0].value
 
 
 def test_signals_feed_renders_bold_entity_and_message():
@@ -557,8 +557,8 @@ class TestFairValueBarHtml:
 
     def test_valid_data_renders_bar(self):
         html = _fair_value_bar_html(100.0, 120.0, 16.7)
-        assert "€100.00" in html
-        assert "fv €120.00" in html
+        assert "EUR\xa0100.00" in html
+        assert "fv EUR\xa0120.00" in html
 
     def test_data_thin_renders_pending_chip_not_dash(self):
         html = _fair_value_bar_html(100.0, None, None, data_thin=True)
@@ -568,7 +568,7 @@ class TestFairValueBarHtml:
     def test_data_thin_ignored_once_fair_value_is_present(self):
         html = _fair_value_bar_html(100.0, 120.0, 16.7, data_thin=True)
         assert "fv pending" not in html
-        assert "€100.00" in html
+        assert "EUR\xa0100.00" in html
 
 
 class TestHoldingsRowHtml:
@@ -588,10 +588,10 @@ class TestHoldingsRowHtml:
         assert html.count("<span style='color:var(--muted);'>—</span>") == 1  # only P&L dash
 
     def test_total_gain_is_a_percent_chip_against_cost(self):
-        # value 2500, gain 125 -> cost 2375 -> +5.3%; the € amount is in the tooltip.
+        # value 2500, gain 125 -> cost 2375 -> +5.3%; the\xa0EUR amount is in the tooltip.
         up = self._row(total_gain=125.0)
         assert ">+5.3%</span>" in up and "background:var(--up-bg)" in up
-        assert "Unrealised result against your average cost · +€125.00" in up
+        assert "Unrealised result against your average cost · +EUR\xa0125.00" in up
         down = self._row(total_gain=-125.0)
         assert ">-4.8%</span>" in down and "background:var(--down-bg)" in down
 
@@ -818,7 +818,7 @@ class TestDashboardBottomRow:
         assert re.search(r"ex-date · pays (Nov 20|20 Nov)<", with_pay) and ">3</div>" in with_pay and ">Nov<" in with_pay
         stale = dividend_row_html(name="Alpha", ex_date="2026-11-03", pay_date="2026-05-20", net=12.0, gross=17.0)
         assert "pays" not in stale and ">ex-date<" in stale
-        assert "€17 gross" in stale
+        assert "EUR\xa017 gross" in stale
 
     def test_mover_bar_diverges_from_the_centre(self):
         from uvalu.components import mover_row_html

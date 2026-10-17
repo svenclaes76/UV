@@ -858,7 +858,7 @@ def import_dividends_from_market_data(pf: "pd.DataFrame", email: str = "") -> in
             continue
         dismissed = set((meta.get(ticker) or {}).get("dismissed_auto_ex") or [])
         known = _existing.setdefault(ticker, [])
-        tax_rate = get_dividend_withholding(exchange_key_for_ticker(ticker), email)
+        tax_rate = get_dividend_withholding(ticker, email)
         currency = currency_for_ticker(ticker)
         name = names[ticker]
         for ex_ts, ps in divs.items():

@@ -17,6 +17,7 @@ from screener import _fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS
 from settings import get_veto_thresholds
 from uvalu import a11y
 from uvalu.formatting import display_name, fmt_eur as _fmt_eur
+from uvalu.formatting import converted_line_html, price_html
 from uvalu.i18n import (N_, _, ccy_code, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h_,
                         pgettext, tr)
 
@@ -817,7 +818,7 @@ def six_model_ladder_caption(row) -> "str | None":
 
 
 def fair_value_ladder(price: float, models: list[tuple[str, float]],
-                      composite: float | None = None, currency: str = "€",
+                      composite: float | None = None, currency: str = "EUR",
                       composite_label: str = "Composite fair value",
                       bar_width: int = 110, reasons: "dict | None" = None,
                       basis_count: "int | None" = None,
@@ -913,7 +914,7 @@ def fair_value_ladder(price: float, models: list[tuple[str, float]],
 
 
 def _fair_value_bar_html(price: float | None, fair_value: float | None, mos_pct: float | None,
-                         currency: str = "€", data_thin: bool = False) -> str:
+                         currency: str = "EUR", data_thin: bool = False) -> str:
     """Raw markup for the price-vs-fair-value ladder — factored out of
     fair_value_bar_compact() so holdings_row_html() can embed it inside a
     larger row grid without a nested st.markdown() call.
@@ -952,7 +953,7 @@ def _fair_value_bar_html(price: float | None, fair_value: float | None, mos_pct:
 
 
 def fair_value_bar_compact(price: float, fair_value: float | None, mos_pct: float | None,
-                           currency: str = "€") -> None:
+                           currency: str = "EUR") -> None:
     """Single price-vs-fair-value ladder — for list/row contexts (e.g.
     Dashboard holdings) where a full multi-model ladder wouldn't fit.
 
@@ -985,7 +986,7 @@ def holdings_row_html(*, ticker: str, sector: str | None, name: str,
                       price: float | None, fair_value: float | None, mos_pct: float | None,
                       weight: float, value: float, total_gain: float | None,
                       price_stale: bool = False, data_thin: bool = False,
-                      currency: str = "€", grid_cols: str | None = None) -> str:
+                      currency: str = "EUR", grid_cols: str | None = None) -> str:
     """Full inner grid markup for one Holdings table row — ticker+sector+name,
     signal badge, fair-value ladder, margin-of-safety/weight/value, and a
     P&L cell — matching Uvalu.dc.html's row spec column-for-column.
@@ -1207,9 +1208,13 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
             # Matches r.price: mono 12.5px, var(--muted) — not the default
             # text color; price/P-E/yield are all muted-gray in the design,
             # only the ticker/score/upside figures are full-strength text.
-            _price_str = fmt_money(price, ccy_code(currency))
+            # Own currency, small code, no decimals from 1,000 up (D22), and
+            # the user's own currency underneath for a foreign stock (D25).
+            _price_str = price_html(price, ccy_code(currency)) if price is not None and pd.notna(price) else "—"
             st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
-                       f"color:var(--muted);'>{_price_str}</div>", unsafe_allow_html=True)
+                       f"color:var(--muted);'>{_price_str}"
+                       f"{converted_line_html(price, ccy_code(currency)) if price is not None and pd.notna(price) else ''}"
+                       f"</div>", unsafe_allow_html=True)
         _i += 1
         with _cols[_i]:
             # Matches r.pe: mono 12.5px, var(--muted) — was 0.875rem (14px)
@@ -1785,7 +1790,8 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
         with _cols[3]:
             # The live price is in the stock's own currency (P12); the average
             # cost comes from the EUR purchase value and stays in EUR.
-            _price_str = fmt_money(price, ccy_code(currency))
+            _price_str = (price_html(price, ccy_code(currency))
+                          + converted_line_html(price, ccy_code(currency))) if price is not None and pd.notna(price) else "—"
             st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;'>{_price_str}</div>",
                        unsafe_allow_html=True)
         with _cols[4]:

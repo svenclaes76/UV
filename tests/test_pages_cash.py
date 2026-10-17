@@ -38,14 +38,14 @@ def _html(at) -> str:
 
 class TestCashStrip:
     def test_strip_shows_balance_and_split(self, isolated_data, monkeypatch):
-        portfolio.save_portfolio(make_portfolio_df())          # 10 × €110 = €1,100 invested
+        portfolio.save_portfolio(make_portfolio_df())          # 10 × EUR\xa0110 = EUR\xa01,100 invested
         cash.post_manual("Deposit", D, 900)
         at = _run_portfolio(monkeypatch)
         html = _html(at)
         assert "Cash balance" in html and "EUR base" in html
-        assert "€900.00" in html
+        assert "EUR\xa0900.00" in html
         assert "45.0%" in html and "55.0%" in html              # cash / invested
-        assert "Total portfolio value €2,000" in html
+        assert "Total portfolio value EUR\xa02,000" in html
         assert {"ov_cash_deposit", "ov_cash_withdraw"} <= {b.key for b in at.button}
 
     def test_empty_ledger_hint(self, isolated_data, monkeypatch):
@@ -98,7 +98,7 @@ class TestCashPage:
         assert "Net deposits" in html and "Trade flow" in html
         # ledger rows: newest first, top-up labelled, manual FX flagged
         assert html.index("TRD-0001 · AAA.BR") < html.index("To savings")
-        assert "top-up" in html and "manual" in html and "set to €1,000.00" in html
+        assert "top-up" in html and "manual" in html and "set to EUR\xa01,000.00" in html
         assert "5 of 5 entries" in html
         assert not at.get("download_button")                 # no CSV export (Settings has the workbook)
         assert any(b.key == "btn_add_cash" and not b.disabled for b in at.button)
@@ -180,7 +180,7 @@ class TestCashDialog:
         at.number_input(key="dlg_cash_amt").set_value(2500.0)
         at.text_input(key="dlg_cash_note").set_value("Monthly savings plan")
         at.run()
-        assert "+€2,500.00" in _html(at)
+        assert "+EUR\xa02,500.00" in _html(at)
         _save(at, "Save")
         e = cash.load_ledger()[0]
         assert (e["type"], e["amount"], e["note"]) == ("Deposit", 2500.0, "Monthly savings plan")
@@ -202,7 +202,7 @@ class TestCashDialog:
         at.number_input(key="dlg_cash_amt").set_value(1000.0)
         at.run()
         html = _html(at)
-        assert "1 USD = €0.8500" in html and "frankfurter.dev" in html and "+€850.00" in html
+        assert "1 USD = EUR\xa00.8500" in html and "frankfurter.dev" in html and "+EUR\xa0850.00" in html
         _save(at, "Save")
         e = cash.load_ledger()[0]
         assert (e["currency"], e["fx_rate"], e["fx_source"], e["amount_base"]) == ("USD", 0.85, "ecb", 850.0)
@@ -225,7 +225,7 @@ class TestCashDialog:
         at = _run_dialog("Adjustment")
         at.number_input(key="dlg_cash_target").set_value(987.6)
         at.run()
-        assert "−€12.40" in _html(at)
+        assert "−EUR\xa012.40" in _html(at)
         _save(at, "Save")
         assert cash.balance() == 987.6
 
@@ -258,7 +258,7 @@ class TestEditCashDialog:
         assert at.selectbox(key="dlg_cash_type").disabled
         at.number_input(key="dlg_cash_amt").set_value(750.0)
         at.run()
-        assert "+€250.00" in _html(at)          # the change
+        assert "+EUR\xa0250.00" in _html(at)          # the change
         _save(at, "Save")
         led = cash.load_ledger()
         assert len(led) == 1 and led[0]["id"] == e["id"] and led[0]["amount_base"] == 750.0
@@ -289,7 +289,7 @@ class TestEditCashDialog:
         at = _run_edit(e["id"])
         _save(at, "Delete")
         at.run()                                  # the dialog's fragment rerun (no-op under AppTest)
-        assert "Balance after: €500.00" in _html(at)
+        assert "Balance after: EUR\xa0500.00" in _html(at)
         _save(at, "Delete permanently")
         assert [x["type"] for x in cash.load_ledger()] == ["Deposit"]
 
@@ -309,7 +309,7 @@ class TestAutomaticEntryReadOnly:
         at = _run_edit(posted[-1]["id"])
         assert all(w.disabled for w in [*at.selectbox, *at.date_input, *at.number_input, *at.text_input])
         assert any("Posted automatically from TRD-0009 · AAA.BR" in c.value for c in at.caption)
-        assert "+€50.00" in _html(at)
+        assert "+EUR\xa050.00" in _html(at)
         labels = [b.label for b in at.button]
         assert "Save" not in labels and "Delete" not in labels
         _save(at, "Open closed positions")
@@ -352,7 +352,7 @@ add_position_dialog(preset_ticker="AAA.BR")
         at.number_input(key="dlg_ap_fee").set_value(9.9)
         at.run()
         html = _html(at)
-        assert "Cash after trade" in html and "Auto top-up from outside cash" in html and "+€109.90" in html
+        assert "Cash after trade" in html and "Auto top-up from outside cash" in html and "+EUR\xa0109.90" in html
         _save(at, "Save")
         led = cash.replay(cash.load_ledger())
         assert [r["type"] for r in led] == ["Deposit", "Deposit", "Buy"]
@@ -374,7 +374,7 @@ if pf is not None and not pf.empty:
         at.number_input(key="dlg_sell_shares").set_value(4)
         at.number_input(key="dlg_sell_fee").set_value(5.0)
         at.run()
-        assert "€435.00" in _html(at)
+        assert "EUR\xa0435.00" in _html(at)
         _save(at, "Confirm sale")
         assert cash.balance() == 435.0
         assert portfolio.load_portfolio().iloc[0]["shares"] == 6
@@ -384,11 +384,11 @@ if pf is not None and not pf.empty:
 
 def test_dashboard_cash_tile_and_current_value(isolated_data, monkeypatch):
     from tests.test_pages_dashboard import _run as run_dashboard
-    portfolio.save_portfolio(make_portfolio_df())          # 10 × €110 = €1,100
+    portfolio.save_portfolio(make_portfolio_df())          # 10 × EUR\xa0110 = EUR\xa01,100
     cash.post_manual("Deposit", D, 900)
     html = _html(run_dashboard(monkeypatch))
     assert "of total value · not in risk" in html
-    assert "holdings €1,100 + cash €900" in html and "€2,000" in html
+    assert "holdings EUR\xa01,100 + cash EUR\xa0900" in html and "EUR\xa02,000" in html
 
 
 def test_risk_banner_only_with_cash(isolated_data, monkeypatch):
@@ -399,8 +399,8 @@ def test_risk_banner_only_with_cash(isolated_data, monkeypatch):
     cash.post_manual("Deposit", D, 900)
     at.run()
     html = _html(at)
-    assert "Risk metrics cover the invested portion only (€1,100)" in html
-    assert "Cash of €900, 45.0% of total value" in html
+    assert "Risk metrics cover the invested portion only (EUR\xa01,100)" in html
+    assert "Cash of EUR\xa0900, 45.0% of total value" in html
     assert any(b.key == "risk_view_cash" for b in at.button)
 
 
@@ -409,7 +409,7 @@ def test_risk_banner_uses_the_display_currency(isolated_data, monkeypatch):
     region, not the ledger's EUR base."""
     from tests.test_pages_risk import _run as run_risk
     from uvalu import i18n
-    portfolio.save_portfolio(make_portfolio_df())          # €1,100 invested
+    portfolio.save_portfolio(make_portfolio_df())          # EUR\xa01,100 invested
     cash.post_manual("Deposit", D, 1000)
     monkeypatch.setattr(i18n, "display_rate", lambda: (1.1, "2026-03-02"))   # EUR per CHF
     at = run_risk(monkeypatch)

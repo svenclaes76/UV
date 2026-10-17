@@ -843,9 +843,37 @@ def names_locale(locale: str | None = None) -> Locale:
     return _locale(locale) if locale else _locale(current().lang)
 
 
+def _code_pattern(pattern):
+    """The region's currency pattern with the ISO code in place of the symbol
+    ("EUR 55.86", "55,86 EUR"), and a non-breaking space between code and
+    number (CLDR otherwise glues them: "CHF8.80"). Decision D14, EX-41: a
+    list mixes seven currencies and symbols can't tell them apart ("kr" is
+    SEK, NOK, DKK and ISK), so every amount carries its code."""
+    p = copy.copy(pattern)
+
+    def _fix(affix: str, before: bool) -> str:
+        affix = affix.replace("¤", "¤¤")
+        if before and affix.endswith("¤¤"):
+            affix += " "
+        if not before and affix.startswith("¤¤"):
+            affix = " " + affix
+        return affix
+
+    p.prefix = tuple(_fix(a, True) for a in p.prefix)
+    p.suffix = tuple(_fix(a, False) for a in p.suffix)
+    return p
+
+
+def _code_affixes(loc: Locale, code: str) -> tuple[str, str]:
+    """(before, after) to put a currency code around a bare number the way
+    the region places it — for compact amounts and chart axes."""
+    pat = loc.currency_formats["standard"].pattern.split(";")[0]
+    return (f"{code} ", "") if pat.strip().startswith("¤") else ("", f" {code}")
+
+
 def _apply(pattern, value, loc: Locale, decimals: int, min_decimals: int | None,
            currency: str | None = None, grouping: bool = True) -> str:
-    p = copy.copy(pattern)
+    p = _code_pattern(pattern) if currency else copy.copy(pattern)
     lo = decimals if min_decimals is None else min(min_decimals, decimals)
     p.frac_prec = (lo, decimals)
     return p.apply(value, loc, currency=currency, currency_digits=False,
@@ -945,7 +973,8 @@ def fmt_compact(value, *, currency: str | None = None, decimals: int = 1,
     if not any(ch.isalpha() for ch in _bnum.format_compact_decimal(value, locale=loc, fraction_digits=decimals)):
         return fmt_money(value, currency, 0, locale=locale) if currency else fmt_num(value, 0, locale=locale)
     if currency:
-        return _bnum.format_compact_currency(value, currency, locale=loc, fraction_digits=decimals)
+        before, after = _code_affixes(loc, ccy_code(currency))     # D14: the code, not "€1.2K"
+        return f"{before}{_bnum.format_compact_decimal(value, locale=loc, fraction_digits=decimals)}{after}"
     return _bnum.format_compact_decimal(value, locale=loc, fraction_digits=decimals)
 
 

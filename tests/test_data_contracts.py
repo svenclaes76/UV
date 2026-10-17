@@ -112,8 +112,8 @@ class TestHoldingsRowReconciles:
     adds the live quote without changing the scored figures)."""
 
     def _numbers(self, html: str):
-        price = float(re.search(r">€([\d,]+\.\d\d)<", html).group(1).replace(",", ""))
-        fv = float(re.search(r"fv €([\d,]+\.\d\d)<", html).group(1).replace(",", ""))
+        price = float(re.search(r">EUR\xa0([\d,]+\.\d\d)<", html).group(1).replace(",", ""))
+        fv = float(re.search(r"fv\s?EUR\xa0([\d,]+\.\d\d)<", html).group(1).replace(",", ""))
         mos = float(re.search(r">([+-]\d+\.\d)%<", html).group(1))
         return price, fv, mos
 
@@ -131,7 +131,7 @@ class TestHoldingsRowReconciles:
             weight=0.1, value=1000.0, total_gain=0.0)
 
     def test_live_quote_does_not_desync_the_row(self):
-        # Porsche case: €40 scored price, €28 fair value, €28.21 live.
+        # Porsche case: EUR\xa040 scored price, EUR\xa028 fair value, EUR\xa028.21 live.
         price, fv, mos = self._numbers(self._render(40.0, 28.0, 28.21))
         assert price == pytest.approx(40.0)
         assert fv == pytest.approx(28.0)
