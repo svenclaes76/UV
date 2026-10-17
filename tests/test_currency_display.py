@@ -40,7 +40,7 @@ def test_codes_never_symbols(region, expected):
 
 def test_code_is_set_small_and_the_number_keeps_its_weight():
     html = money_html(8.8, "CHF")
-    assert ">CHF</span>" in html and html.endswith(f"{NBSP}8.80")
+    assert ">CHF</span>" in html and html.endswith(f"{NBSP}8.80</span>") and "white-space:nowrap" in html
     assert "0.55em" in html
 
 
@@ -48,7 +48,7 @@ def test_code_is_set_small_and_the_number_keeps_its_weight():
 def test_no_decimals_from_a_thousand(value, decimals):
     assert price_decimals(value) == decimals
     if value is not None:
-        assert price_html(24270, "DKK").endswith(f"{NBSP}24,270")
+        assert price_html(24270, "DKK").endswith(f"{NBSP}24,270</span>")
 
 
 def test_width_counts_the_small_code_at_its_size():
@@ -86,3 +86,9 @@ def test_price_sorts_on_its_euro_value(chf_and_dkk):
     eur = price_in_eur(df)
     assert eur.tolist() == pytest.approx([24270 * 0.134, 180.0, 80 * 1.06])
     assert list(df.assign(e=eur).sort_values("e", ascending=False)["Ticker"]) == ["MAERSK-B.CO", "UCB.BR", "NESN.SW"]
+
+
+def test_converted_line_follows_the_price_rule(chf_and_dkk):
+    """D22 for the second line too: DKK 24,270 → '≈ EUR 3,252', no decimals."""
+    assert converted_line_html(24270, "DKK").endswith(f"≈{NBSP}EUR{NBSP}3,252</div>")
+    assert f"EUR{NBSP}9.33" in converted_line_html(8.8, "CHF")

@@ -828,67 +828,69 @@ def render() -> None:
                              "the company is registered, not where it trades: Airbus is Dutch, so its dividends follow "
                              "the Netherlands rate. Each country starts at its statutory rate withheld at source, before "
                              "any treaty refund; set it to what your broker withholds. You can always change it per dividend."))
-                _overrides = dict(_s.get(_whm.SETTING_KEY) or {})
-                _moved = _s.get("withholding_moved") or []
-                if _moved:
-                    # One-time notice after migration m0003 (D23).
-                    st.info(_("Your withholding rates moved from exchanges to countries: {rates}. Check them below.",
-                              rates=", ".join(f"{_whm.country_name(c)} {fmt_num(float(r), 2, min_decimals=0)}%"
-                                              for c, r in _moved)))
-                    if st.button(_("Got it"), key="wh_moved_ok", type="tertiary"):
-                        _s.pop("withholding_moved", None)
-                        save_settings(_s, _email)
-                        st.rerun()
-                # Translators: Settings › Dividend withholding › Belgium has no field; this line says why.
-                st.markdown(f'<div style="font-size:12.5px;color:var(--muted);margin:2px 0 10px;">'
-                            f'{h_("{country}: the Belgian withholding tax (30%) is applied automatically for Belgian residents.", country=_whm.country_name(_whm.HOME_COUNTRY))}'
-                            f'</div>', unsafe_allow_html=True)
-                _held = set()
-                try:
-                    _pf_wh = load_portfolio()
-                    for _t in (_pf_wh["ticker"] if _pf_wh is not None and "ticker" in _pf_wh.columns else []):
-                        _c = _whm.company_country(str(_t))
-                        if _c in _whm.STATUTORY:
-                            _held.add(_c)
-                except Exception:
-                    pass
-                _by_name = lambda cs: sorted(cs, key=lambda c: sort_key(_whm.country_name(c)))
-                _wh_new: dict[str, float] = {}
+                with st.container(key="set_dividend_wh_grid"):     # padded card body (styles.py)
+                    _overrides = dict(_s.get(_whm.SETTING_KEY) or {})
+                    _moved = _s.get("withholding_moved") or []
+                    if _moved:
+                        # One-time notice after migration m0003 (D23).
+                        st.info(_("Your withholding rates moved from exchanges to countries: {rates}. Check them below.",
+                                  rates=", ".join(f"{_whm.country_name(c)} {fmt_num(float(r), 3, min_decimals=0)}%"
+                                                  for c, r in _moved)))
+                        if st.button(_("Got it"), key="wh_moved_ok", type="tertiary"):
+                            _s.pop("withholding_moved", None)
+                            save_settings(_s, _email)
+                            st.rerun()
+                    # Translators: Settings › Dividend withholding › Belgium has no field; this line says why.
+                    st.markdown(f'<div style="font-size:12.5px;color:var(--muted);margin:2px 0 10px;">'
+                                f'{h_("{country}: the Belgian withholding tax (30%) is applied automatically for Belgian residents.", country=_whm.country_name(_whm.HOME_COUNTRY))}'
+                                f'</div>', unsafe_allow_html=True)
+                    _held = set()
+                    try:
+                        _pf_wh = load_portfolio()
+                        for _t in (_pf_wh["ticker"] if _pf_wh is not None and "ticker" in _pf_wh.columns else []):
+                            _c = _whm.company_country(str(_t))
+                            if _c in _whm.STATUTORY:
+                                _held.add(_c)
+                    except Exception:
+                        pass
+                    _by_name = lambda cs: sorted(cs, key=lambda c: sort_key(_whm.country_name(c)))
+                    _wh_new: dict[str, float] = {}
 
-                def _wh_row(country: str) -> None:
-                    _iso = _whm.STATUTORY[country][0]
-                    _default = _whm.default_rate(country)
-                    _own = country in _overrides
-                    _c1, _c2 = st.columns([1.1, 1.4], vertical_alignment="bottom")
-                    with _c1:
-                        _v = number_field(f"{_whm.country_name(country)} (%)", min_value=0.0, max_value=100.0, step=0.5,
-                                          value=float(_whm.rate_for(country, _overrides)), format="%.3g",
-                                          key=f"wh_c_{_iso}")
-                    _wh_new[country] = float(_whm.rate_for(country, _overrides)) if _v is None else float(_v)
-                    with _c2:
-                        if _own:
-                            _r1, _r2 = st.columns([1, 1], vertical_alignment="center")
-                            with _r1:
-                                # Translators: Settings › Dividend withholding › marks a rate the user set, with the statutory default after it.
-                                st.caption(_("Your rate · default {rate}%", rate=fmt_num(_default, 3, min_decimals=0)))
-                            with _r2:
-                                if st.button(_("Reset to default"), key=f"wh_reset_{_iso}", type="tertiary"):
-                                    _overrides.pop(country, None)
-                                    _s[_whm.SETTING_KEY] = _overrides
-                                    save_settings(_s, _email)
-                                    st.session_state.pop(f"wh_c_{_iso}", None)
-                                    st.rerun()
-                        else:
-                            # Translators: Settings › Dividend withholding › marks a statutory default rate.
-                            st.caption(_("Default"))
+                    def _wh_row(country: str) -> None:
+                        _iso = _whm.STATUTORY[country][0]
+                        _default = _whm.default_rate(country)
+                        # Only a rate that differs from the default is "yours" (a migrated
+                        # rate equal to the default reads as the default).
+                        _own = country in _overrides and abs(float(_overrides[country]) - _default) > 1e-9
+                        _c1, _c2 = st.columns([1.1, 1.4], vertical_alignment="bottom")
+                        with _c1:
+                            _v = number_field(f"{_whm.country_name(country)} (%)", min_value=0.0, max_value=100.0, step=0.5,
+                                              value=float(_whm.rate_for(country, _overrides)), format="%.3g",
+                                              key=f"wh_c_{_iso}")
+                        _wh_new[country] = float(_whm.rate_for(country, _overrides)) if _v is None else float(_v)
+                        with _c2:
+                            if _own:
+                                _r1, _r2 = st.columns([1, 1], vertical_alignment="center")
+                                with _r1:
+                                    # Translators: Settings › Dividend withholding › marks a rate the user set, with the statutory default after it.
+                                    st.caption(_("Your rate · default {rate}%", rate=fmt_num(_default, 3, min_decimals=0)))
+                                with _r2:
+                                    if st.button(_("Reset to default"), key=f"wh_reset_{_iso}", type="tertiary"):
+                                        _overrides.pop(country, None)
+                                        _s[_whm.SETTING_KEY] = _overrides
+                                        save_settings(_s, _email)
+                                        st.session_state.pop(f"wh_c_{_iso}", None)
+                                        st.rerun()
+                            else:
+                                # Translators: Settings › Dividend withholding › marks a statutory default rate.
+                                st.caption(_("Default"))
 
-                with st.container(key="set_dividend_wh_held"):
                     for _country in _by_name(_held):
                         _wh_row(_country)
-                _others = [c for c in _whm.countries() if c not in _held]
-                with st.expander(_("Other countries") if _held else _("All countries"), expanded=not _held):
-                    for _country in _by_name(_others):
-                        _wh_row(_country)
+                    _others = [c for c in _whm.countries() if c not in _held]
+                    with st.expander(_("Other countries") if _held else _("All countries"), expanded=not _held):
+                        for _country in _by_name(_others):
+                            _wh_row(_country)
                 # Typed values: saved with the button, not on every keystroke/blur
                 # (a half-typed rate shouldn't apply). Only rates that differ
                 # from the default are stored, so a corrected default reaches

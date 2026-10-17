@@ -1675,6 +1675,7 @@ GLOBAL_CSS = """
      the bare withholding grid sat flush on the card edge and its right-hand
      input ran past the card border. */
   .st-key-set_dividend_wh_grid { padding: 8px 20px 4px !important; box-sizing: border-box; }
+  .st-key-set_dividend_wh_grid [data-testid="stNumberInput"] { max-width: 200px !important; }
   .st-key-set_wh_save { padding: 0 20px 18px !important; }
   /* Import & export: Uvalu.dc.html's two rows (15px 20px, hairline between
      them, button flush right). They use the set_row_ grammar above; only the
