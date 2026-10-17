@@ -21,6 +21,9 @@ reached through the ``fx_to_eur_frame`` shim below.
 
 from __future__ import annotations
 
+import json
+import os
+import threading
 import time
 import warnings
 from datetime import date, timedelta
@@ -35,6 +38,7 @@ _log = logkit.get_logger("uvalu.marketdata")
 
 # Module-level so tests can redirect them into tmp_path, like portfolio._BASE_DIR.
 _HISTORY_DIR  = Path(__file__).parent / ".cache" / "history"
+_UNITS_FILE   = Path(__file__).parent / ".cache" / "quote_units.json"
 _DIVIDEND_DIR = Path(__file__).parent / ".cache" / "dividends"
 
 _DIVIDEND_MAX_AGE_DAYS = 7    # dividends move a few times a year — a weekly refresh is plenty
@@ -54,6 +58,69 @@ _TRANSIENT_MARKERS = (
 
 
 # ── Calendar helpers ─────────────────────────────────────────────────────────
+
+# ── Minor-unit quotes (exchange expansion plan EX-14, EX-W5) ─────────────────
+# Yahoo quotes some lines in a currency's minor unit: London in pence ("GBp" or
+# "GBX"), while EPS, book value and market cap stay in pounds. Every price that
+# enters the app is converted to the major unit here, at the source, so no
+# consumer (fair values, P/E, dividend auto-import, risk, charts) ever sees
+# pence. Each line's own quote currency is recorded when its fundamentals are
+# fetched (a London line can also quote in USD or EUR); until then the
+# exchange's default divisor in the registry applies.
+MINOR_UNITS: dict[str, tuple[str, int]] = {
+    "GBp": ("GBP", 100), "GBX": ("GBP", 100), "ZAc": ("ZAR", 100), "ILA": ("ILS", 100),
+}
+_units_lock = threading.Lock()
+_units: "dict[str, str] | None" = None
+
+
+def major_currency(raw: "str | None") -> tuple[str, int]:
+    """(major currency code, divisor) for a quote currency as Yahoo writes
+    it: ("GBP", 100) for "GBp"; (code, 1) for a currency in its major unit."""
+    raw = (raw or "").strip()
+    if raw in MINOR_UNITS:
+        return MINOR_UNITS[raw]
+    return (raw.upper() or "EUR", 1)
+
+
+def _load_units() -> dict[str, str]:
+    global _units
+    if _units is None:
+        try:
+            data = json.loads(_UNITS_FILE.read_text(encoding="utf-8"))
+            _units = data if isinstance(data, dict) else {}
+        except (OSError, ValueError):
+            _units = {}
+    return _units
+
+
+def record_quote_currency(ticker: str, raw_currency: "str | None") -> None:
+    """Remember the quote currency Yahoo gave for ``ticker`` (called by the
+    fundamentals fetch). Written atomically, and only when it changes."""
+    if not ticker or not raw_currency:
+        return
+    with _units_lock:
+        units = _load_units()
+        if units.get(ticker) == raw_currency:
+            return
+        units[ticker] = raw_currency
+        _UNITS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = _UNITS_FILE.with_name(_UNITS_FILE.name + ".tmp")
+        tmp.write_text(json.dumps(units, sort_keys=True), encoding="utf-8")
+        os.replace(tmp, _UNITS_FILE)
+
+
+def price_divisor(ticker: str) -> int:
+    """What to divide Yahoo's prices for ``ticker`` by to get the major unit:
+    from the line's recorded quote currency, else its exchange's default."""
+    with _units_lock:
+        raw = _load_units().get(str(ticker))
+    if raw:
+        return major_currency(raw)[1]
+    from uvalu import exchanges
+    ex = exchanges.for_ticker(ticker)
+    return ex.price_divisor if ex else 1
+
 
 def _period_start(period: str, today: date | None = None) -> date:
     today = today or date.today()
@@ -171,6 +238,10 @@ def _download_closes(tickers: list[str], start: date | None, period: str) -> pd.
     if getattr(idx, "tz", None) is not None:
         idx = idx.tz_localize(None)
     closes.index = idx
+    for col in closes.columns:              # pence → pounds (EX-14)
+        div = price_divisor(col)
+        if div != 1:
+            closes[col] = closes[col] / div
     return closes.dropna(how="all")
 
 
@@ -286,5 +357,6 @@ def dividends(ticker: str) -> pd.Series:
         idx = idx.tz_localize(None)
     out = pd.Series(raw.to_numpy(dtype=float), index=idx, name="amount").sort_index()
     out = out[~out.index.duplicated(keep="last")]
+    out = out / price_divisor(ticker)       # pence → pounds (EX-14): the dividend auto-import multiplies by shares
     _write_series_csv(path, out, "amount")
     return out

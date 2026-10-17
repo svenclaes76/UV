@@ -111,6 +111,14 @@ def _migrations_isolated(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _quote_units_isolated(tmp_path, monkeypatch):
+    """The per-ticker quote-currency record (EX-14) lives in tmp_path."""
+    import marketdata
+    monkeypatch.setattr(marketdata, "_UNITS_FILE", tmp_path / "quote_units.json")
+    monkeypatch.setattr(marketdata, "_units", None)
+
+
+@pytest.fixture(autouse=True)
 def _ticker_lists_isolated(tmp_path, monkeypatch):
     """Never read or write the developer's real .cache/ticker_lists/, and
     refresh a stale list synchronously so no test leaves a thread behind."""

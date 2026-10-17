@@ -28,6 +28,8 @@ from datetime import datetime, timezone
 import yfinance as yf
 import pandas as pd
 
+from marketdata import price_divisor
+
 from uvalu import logkit
 
 
@@ -190,6 +192,17 @@ def fetch_prices(tickers: tuple[str, ...]) -> dict[str, dict]:
         entry["quote_source"] = "intraday"
         if entry.get("prev_close"):
             entry["day_change_pct"] = _day_change(px, entry["prev_close"])
+
+    # ── Minor-unit quotes (EX-14) ────────────────────────────────────────────
+    # London prices arrive in pence; every price leaves here in pounds. The
+    # day change is a ratio and doesn't change.
+    for t in tickers:
+        div = price_divisor(t)
+        entry = result.get(t)
+        if div != 1 and entry:
+            for k in ("price", "prev_close"):
+                if entry.get(k) is not None:
+                    entry[k] = round(entry[k] / div, 4)
 
     # ── Stale fallback ───────────────────────────────────────────────────────
     # A ticker we got no price for this round is served its last known-good
