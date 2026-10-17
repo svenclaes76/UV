@@ -31,6 +31,108 @@ def share_class(row) -> "str | None":
     return cls.strip() if isinstance(cls, str) and cls.strip() else None
 
 
+# ── Currency display (exchange expansion plan EX-39, EX-41, EX-42; D14, D16, D22, D25) ──
+
+_CODE_RE = re.compile(r"(?<![A-Za-z])([A-Z]{3})(?![A-Za-z])")
+
+
+def money_html(value, currency: str, decimals: int = 2) -> str:
+    """An amount as HTML with its currency code set small and muted, so the
+    number keeps its weight (D22): "EUR 55.86" with "EUR" at 0.55em."""
+    import html as _h
+    from uvalu.i18n import ccy_code
+    text = _h.escape(fmt_money(value, ccy_code(currency), decimals))
+    return _CODE_RE.sub(lambda m: ('<span style="font-size:0.55em;color:var(--muted);letter-spacing:0.02em;">'
+                                   f'{m.group(1)}</span>'), text, count=1)
+
+
+def price_decimals(value) -> int:
+    """2 decimals, none from 1,000 up ("DKK 24,270"): D22, so four- and
+    five-figure prices fit the Price column."""
+    try:
+        return 0 if abs(float(value)) >= 1000 else 2
+    except (TypeError, ValueError):
+        return 2
+
+
+def price_html(value, currency: str) -> str:
+    """A per-share price as HTML: own currency, small code, D22 decimals."""
+    return money_html(value, currency, price_decimals(value))
+
+
+def text_width_chars(text: str) -> float:
+    """Character count for width estimates, a currency code counting at the
+    smaller size it is shown in (money_html)."""
+    return len(text) - 0.45 * sum(len(m) for m in _CODE_RE.findall(text))
+
+
+_EUR_RATES: dict = {}
+
+
+def _eur_rate(currency: str) -> "float | None":
+    """EUR for 1 unit, cached for the day (one ECB fixing a day)."""
+    import datetime as _dt
+    key = (currency, _dt.date.today().isoformat())
+    if key not in _EUR_RATES:
+        from portfolio import eur_per_unit
+        _EUR_RATES[key] = eur_per_unit(currency)
+    return _EUR_RATES[key]
+
+
+def converted(amount, currency: str) -> "tuple[float, str] | None":
+    """(amount in the user's own display currency, its code) for an amount in
+    another currency; None when it already is in that currency, or when no
+    rate is available (a converted figure is never guessed)."""
+    import math
+    from uvalu.i18n import ccy_code, current, to_display
+    try:
+        amount = float(amount)
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(amount):
+        return None
+    ccy = ccy_code(currency)
+    if ccy == current().currency:
+        return None
+    rate = _eur_rate(ccy)
+    if not rate:
+        return None
+    value, shown_ccy, _conv = to_display(amount * rate)
+    return None if shown_ccy == ccy else (value, shown_ccy)
+
+
+def converted_text(amount, currency: str, decimals: int = 2) -> "str | None":
+    """'≈ EUR 38.40' for a foreign amount, or None (D25)."""
+    c = converted(amount, currency)
+    return fmt_money(c[0], c[1], decimals, approx=True) if c else None
+
+
+def converted_line_html(amount, currency: str, decimals: int = 2) -> str:
+    """The small muted second line under a foreign amount — the same style as
+    the dividend list's "… gross" line — or '' (D25, EX-42)."""
+    import html as _h
+    text = converted_text(amount, currency, decimals)
+    if not text:
+        return ""
+    return (f'<div style="font-family:var(--uv-mono);font-size:10px;color:var(--muted);'
+            f'line-height:1.25;white-space:nowrap;">{_h.escape(text)}</div>')
+
+
+def price_in_eur(df, price_col: str = "Price", ticker_col: str = "Ticker"):
+    """A price column in EUR, for sorting rows of mixed currencies by price
+    (D16): DKK 24,270 sorts as about EUR 3,250, not above every euro stock."""
+    import pandas as pd
+    rates = {}
+    out = []
+    for t, px in zip(df[ticker_col], pd.to_numeric(df[price_col], errors="coerce")):
+        ccy = row_currency({"Ticker": t})
+        if ccy not in rates:
+            rates[ccy] = 1.0 if ccy == "EUR" else _eur_rate(ccy)
+        r = rates[ccy]
+        out.append(px * r if r and pd.notna(px) else float("nan"))
+    return pd.Series(out, index=df.index)
+
+
 def safe_pct(numerator: float, denominator: float) -> float:
     """Return numerator/denominator*100, or 0 if denominator is zero."""
     return numerator / denominator * 100 if denominator else 0

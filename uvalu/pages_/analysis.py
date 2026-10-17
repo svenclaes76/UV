@@ -23,7 +23,8 @@ from uvalu.components import (_esc, back_link, fmt_mos_pct, model_signal_badge_h
                               six_model_ladder_reasons, six_model_ladder_caption,
                               sub_score_bar_html, quality_score_color, score_band_label, mos_text_color,
                               veto_reason_str, is_hard_veto, skeleton_chart_html, empty_results_html)
-from uvalu.formatting import display_name, exchange_label, row_currency, share_class as _share_class
+from uvalu.formatting import (converted_line_html, display_name, exchange_label, price_html, row_currency,
+                               share_class as _share_class)
 from uvalu.i18n import (N_, _, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h_, localize_fig,
                         lowercase_noun, ngettext, plotly_money_axis, tr)
 from uvalu.runtime import brand_hoverlabel, theme_colors, current_user
@@ -350,6 +351,13 @@ def render() -> None:
     _mos_val = row.get("MoS %")
     _mos_color = mos_text_color(_mos_val)
 
+    def _money_cell(v) -> str:
+        """Small code (D22) and, for a foreign stock, the user's own currency
+        underneath (D25)."""
+        if v is None or pd.isna(v):
+            return "—"
+        return price_html(float(v), _ccy) + converted_line_html(float(v), _ccy)
+
     def _hero_card(label: str, value: str, color: str = "var(--text)", *, small: bool = False) -> str:
         _value_font = ("font-size:13px;margin-top:14px;" if small else
                        "font-family:var(--uv-mono);font-size:23px;margin-top:8px;")
@@ -362,8 +370,8 @@ def render() -> None:
     with st.container(key="an_hero_row"):
         st.markdown(
             '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">'
-            + _hero_card(h_("Current price"), _fv(row, "Price", _fmt_px))
-            + _hero_card(h_("Composite fair value · estimate"), _fv(row, "fair_value", _fmt_px), color="var(--text)")
+            + _hero_card(h_("Current price"), _money_cell(row.get("Price")))
+            + _hero_card(h_("Composite fair value · estimate"), _money_cell(row.get("fair_value")), color="var(--text)")
             + _hero_card(h_("Margin of safety"), _fv(row, "MoS %", fmt_mos_pct), color=_mos_color)
             + _hero_card(h_("Your position"), _held_str, small=True)
             + '</div>',

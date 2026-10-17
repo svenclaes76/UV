@@ -259,14 +259,14 @@ open_drawer(row)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
         html = "".join(m.value for m in at.markdown)
-        assert "€100.00" in html   # hero Price tile: the scored price
-        assert "€1,500" in html    # Position value = 10 shares * live_price
+        assert "EUR</span>\xa0100.00" in html   # hero Price tile: the scored price, small code (D22)
+        assert "EUR\xa01,500" in html    # Position value = 10 shares * live_price
         assert "€1,000" not in html
 
     def test_missing_price_falls_back_to_purchase_value_not_a_fake_loss(self):
         # Neither live_price nor Price available (e.g. a manually-added or
         # delisted ticker) -- must show the position as flat (purchase
-        # value, €0 gain), not a fabricated "€0 value / -100% loss" from
+        # value, EUR\xa00 gain), not a fabricated "EUR\xa00 value / -100% loss" from
         # _safe_float(NaN) silently collapsing to 0. Matches dashboard.py's
         # holdings table, which falls back to purchase_value the same way.
         portfolio.save_portfolio(pd.DataFrame([{
@@ -284,8 +284,8 @@ open_drawer(row)
         at.run()
         assert not at.exception, [str(e.value) for e in at.exception]
         html = "".join(m.value for m in at.markdown)
-        assert "€900" in html          # Position value falls back to purchase_value
-        assert "+€0 (+0.0%)" in html   # flat, not a fabricated full loss
+        assert "EUR\xa0900" in html          # Position value falls back to purchase_value
+        assert "+EUR\xa00 (+0.0%)" in html   # flat, not a fabricated full loss
         assert "€0 (-100" not in html
 
     def test_watchlisted_not_held_shows_status(self):

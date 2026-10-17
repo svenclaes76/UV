@@ -101,20 +101,20 @@ def test_month_and_day_names_follow_the_interface_language_not_the_region():
 
 
 def test_money_never_shows_minus_zero():
-    assert i18n.fmt_money(-0.0, "EUR", locale="en-GB") == "€0.00"
+    assert i18n.fmt_money(-0.0, "EUR", locale="en-GB") == "EUR\xa00.00"
     assert i18n.fmt_money(-0.0, "CHF", locale="de-CH") == f"CHF{NBSP}0.00"
 
 
 @pytest.mark.parametrize("region, plain, eur", [
-    ("en-GB", "12.8K", "€12.8K"),
-    ("nl-BE", "12,8K", f"€{NBSP}12,8K"),
-    ("fr-FR", f"12,8{NBSP}k", f"12,8{NBSP}k{NBSP}€"),
-    ("es-ES", f"12,8{NBSP}mil", f"12,8{NBSP}mil{NBSP}€"),
+    ("en-GB", "12.8K", "EUR\xa012.8K"),
+    ("nl-BE", "12,8K", f"EUR{NBSP}12,8K"),
+    ("fr-FR", f"12,8{NBSP}k", f"12,8{NBSP}k{NBSP}EUR"),
+    ("es-ES", f"12,8{NBSP}mil", f"12,8{NBSP}mil{NBSP}EUR"),
     # CLDR has no short form for German/Italian thousands: full grouped amount,
     # never Babel's raw "12752,2".
-    ("de-DE", "12.752", f"12.752{NBSP}€"),
+    ("de-DE", "12.752", f"12.752{NBSP}EUR"),
     ("de-CH", "12’752", f"EUR{NBSP}12’752"),
-    ("it-IT", "12.752", f"12.752{NBSP}€"),
+    ("it-IT", "12.752", f"12.752{NBSP}EUR"),
 ])
 def test_compact_thousands(region, plain, eur):
     assert i18n.fmt_compact(12752.2, locale=region) == plain
@@ -127,12 +127,12 @@ def test_lowercase_noun_keeps_german_capitals():
 
 
 @pytest.mark.parametrize("region, number, money, date", [
-    ("en-GB", "1,234.56", "€1,234.56", "27/09/2026"),
-    ("nl-BE", "1.234,56", f"€{NBSP}1.234,56", "27/09/2026"),
-    ("fr-BE", f"1{NNBSP}234,56", f"1{NNBSP}234,56{NBSP}€", "27/09/26"),
-    ("de-DE", "1.234,56", f"1.234,56{NBSP}€", "27.09.26"),
+    ("en-GB", "1,234.56", "EUR\xa01,234.56", "27/09/2026"),
+    ("nl-BE", "1.234,56", f"EUR{NBSP}1.234,56", "27/09/2026"),
+    ("fr-BE", f"1{NNBSP}234,56", f"1{NNBSP}234,56{NBSP}EUR", "27/09/26"),
+    ("de-DE", "1.234,56", f"1.234,56{NBSP}EUR", "27.09.26"),
     ("de-CH", "1’234.56", f"EUR{NBSP}1’234.56", "27.09.26"),
-    ("it-IT", "1.234,56", f"1.234,56{NBSP}€", "27/09/26"),
+    ("it-IT", "1.234,56", f"1.234,56{NBSP}EUR", "27/09/26"),
 ])
 def test_reference_formats_from_spec_table(region, number, money, date):
     """Spec §2's reference table — the de-CH apostrophe and the French
@@ -533,9 +533,9 @@ def test_header_width_estimate_matches_measured_text():
 
 _FIELD_ROWS = [
     (2, ("Buy date *", "Fees (opt.)")),
-    (3, ("Shares *", "Total cost (€) *", "Price / share (opt.)")),
+    (3, ("Shares *", "Total cost (EUR) *", "Per share (EUR)")),
     (2, ("Sell date *", "Fees (opt.)")),
-    (2, ("Shares to sell *", "Sell price *")),
+    (2, ("Shares to sell *", "Sell price ({currency}) *")),
     (2, ("Ex-dividend date *", "Payment date *")),
     (3, ("Shares held *", "Per share ({currency}) *", "Foreign WH (%)")),
     (2, ("Sell date *", "Sector")),
@@ -557,9 +557,10 @@ def test_translated_dialog_labels_fit_a_three_line_slot(lang):
     assert all(_in(lang, _row_lines, spec, msgids) <= 3 for spec, msgids in _FIELD_ROWS)
 
 
-def test_german_amount_row_gets_a_label_slot():
-    # "Preis / Aktie (optional)" is ~137px in a 113px column (live-measured)
-    assert _in("de", _row_lines, 3, ("Shares *", "Total cost (€) *", "Price / share (opt.)")) == 2
+def test_german_amount_row_fits_one_line():
+    # "Preis / Aktie (optional)" (~137px) needed two lines in the 113px
+    # column; "Je Aktie (EUR)", as in the dividend dialog, fits one (EX-W11b).
+    assert _in("de", _row_lines, 3, ("Shares *", "Total cost (EUR) *", "Per share (EUR)")) == 1
 
 
 def test_button_rows_keep_english_proportions_and_fit_long_labels():
@@ -572,12 +573,16 @@ def test_button_rows_keep_english_proportions_and_fit_long_labels():
     assert abs(sum(cols) - sum(_col_px([1, 1]))) < 0.01
 
 
-def test_drawer_stays_at_design_width_in_english_and_widens_for_german():
+def test_drawer_hero_fits_the_design_width_with_currency_codes():
+    """The drawer's three hero tiles (G24) with currency codes (D14): the code
+    is set small (D22), so English, German and a five-figure Danish price
+    all fit the 520px design width without widening the drawer."""
     from uvalu.drawer import _DRAWER_CHROME_PX, _DRAWER_PX, _hero_row_px
-    en = [("Price", "€12.24"), ("Fair value", "€23.55"), ("Margin of safety", "+48.0%"), ("Total return", "+113.7%")]
-    de = [("Kurs", "12,24 €"), ("Fairer Wert", "23,55 €"), ("Sicherheitsmarge", "+48,0 %"), ("Gesamtrendite", "+113,7 %")]
-    assert _hero_row_px(en) + _DRAWER_CHROME_PX <= _DRAWER_PX
-    assert 470 <= _hero_row_px(de) <= 480   # live-measured 473px
+    en = [("Price", "EUR\xa012.24"), ("Fair value", "EUR\xa023.55"), ("Margin of safety", "+48.0%")]
+    de = [("Kurs", "12,24\xa0EUR"), ("Fairer Wert", "23,55\xa0EUR"), ("Sicherheitsmarge", "+48,0 %")]
+    dkk = [("Price", "DKK\xa024,270"), ("Fair value", "DKK\xa027,900"), ("Margin of safety", "+13.0%")]
+    for cells in (en, de, dkk):
+        assert _hero_row_px(cells) + _DRAWER_CHROME_PX <= _DRAWER_PX
 
 
 @pytest.mark.parametrize("region", ["nl-BE", "nl-NL", "en-GB", "de-CH"])

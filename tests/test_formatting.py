@@ -6,7 +6,7 @@ from uvalu.formatting import display_name, fmt_eur, row_currency, safe_pct
 
 class TestFmtEur:
     def test_formats_value(self):
-        assert fmt_eur(12.5) == "€12.50"
+        assert fmt_eur(12.5) == "EUR\xa012.50"
 
     def test_missing_value_is_dash(self):
         assert fmt_eur(None) == "—"

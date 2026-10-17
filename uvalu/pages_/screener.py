@@ -20,7 +20,7 @@ from uvalu.drawer import open_drawer
 from uvalu.components import (page_header, fit_widths, header_cell_html, signal_badge_for, stock_row, is_hard_veto,
                               list_provenance_html, signal_share_label, empty_results_html,
                               refresh_top_bar_html, skeleton_filter_bar_html, skeleton_rows, text_width_px)
-from uvalu.formatting import exchange_code, row_currency, share_class
+from uvalu.formatting import exchange_code, price_in_eur, row_currency, share_class
 from uvalu.i18n import N_, _, fmt_pct, frozen, h_, search_match, sort_key, tr
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun
@@ -358,6 +358,10 @@ def render() -> None:
         _filtered["_signal_label"] = _filtered.apply(
             lambda r: signal_badge_for(r.get("signal_code"), veto=r.get("veto"))[1], axis=1)
     _sort_col = next(c for k, _label, c in _SORT_COLUMNS if k == _sort_key)
+    if _sort_key == "price" and not _filtered.empty:
+        # Mixed currencies: sort on the EUR value, show the native price (D16).
+        _filtered["_price_eur"] = price_in_eur(_filtered)
+        _sort_col = "_price_eur"
     # Text columns sort by Unicode collation (spec F-13): "Électricité" with
     # E, "Ørsted" with O — not after Z as plain string order would.
     _text_sort = _sort_col in ("Name", "_signal_label")

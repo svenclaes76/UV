@@ -719,7 +719,7 @@ class TestAlignedDialogs:
         [b for b in at.button if b.key == "pf_closed_row_0_BBB.BR_edit"][0].click().run()
         html = "".join(m.value for m in at.markdown)
         assert "Realised P&amp;L" in html or "Realised P&L" in html
-        assert "+€100.00 · +20.0%" in html
+        assert "+EUR\xa0100.00 · +20.0%" in html
 
     def test_edit_position_price_per_share_sets_total(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())
@@ -748,7 +748,7 @@ class TestAlignedDialogs:
         at.number_input(key="dlg_eop_invested").set_value(1200.0)
         at.run()
         html = "".join(m.value for m in at.markdown)
-        assert "−€200.00" in html and "€3,800.00" in html
+        assert "−EUR\xa0200.00" in html and "EUR\xa03,800.00" in html
 
     def test_edit_dividend_cash_link_line(self, isolated_data, monkeypatch):
         portfolio.save_portfolio(make_portfolio_df())

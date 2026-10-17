@@ -102,7 +102,7 @@ class TestManual:
 
     def test_withdrawal_beyond_balance_is_blocked_and_writes_nothing(self):
         cash.post_manual("Deposit", D, 100)
-        with pytest.raises(cash.CashError, match=r"Blocked: .*−€50\.00.*cannot go negative"):
+        with pytest.raises(cash.CashError, match=r"Blocked: .*−EUR\xa050\.00.*cannot go negative"):
             cash.post_manual("Withdrawal", D, 150)
         assert len(cash.load_ledger()) == 1
         assert portfolio.load_portfolio_meta()["cash_seq"] == 1   # no id burned
@@ -183,7 +183,7 @@ class TestTrades:
         assert [p["type"] for p in posted] == ["Buy"]
         assert posted[0]["amount"] == -3543.9 and posted[0]["auto"]
         assert posted[0]["ref_label"] == "TRD-0001 · TTE.PA"
-        assert "Bought 60 TTE.PA × €58.90 · fee €9.90" == posted[0]["note"]
+        assert "Bought 60 TTE.PA × EUR\xa058.90 · fee EUR\xa09.90" == posted[0]["note"]
         assert _bal() == pytest.approx(6456.1)
 
     def test_buy_with_empty_ledger_is_fully_topped_up(self):
@@ -383,10 +383,10 @@ class TestSummaryAndExport:
         assert len(cash.filter_rows(rows, "All")) == len(rows)
 
     def test_money_format(self):
-        assert cash.money(-12.4) == "−€12.40"
-        assert cash.signed_money(5) == "+€5.00"
-        # Region format (en-GB default): CLDR writes no space after "CHF".
-        assert cash.money(1234.5, "CHF", 0) == "CHF1,234"
+        assert cash.money(-12.4) == "−EUR\xa012.40"
+        assert cash.signed_money(5) == "+EUR\xa05.00"
+        # Region format (en-GB default), a no-break space after every code (D14).
+        assert cash.money(1234.5, "CHF", 0) == "CHF\xa01,234"
 
 
 # ── retention ────────────────────────────────────────────────────────────────
