@@ -3596,7 +3596,7 @@ msgstr "Aankoop registreren"
 #. shown only when a company has several share classes on one exchange, e.g. "Volvo AB
 #. · B shares". {share_class} is a single letter (A, B, P …).
 #: uvalu/formatting.py:103
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{name} · {share_class} shares"
 msgstr "{name} · {share_class}-aandelen"
 
