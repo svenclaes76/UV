@@ -11,7 +11,7 @@ import streamlit as st
 from portfolio import (position_values_eur, portfolio_exists, load_portfolio, load_value_history, load_sold,
                        record_value_snapshot,
                        ensure_value_history_fresh, load_div_hist, dividends_in_eur,
-                       exchange_key_for_ticker, BE_WITHHOLDING_RATE)
+                       BE_WITHHOLDING_RATE)
 from screener import load_fundamentals_cache, sector_for, get_fetch_progress, PORTFOLIO_FETCH
 from settings import load_shared_settings, get_dividend_withholding
 from uvalu import a11y
@@ -713,7 +713,7 @@ def render() -> None:
                     _dv_rows = []
                     for _dr_idx, _dr in _db_upcoming.iterrows():
                         _gross = float(_dr["_shares"]) * float(_dr["_rate"])
-                        _wh_pct = get_dividend_withholding(exchange_key_for_ticker(_dr["Ticker"]), current_user().email)
+                        _wh_pct = get_dividend_withholding(_dr["Ticker"], current_user().email, country=_dr.get("country"))
                         _fwh = _gross * _wh_pct / 100
                         _net = round(_gross - _fwh - max(0.0, _gross - _fwh) * BE_WITHHOLDING_RATE, 2)
                         _dv_rows.append(dividend_row_html(

@@ -20,7 +20,20 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+**Clearer currencies and dividend tax by country.** Signals don't change.
+If you had set withholding rates per exchange, they moved to the matching
+country: check them once in Settings.
+
 ### Improved
+
+- **Every amount shows its currency**: prices read "EUR 55.86" or
+  "CHF 8.80", and a price in another currency also shows its value in your
+  own currency underneath.
+- **Dividend withholding by country**: each country starts at its usual
+  rate withheld at source, set by where the company is registered (Airbus
+  follows the Netherlands rate). Change any rate in Settings, or reset it.
+- **Buy and sell prices in the stock's own currency**, converted to euros at
+  that day's ECB rate.
 
 - **Add a stock the way your broker writes it**: a ticker like "NOVO B.CO"
   is understood when you add it to your watchlist or record a trade.

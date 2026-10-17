@@ -92,11 +92,11 @@ _USER_DEFAULTS: dict = {
     # Data & alerts (design reference v1.3); stored values are ignored.
     # Per-exchange dividend withholding tax %, applied as the default tax_rate
     # when a dividend is recorded against a ticker on that exchange (still
-    # editable per record). Every exchange starts at 0% — actual withholding
-    # depends on the user's own tax residency/treaty, which this app has no
-    # way to know, so it must never guess a number and silently apply it.
-    # Keyed by settings.py:19 ALL_EXCHANGES, read/written on the Settings page.
-    "dividend_withholding": {ex: 0.0 for ex in ALL_EXCHANGES},
+    # editable per record). Since 17 Oct 2026 (plan D13) the rate is per
+    # country of the company and starts at that country's statutory rate
+    # (uvalu/withholding.py); this holds only the user's own rates. It
+    # replaced a per-exchange table that started at 0% (migration m0003).
+    "withholding_by_country": {},
     # Language & region (docs/i18n-spec.md §7.1), resolved by uvalu/i18n.py.
     # None = not chosen yet, so the detected / config default applies.
     "language": None,          # "en" | "nl" | "fr" | "de" | "it" | "es"
@@ -195,17 +195,16 @@ def load_settings(email: str = "") -> dict:
         return dict(_USER_DEFAULTS)
 
 
-def get_dividend_withholding(exchange_key: str | None, email: str = "") -> float:
-    """Default withholding % for a dividend on this exchange, from the
-    user's own Settings -> Dividend withholding table (0% if unset/unknown
-    exchange)."""
-    if not exchange_key:
+def get_dividend_withholding(ticker: str | None, email: str = "", country: str | None = None) -> float:
+    """Default withholding % for a dividend on ``ticker``: by the country of
+    the company (D13), the user's own rate or that country's statutory
+    default (uvalu/withholding.py). ``country`` is the company's country when
+    the caller has it (a scored row); otherwise it is looked up."""
+    if not ticker:
         return 0.0
-    rates = load_settings(email).get("dividend_withholding", {})
-    try:
-        return float(rates.get(exchange_key, 0.0))
-    except (TypeError, ValueError):
-        return 0.0
+    from uvalu import withholding
+    return withholding.rate_for(withholding.company_country(ticker, country),
+                                load_settings(email).get(withholding.SETTING_KEY))
 
 
 def save_settings(s: dict, email: str = "") -> None:

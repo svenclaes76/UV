@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from portfolio import (load_portfolio, load_manual_tickers, load_div_hist,
-                       dividend_income_summary, exchange_key_for_ticker,
+                       dividend_income_summary,
                        load_dividend_meta)
 from scoring import DIV_COVERAGE_MIN, dividend_risk_reasons
 from screener import (_fcf_hard_veto, _trend_veto, LEVERAGE_EXEMPT_SECTORS,
@@ -698,8 +698,12 @@ def render() -> None:
                     + '</div>', unsafe_allow_html=True)
                 _payout_eps = row.get("payoutRatio")
                 _payout_fcf = row.get("cashPayoutRatio")
-                _wh_pct = get_dividend_withholding(exchange_key_for_ticker(ticker), current_user().email)
-                _wh_label = (h_("{exchange} {rate}% + BE 30%", exchange=exchange_key_for_ticker(ticker) or '—',
+                _wh_pct = get_dividend_withholding(ticker, current_user().email, country=row.get("country"))
+                # By the company's country (D13): Airbus pays the Netherlands rate.
+                from uvalu import withholding as _wh
+                _wh_country = _wh.company_country(ticker, row.get("country"))
+                # Translators: Analysis › dividend card: foreign withholding of the company's country, then Belgium's 30%, e.g. "Netherlands 15% + BE 30%". {country} is a translated country name.
+                _wh_label = (h_("{country} {rate}% + BE 30%", country=_wh.country_name(_wh_country) if _wh_country else '—',
                                 rate=fmt_num(_wh_pct, 1)) if _wh_pct else h_("BE 30% only"))
                 _ddm_label = h_("Feeds DDM inputs")
                 _grid_rows = [

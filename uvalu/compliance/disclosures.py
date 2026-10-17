@@ -75,9 +75,10 @@ DATA_SOURCE_ROWS = (
 # ── Tax estimates (TAX-1, TAX-2, TAX-5, TAX-6) ───────────────────────────────
 TAX_RULES_REVIEWED = "2026-10-04"   # TAX-5: date the rates and rules below were last checked
 TAX_TITLE = N_("Tax figures are estimates")
-TAX_RULES = N_("Rules applied: Belgium. Foreign withholding at the rate you set per exchange in "
-               "Settings, then the Belgian withholding tax (roerende voorheffing) of {be_rate} on "
-               "the remainder; not applied to stock (scrip) dividends. Rates last reviewed {date}.")
+TAX_RULES = N_("Rules applied: Belgium. Foreign withholding at the rate for the company's country in "
+               "Settings (its statutory rate unless you changed it), then the Belgian withholding tax "
+               "(roerende voorheffing) of {be_rate} on the remainder; not applied to stock (scrip) "
+               "dividends. Rates last reviewed {date}.")
 TAX_NOT_HANDLED = N_("Not handled: the dividend exemption and its carry-forward, substantial "
                      "holdings, funds with a bond component, non-Belgian residents, split "
                      "ownership, professional or speculative trading.")

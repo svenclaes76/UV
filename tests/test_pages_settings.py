@@ -231,12 +231,36 @@ def test_existing_targets_prefill_the_editor(isolated_data, monkeypatch):
 
 
 def test_withholding_rates_save_only_with_the_button(isolated_data, monkeypatch):
+    """D13: per country, starting at the statutory default; only a rate that
+    differs from the default is stored, and only on Save."""
     at = _run(monkeypatch)
-    at.number_input(key="disp_wh_brussels").set_value(30.0).run()
-    assert settings.load_settings(TEST_EMAIL).get("dividend_withholding", {}).get("brussels", 0.0) == 0.0
+    assert at.number_input(key="wh_c_FR").value == 12.8              # France's default
+    at.number_input(key="wh_c_FR").set_value(25.0).run()
+    assert settings.load_settings(TEST_EMAIL).get("withholding_by_country", {}) == {}
     at.button(key="wh_save").click().run()
     assert not at.exception, [str(e.value) for e in at.exception]
-    assert settings.load_settings(TEST_EMAIL)["dividend_withholding"]["brussels"] == 30.0
+    assert settings.load_settings(TEST_EMAIL)["withholding_by_country"] == {"France": 25.0}
+
+
+def test_withholding_reset_to_default(isolated_data, monkeypatch):
+    s = settings.load_settings(TEST_EMAIL)
+    s["withholding_by_country"] = {"Switzerland": 15.0}
+    settings.save_settings(s, TEST_EMAIL)
+    at = _run(monkeypatch)
+    assert at.number_input(key="wh_c_CH").value == 15.0
+    at.button(key="wh_reset_CH").click().run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert settings.load_settings(TEST_EMAIL)["withholding_by_country"] == {}
+
+
+def test_withholding_moved_notice_shows_once(isolated_data, monkeypatch):
+    s = settings.load_settings(TEST_EMAIL)
+    s["withholding_moved"] = [["France", 25.0]]
+    settings.save_settings(s, TEST_EMAIL)
+    at = _run(monkeypatch)
+    assert any("moved from exchanges to countries" in i.value for i in at.info)
+    at.button(key="wh_moved_ok").click().run()
+    assert "withholding_moved" not in settings.load_settings(TEST_EMAIL)
 
 
 def test_section_nav_links_every_card_anchor(isolated_data, monkeypatch):

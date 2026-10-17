@@ -669,7 +669,7 @@ def _dividend_dates_error(ex_date, pay_date) -> str | None:
 
 @_dialog(N_("Add dividend"))
 def add_dividend_dialog(pf: "pd.DataFrame") -> None:
-    from portfolio import currency_for_ticker, exchange_key_for_ticker
+    from portfolio import currency_for_ticker
     from settings import get_dividend_withholding
     from uvalu.runtime import current_user
 
@@ -708,7 +708,7 @@ def add_dividend_dialog(pf: "pd.DataFrame") -> None:
         dps = _nz(number_field(_l2[1], min_value=0.0, step=0.0001, value=0.0,
                                format="%.4f", key="dlg_dv_ps"), 0.0)
     with _c7:
-        _default_tax = get_dividend_withholding(exchange_key_for_ticker(ticker_raw), current_user().email)
+        _default_tax = get_dividend_withholding(ticker_raw, current_user().email)
         tax_rate = _nz(number_field(_l2[2], min_value=0.0, max_value=100.0,
                                     step=0.5, value=_default_tax, key="dlg_dv_tax"), 0.0)
 

@@ -69,7 +69,7 @@ def _sample_data():
     portfolio.save_manual_tickers({"BDC": "Belden Inc"})
     portfolio.save_targets({"sectors": {"Technology": 0.3}, "tickers": {"ABI.BR": 0.1}, "hhi_max": 0.2})
     s = settings.load_settings(EMAIL)
-    s["dividend_withholding"] = {**s["dividend_withholding"], "swiss": 35.0}
+    s["withholding_by_country"] = {"Switzerland": 15.0}
     settings.save_settings(s, EMAIL)
 
 
@@ -155,8 +155,8 @@ class TestExport:
         by = {(a, b): c for a, b, c in rows[1:]}
         assert by[("Language & region", "Language")] == "Not set (default)"
         assert by[("Display", "Table density")] == "comfortable"
-        assert by[("Dividend withholding", "SIX Swiss Exchange")] == "35%"
-        assert by[("Dividend withholding", "Euronext Brussels")] == "0%"
+        assert by[("Dividend withholding", "Switzerland")] == "15%"     # the user's own rate
+        assert by[("Dividend withholding", "France")] == "12.8%"        # the statutory default
         assert by[("Target allocation", "Sector · Technology")] == "30%"
         assert by[("Target allocation", "Ticker · ABI.BR")] == "10%"
         assert by[("Target allocation", "Concentration ceiling (HHI)")] == "20%"
@@ -307,7 +307,7 @@ def _state():
         "watchlist": portfolio.load_watchlist(),
         "custom": portfolio.load_manual_tickers(),
         "targets": portfolio.load_targets(),
-        "withholding": settings.load_settings(EMAIL)["dividend_withholding"],
+        "withholding": settings.load_settings(EMAIL)["withholding_by_country"],
     }
 
 
@@ -334,7 +334,7 @@ class TestImport:
         assert portfolio.load_watchlist() == {"ASML.AS", "BDC"}
         assert portfolio.load_manual_tickers() == {"BDC": "Belden Inc"}
         assert portfolio.load_targets()["hhi_max"] == 0.2
-        assert settings.load_settings(EMAIL)["dividend_withholding"]["swiss"] == 35.0
+        assert settings.load_settings(EMAIL)["withholding_by_country"]["Switzerland"] == 15.0
 
     def test_add_merges_the_watchlist(self):
         portfolio.save_watchlist({"A.BR"})

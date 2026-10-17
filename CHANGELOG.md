@@ -21,6 +21,11 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+**Amounts carry their currency code instead of a symbol, and dividend
+withholding is set per country of the company with statutory defaults.**
+No signal changes. Data schema: 3 (per-exchange withholding rates move to
+their country; non-zero rates are kept as the user's own).
+
 ### Added
 
 - Prices quoted in a currency's minor unit (London's pence, "GBp") are
@@ -50,6 +55,22 @@ of that month); earlier releases used SemVer. Rules in
   It is today's membership only and must never be used for a backtest.
 
 ### Changed
+
+- Every amount is written with its three-letter code, never a symbol
+  ("EUR 55.86", "55,86 EUR"), where the region places it. Prices show the
+  code small and muted and have no decimals from 1,000 up; an amount in
+  another currency than the user's own gets a small "≈ EUR …" line in
+  theirs; the Screener sorts Price on its EUR value. Brand guidelines v1.6.
+- Dividend withholding is set per country of the company (where it is
+  registered, not where it trades), starting at each country's statutory
+  rate withheld at source (`uvalu/withholding.py`), editable with a reset
+  to default. Settings lists the countries you hold first; Belgium is
+  explained instead of a field (its 30% is the separate Belgian layer).
+  Migration m0003 moves non-zero per-exchange rates to their country and
+  shows them once. The rates are to be checked by a tax advisor (L30).
+- The buy and sell dialogs take the price in the stock's own currency and
+  convert it to EUR at the trade date's ECB rate; before, a CHF price was
+  stored as euros.
 
 - When an exchange's ticker list can't be read, the last-resort list is
   now the members of its blue-chip index from that snapshot, instead of
