@@ -2862,12 +2862,12 @@ msgid "Cash after trade"
 msgstr "Liquidità dopo l'operazione"
 
 #: uvalu/dialogs.py:404
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Converted to EUR at 1 {currency} = {rate} EUR ({date})."
 msgstr "Convertito in EUR al cambio 1 {currency} = {rate} EUR ({date})."
 
 #: uvalu/dialogs.py:407 uvalu/dialogs.py:652
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "No EUR rate for {currency} on {date}."
 msgstr "Nessun cambio in EUR per {currency} del {date}."
 
@@ -2907,12 +2907,11 @@ msgid "Shares *"
 msgstr "Azioni *"
 
 #: uvalu/dialogs.py:441 uvalu/dialogs.py:537
-#, fuzzy
 msgid "Total cost (EUR) *"
 msgstr "Costo totale (EUR) *"
 
 #: uvalu/dialogs.py:441
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Per share ({currency})"
 msgstr "Per azione ({currency})"
 
@@ -2929,7 +2928,7 @@ msgid "Ticker **{ticker}** not found. Check the symbol and try again."
 msgstr "Ticker **{ticker}** non trovato. Controlla il simbolo e riprova."
 
 #: uvalu/dialogs.py:470
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "No EUR rate for {currency}: enter the total cost in EUR instead."
 msgstr "Nessun cambio in EUR per {currency}: inserisci invece il costo totale in EUR."
 
@@ -2967,7 +2966,6 @@ msgid "Fees only affect the linked cash entry."
 msgstr "Le commissioni incidono solo sulla registrazione di liquidità collegata."
 
 #: uvalu/dialogs.py:537
-#, fuzzy
 msgid "Per share (EUR)"
 msgstr "Per azione (EUR)"
 
@@ -3036,7 +3034,7 @@ msgid "Shares to sell *"
 msgstr "Azioni da vendere *"
 
 #: uvalu/dialogs.py:632
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Sell price ({currency}) *"
 msgstr "Prezzo di vendita ({currency}) *"
 
@@ -4098,7 +4096,7 @@ msgid "Tax figures are estimates"
 msgstr "I dati fiscali sono stime"
 
 #: uvalu/compliance/disclosures.py:78
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Rules applied: Belgium. Foreign withholding at the rate for the company's "
 "country in Settings (its statutory rate unless you changed it), then the Belgian"
@@ -4656,7 +4654,7 @@ msgstr[1] "{count} anni"
 #. Belgium's 30%, e.g. "Netherlands 15% + BE 30%". {country} is a translated country
 #. name.
 #: uvalu/pages_/analysis.py:706
-#, fuzzy, no-python-format, python-brace-format
+#, no-python-format, python-brace-format
 msgid "{country} {rate}% + BE 30%"
 msgstr "{country} {rate}% + BE 30%"
 
@@ -6688,7 +6686,7 @@ msgstr "Allocazione obiettivo salvata."
 
 #. Settings › Dividend withholding › explanation under the card title.
 #: uvalu/pages_/settings.py:827
-#, fuzzy, no-python-format
+#, no-python-format
 msgid ""
 "Foreign withholding % used by default when you record a dividend, by the country"
 " where the company is registered, not where it trades: Airbus is Dutch, so its "
@@ -6698,7 +6696,7 @@ msgid ""
 msgstr "Ritenuta estera (%) usata di default quando registri un dividendo, in base al paese in cui la società ha sede, non a quello in cui è quotata: Airbus è olandese, quindi i suoi dividendi seguono l'aliquota dei Paesi Bassi. Ogni paese parte dalla sua aliquota legale trattenuta alla fonte, prima di qualsiasi rimborso da convenzione; impostala su quanto trattiene il tuo broker. Puoi sempre modificarla per singolo dividendo."
 
 #: uvalu/pages_/settings.py:835
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Your withholding rates moved from exchanges to countries: {rates}. Check them "
 "below."
@@ -6706,7 +6704,7 @@ msgstr "Le tue aliquote di ritenuta sono passate dalle borse ai paesi: {rates}. 
 
 #. Settings › Dividend withholding › Belgium has no field; this line says why.
 #: uvalu/pages_/settings.py:844
-#, fuzzy, no-python-format, python-brace-format
+#, no-python-format, python-brace-format
 msgid ""
 "{country}: the Belgian withholding tax (30%) is applied automatically for "
 "Belgian residents."
@@ -6715,28 +6713,25 @@ msgstr "{country}: la ritenuta belga (30%) è applicata automaticamente ai resid
 #. Settings › Dividend withholding › marks a rate the user set, with the statutory
 #. default after it.
 #: uvalu/pages_/settings.py:873
-#, fuzzy, no-python-format, python-brace-format
+#, no-python-format, python-brace-format
 msgid "Your rate · default {rate}%"
 msgstr "La tua aliquota · predefinita {rate}%"
 
 #: uvalu/pages_/settings.py:875
-#, fuzzy
 msgid "Reset to default"
 msgstr "Ripristina il valore predefinito"
 
 #. Settings › Dividend withholding › marks a statutory default rate.
 #: uvalu/pages_/settings.py:883
-#, fuzzy
 msgid "Default"
 msgstr "Predefinito"
 
 #: uvalu/pages_/settings.py:889
-#, fuzzy
 msgid "Other countries"
 msgstr "Altri paesi"
 
 #: uvalu/pages_/settings.py:889
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "All countries"
 msgstr "Tutti i paesi"
 

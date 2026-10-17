@@ -557,10 +557,10 @@ def test_translated_dialog_labels_fit_a_three_line_slot(lang):
     assert all(_in(lang, _row_lines, spec, msgids) <= 3 for spec, msgids in _FIELD_ROWS)
 
 
-def test_german_amount_row_fits_one_line():
-    # "Preis / Aktie (optional)" (~137px) needed two lines in the 113px
-    # column; "Je Aktie (EUR)", as in the dividend dialog, fits one (EX-W11b).
-    assert _in("de", _row_lines, 3, ("Shares *", "Total cost (EUR) *", "Per share (EUR)")) == 1
+def test_german_amount_row_gets_a_label_slot():
+    # "Gesamtkosten (EUR) *" is wider than its 113px column, so the German
+    # amount row keeps a two-line label slot.
+    assert _in("de", _row_lines, 3, ("Shares *", "Total cost (EUR) *", "Per share (EUR)")) == 2
 
 
 def test_button_rows_keep_english_proportions_and_fit_long_labels():
