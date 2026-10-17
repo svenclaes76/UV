@@ -268,25 +268,21 @@ def fetch_amsterdam_tickers() -> list[dict]:
     )
 
 
-def _build_hardcoded(pairs: list[tuple[str, str]], suffix: str, mic: str, label: str) -> list[dict]:
-    _log.debug("using hardcoded %s list (%d stocks)", label, len(pairs),
+def _index_fallback(index_key: str, suffix: str, mic: str, label: str) -> list[dict]:
+    """The last-resort list when an exchange list can't be read: the members
+    of its blue-chip index on that exchange, from the committed index
+    snapshot (uvalu/index_members.json, refreshed each quarter). It replaced
+    hand-kept lists that had drifted out of date (EX-13)."""
+    from uvalu import indices
+    stocks = indices.fallback_stocks(index_key, suffix, mic)
+    _log.debug("using the %s index list (%d stocks)", label, len(stocks),
                extra={"event": "fallback", "list": label})
-    return [{"name": n, "isin": "", "ticker": f"{t}{suffix}", "mic": mic} for n, t in pairs]
+    return stocks
 
 
 def _hardcoded_bel20() -> list[dict]:
-    return _build_hardcoded([
-        ("AB InBev",        "ABI"),  ("Ageas",          "AGS"),
-        ("Ahold Delhaize",  "AD"),   ("Aperam",         "APAM"),
-        ("Argenx",          "ARGX"), ("Cofinimmo",      "COFB"),
-        ("Colruyt",         "COLR"), ("D'Ieteren",      "DIE"),
-        ("Elia",            "ELI"),  ("GBL",            "GBLB"),
-        ("ING",             "ING"),  ("KBC",            "KBC"),
-        ("Lotus Bakeries",  "LOTB"), ("Melexis",        "MELE"),
-        ("Proximus",        "PROX"), ("Sofina",         "SOF"),
-        ("Solvay",          "SOLB"), ("UCB",            "UCB"),
-        ("Umicore",         "UMI"),  ("WDP",            "WDP"),
-    ], ".BR", "XBRU", "BEL20")
+    """BEL20 members on this exchange, from the index snapshot (EX-13)."""
+    return _index_fallback("bel_20", ".BR", "XBRU", "BEL20")
 
 
 def fetch_paris_tickers() -> list[dict]:
@@ -401,28 +397,8 @@ def fetch_frankfurt_tickers() -> list[dict]:
 
 
 def _hardcoded_dax40() -> list[dict]:
-    return _build_hardcoded([
-        ("Adidas",                  "ADS"),   ("Airbus",              "AIR"),
-        ("Allianz",                 "ALV"),   ("BASF",                "BAS"),
-        ("Bayer",                   "BAYN"),  ("Beiersdorf",          "BEI"),
-        ("BMW",                     "BMW"),   ("Brenntag",            "BNR"),
-        ("Commerzbank",             "CBK"),   ("Continental",         "CON"),
-        ("Covestro",                "1COV"),  ("Daimler Truck",       "DTG"),
-        ("Deutsche Bank",           "DBK"),   ("Deutsche Börse",      "DB1"),
-        ("Deutsche Post",           "DHL"),   ("Deutsche Telekom",    "DTE"),
-        ("E.ON",                    "EOAN"),  ("Fresenius",           "FRE"),
-        ("Fresenius Medical Care",  "FME"),   ("Hannover Re",         "HNR1"),
-        ("Heidelberg Materials",    "HEIG"),  ("Henkel",              "HEN3"),
-        ("Infineon",                "IFX"),   ("Mercedes-Benz",       "MBG"),
-        ("Merck",                   "MRK"),   ("MTU Aero Engines",    "MTX"),
-        ("Münchener Rück",          "MUV2"),  ("Porsche AG",          "P911"),
-        ("Porsche SE",              "PAH3"),  ("Qiagen",              "QIA"),
-        ("RWE",                     "RWE"),   ("SAP",                 "SAP"),
-        ("Sartorius",               "SRT3"),  ("Siemens",             "SIE"),
-        ("Siemens Energy",          "ENR"),   ("Siemens Healthineers","SHL"),
-        ("Symrise",                 "SY1"),   ("Volkswagen",          "VOW3"),
-        ("Vonovia",                 "VNA"),   ("Zalando",             "ZAL"),
-    ], ".DE", "XETR", "DAX40")
+    """DAX40 members on this exchange, from the index snapshot (EX-13)."""
+    return _index_fallback("dax", ".DE", "XETR", "DAX40")
 
 
 def fetch_swiss_tickers() -> list[dict]:
@@ -434,88 +410,23 @@ def fetch_swiss_tickers() -> list[dict]:
 
 
 def _hardcoded_smi20() -> list[dict]:
-    return _build_hardcoded([
-        ("ABB",                 "ABBN"),  ("Alcon",            "ALC"),
-        ("Geberit",             "GEBN"),  ("Givaudan",         "GIVN"),
-        ("Holcim",              "HOLN"),  ("Julius Baer",      "BAER"),
-        ("Kühne+Nagel",         "KNIN"),  ("Lindt & Sprüngli", "LISP"),
-        ("Lonza",               "LONN"),  ("Nestlé",           "NESN"),
-        ("Novartis",            "NOVN"),  ("Partners Group",   "PGHN"),
-        ("Richemont",           "CFR"),   ("Roche",            "ROG"),
-        ("Schindler",           "SCHN"),  ("SGS",              "SGSN"),
-        ("Sika",                "SIKA"),  ("Sonova",           "SOON"),
-        ("Swiss Life",          "SLHN"),  ("Swiss Re",         "SREN"),
-        ("Swisscom",            "SCMN"),  ("UBS",              "UBSG"),
-        ("Zurich Insurance",    "ZURN"),
-    ], ".SW", "XSWX", "SMI20")
+    """SMI20 members on this exchange, from the index snapshot (EX-13)."""
+    return _index_fallback("smi", ".SW", "XSWX", "SMI20")
 
 
 def _hardcoded_aex25() -> list[dict]:
-    return _build_hardcoded([
-        ("ASML",            "ASML"),  ("Shell",           "SHEL"),
-        ("ING",             "INGA"),  ("Heineken",        "HEIA"),
-        ("Unilever",        "UNA"),   ("Philips",         "PHIA"),
-        ("ABN AMRO",        "ABN"),   ("Aegon",           "AGN"),
-        ("Akzo Nobel",      "AKZA"),  ("NN Group",        "NN"),
-        ("Wolters Kluwer",  "WKL"),   ("Randstad",        "RAND"),
-        ("ArcelorMittal",   "MT"),    ("DSM-Firmenich",   "DSFIR"),
-        ("Adyen",           "ADYEN"), ("ASR Nederland",   "ASRNL"),
-        ("Signify",         "LIGHT"), ("Flow Traders",    "FLOW"),
-        ("Fugro",           "FUR"),   ("Corbion",         "CRBN"),
-        ("OCI",             "OCI"),   ("SBM Offshore",    "SBMO"),
-        ("Aalberts",        "AALB"),  ("Besi",            "BESI"),
-        ("Just Eat",        "TKWY"),
-    ], ".AS", "XAMS", "AEX25")
+    """AEX25 members on this exchange, from the index snapshot (EX-13)."""
+    return _index_fallback("aex", ".AS", "XAMS", "AEX25")
 
 
 def _hardcoded_cac40() -> list[dict]:
-    return _build_hardcoded([
-        ("Air Liquide",        "AI"),    ("Airbus",           "AIR"),
-        ("AXA",                "CS"),    ("BNP Paribas",      "BNP"),
-        ("Bouygues",           "EN"),    ("Capgemini",        "CAP"),
-        ("Carrefour",          "CA"),    ("Compagnie de Saint-Gobain", "SGO"),
-        ("Crédit Agricole",    "ACA"),   ("Danone",           "BN"),
-        ("Dassault Systèmes",  "DSY"),   ("Engie",            "ENGI"),
-        ("EssilorLuxottica",   "EL"),    ("Hermès",           "RMS"),
-        ("Kering",             "KER"),   ("Legrand",          "LR"),
-        ("L'Oréal",            "OR"),    ("LVMH",             "MC"),
-        ("Michelin",           "ML"),    ("Orange",           "ORA"),
-        ("Pernod Ricard",      "RI"),    ("Publicis Groupe",  "PUB"),
-        ("Renault",            "RNO"),   ("Safran",           "SAF"),
-        ("Sanofi",             "SAN"),   ("Schneider Electric","SU"),
-        ("Société Générale",   "GLE"),   ("Stellantis",       "STLAM"),
-        ("STMicroelectronics", "STM"),   ("TotalEnergies",    "TTE"),
-        ("Unibail-Rodamco",    "URW"),   ("Veolia",           "VIE"),
-        ("Vinci",              "DG"),    ("Vivendi",          "VIV"),
-        ("Worldline",          "WLN"),   ("Accor",            "AC"),
-        ("ArcelorMittal",      "MT"),    ("Teleperformance",  "TEP"),
-        ("Thales",             "HO"),    ("Valeo",            "FR"),
-    ], ".PA", "XPAR", "CAC40")
+    """CAC40 members on this exchange, from the index snapshot (EX-13)."""
+    return _index_fallback("cac_40", ".PA", "XPAR", "CAC40")
 
 
 def _hardcoded_ftse_mib() -> list[dict]:
-    return _build_hardcoded([
-        ("Amplifon",           "AMP"),   ("Assicurazioni Generali", "G"),
-        ("Atlantia",           "ATL"),   ("Banca Mediolanum",  "BMED"),
-        ("Banco BPM",          "BAMI"),  ("BPER Banca",        "BPE"),
-        ("Buzzi",              "BZU"),   ("CNH Industrial",    "CNHI"),
-        ("DiaSorin",           "DIA"),   ("ENI",               "ENI"),
-        ("Enel",               "ENEL"),  ("Ferrari",           "RACE"),
-        ("FinecoBank",         "FBK"),   ("Infrastrutture Wireless","INWIT"),
-        ("Intesa Sanpaolo",    "ISP"),   ("Iveco Group",       "IVG"),
-        ("Leonardo",           "LDO"),   ("Mediobanca",        "MB"),
-        ("Moncler",            "MONC"),  ("Nexi",              "NEXI"),
-        ("Pirelli",            "PIRC"),  ("Poste Italiane",    "PST"),
-        ("Prysmian",           "PRY"),   ("Recordati",         "REC"),
-        ("Saipem",             "SPM"),   ("Snam",              "SRG"),
-        ("STMicroelectronics", "STMMI"), ("Telecom Italia",    "TIT"),
-        ("Tenaris",            "TEN"),   ("Terna",             "TRN"),
-        ("UniCredit",          "UCG"),   ("Unipol",            "UNI"),
-        ("Webuild",            "WBD"),   ("Brunello Cucinelli","BC"),
-        ("De' Longhi",         "DLG"),   ("Interpump Group",   "IP"),
-        ("OVS",                "OVS"),   ("Salvatore Ferragamo","SFER"),
-        ("Tod's",              "TOD"),   ("Tamburi",           "TIP"),
-    ], ".MI", "XMIL", "FTSE MIB")
+    """FTSE MIB members on this exchange, from the index snapshot (EX-13)."""
+    return _index_fallback("ftse_mib", ".MI", "XMIL", "FTSE MIB")
 
 
 # Exchange key (uvalu/exchanges.py) → its ticker-list function.

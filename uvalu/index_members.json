@@ -1,0 +1,2748 @@
+{
+ "_note": "Index members as published, refreshed by hand after each quarterly review with tools/refresh_index_members.py. Today's members only: not point-in-time, so never use this for a backtest or a performance claim (it would be survivorship-biased; model review M9). Index names are trademarks of their owners.",
+ "indices": {
+  "euro_stoxx_50": {
+   "name": "EURO STOXX 50",
+   "owner": "STOXX",
+   "source_url": "https://en.wikipedia.org/wiki/EURO_STOXX_50",
+   "size": 50,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "ABI.BR",
+     "name": "Anheuser-Busch InBev"
+    },
+    {
+     "ticker": "AD.AS",
+     "name": "Ahold Delhaize"
+    },
+    {
+     "ticker": "ADS.DE",
+     "name": "Adidas"
+    },
+    {
+     "ticker": "ADYEN.AS",
+     "name": "Adyen"
+    },
+    {
+     "ticker": "AI.PA",
+     "name": "Air Liquide"
+    },
+    {
+     "ticker": "AIR.PA",
+     "name": "Airbus"
+    },
+    {
+     "ticker": "ALV.DE",
+     "name": "Allianz"
+    },
+    {
+     "ticker": "ARGX.BR",
+     "name": "Argenx"
+    },
+    {
+     "ticker": "ASML.AS",
+     "name": "ASML Holding"
+    },
+    {
+     "ticker": "BAS.DE",
+     "name": "BASF"
+    },
+    {
+     "ticker": "BAYN.DE",
+     "name": "Bayer"
+    },
+    {
+     "ticker": "BBVA.MC",
+     "name": "BBVA"
+    },
+    {
+     "ticker": "BMW.DE",
+     "name": "BMW"
+    },
+    {
+     "ticker": "BN.PA",
+     "name": "Danone"
+    },
+    {
+     "ticker": "BNP.PA",
+     "name": "BNP Paribas"
+    },
+    {
+     "ticker": "CS.PA",
+     "name": "Axa"
+    },
+    {
+     "ticker": "DB1.DE",
+     "name": "Deutsche Börse"
+    },
+    {
+     "ticker": "DBK.DE",
+     "name": "Deutsche Bank"
+    },
+    {
+     "ticker": "DG.PA",
+     "name": "Vinci SA"
+    },
+    {
+     "ticker": "DHL.DE",
+     "name": "Deutsche Post"
+    },
+    {
+     "ticker": "DTE.DE",
+     "name": "Deutsche Telekom"
+    },
+    {
+     "ticker": "EL.PA",
+     "name": "EssilorLuxottica"
+    },
+    {
+     "ticker": "ENEL.MI",
+     "name": "Enel"
+    },
+    {
+     "ticker": "ENI.MI",
+     "name": "Eni"
+    },
+    {
+     "ticker": "ENR.DE",
+     "name": "Siemens Energy"
+    },
+    {
+     "ticker": "IBE.MC",
+     "name": "Iberdrola"
+    },
+    {
+     "ticker": "IFX.DE",
+     "name": "Infineon Technologies"
+    },
+    {
+     "ticker": "INGA.AS",
+     "name": "ING Group"
+    },
+    {
+     "ticker": "ISP.MI",
+     "name": "Intesa Sanpaolo"
+    },
+    {
+     "ticker": "ITX.MC",
+     "name": "Inditex"
+    },
+    {
+     "ticker": "MBG.DE",
+     "name": "Mercedes-Benz Group"
+    },
+    {
+     "ticker": "MC.PA",
+     "name": "LVMH Moët Hennessy Louis Vuitton"
+    },
+    {
+     "ticker": "MUV2.DE",
+     "name": "Munich Re"
+    },
+    {
+     "ticker": "NDA-FI.HE",
+     "name": "Nordea"
+    },
+    {
+     "ticker": "OR.PA",
+     "name": "L'Oréal"
+    },
+    {
+     "ticker": "PRX.AS",
+     "name": "Prosus"
+    },
+    {
+     "ticker": "RACE.MI",
+     "name": "Ferrari"
+    },
+    {
+     "ticker": "RHM.DE",
+     "name": "Rheinmetall"
+    },
+    {
+     "ticker": "RMS.PA",
+     "name": "Hermès"
+    },
+    {
+     "ticker": "SAF.PA",
+     "name": "Safran"
+    },
+    {
+     "ticker": "SAN.MC",
+     "name": "Banco Santander"
+    },
+    {
+     "ticker": "SAN.PA",
+     "name": "Sanofi"
+    },
+    {
+     "ticker": "SAP.DE",
+     "name": "SAP"
+    },
+    {
+     "ticker": "SGO.PA",
+     "name": "Saint-Gobain"
+    },
+    {
+     "ticker": "SIE.DE",
+     "name": "Siemens"
+    },
+    {
+     "ticker": "SU.PA",
+     "name": "Schneider Electric"
+    },
+    {
+     "ticker": "TTE.PA",
+     "name": "TotalEnergies"
+    },
+    {
+     "ticker": "UCG.MI",
+     "name": "UniCredit"
+    },
+    {
+     "ticker": "VOW.DE",
+     "name": "Volkswagen Group"
+    },
+    {
+     "ticker": "WKL.AS",
+     "name": "Wolters Kluwer"
+    }
+   ],
+   "status": "ok",
+   "problems": []
+  },
+  "stoxx_europe_50": {
+   "name": "STOXX Europe 50",
+   "owner": "STOXX",
+   "source_url": "https://de.wikipedia.org/wiki/STOXX_Europe_50",
+   "size": 50,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "ABBN.SW",
+     "name": "ABB"
+    },
+    {
+     "ticker": "ABI.BR",
+     "name": "Anheuser-Busch InBev"
+    },
+    {
+     "ticker": "ADS.DE",
+     "name": "Adidas"
+    },
+    {
+     "ticker": "AI.PA",
+     "name": "Air Liquide"
+    },
+    {
+     "ticker": "AIR.PA",
+     "name": "Airbus"
+    },
+    {
+     "ticker": "ALV.DE",
+     "name": "Allianz"
+    },
+    {
+     "ticker": "ASML.AS",
+     "name": "ASML"
+    },
+    {
+     "ticker": "AZN.L",
+     "name": "AstraZeneca"
+    },
+    {
+     "ticker": "BATS.L",
+     "name": "British American Tobacco"
+    },
+    {
+     "ticker": "BAYN.DE",
+     "name": "Bayer"
+    },
+    {
+     "ticker": "BBVA.MC",
+     "name": "BBVA"
+    },
+    {
+     "ticker": "BNP.PA",
+     "name": "BNP Paribas"
+    },
+    {
+     "ticker": "BP.L",
+     "name": "BP"
+    },
+    {
+     "ticker": "CFR.SW",
+     "name": "Richemont"
+    },
+    {
+     "ticker": "CS.PA",
+     "name": "Axa"
+    },
+    {
+     "ticker": "DG.PA",
+     "name": "Vinci"
+    },
+    {
+     "ticker": "DGE.L",
+     "name": "Diageo"
+    },
+    {
+     "ticker": "DHL.DE",
+     "name": "DHL"
+    },
+    {
+     "ticker": "DTE.DE",
+     "name": "Deutsche Telekom"
+    },
+    {
+     "ticker": "EL.PA",
+     "name": "EssilorLuxottica"
+    },
+    {
+     "ticker": "ENEL.MI",
+     "name": "Enel"
+    },
+    {
+     "ticker": "GSK.L",
+     "name": "GSK"
+    },
+    {
+     "ticker": "HSBA.L",
+     "name": "HSBC"
+    },
+    {
+     "ticker": "IBE.MC",
+     "name": "Iberdrola"
+    },
+    {
+     "ticker": "INGA.AS",
+     "name": "ING Groep"
+    },
+    {
+     "ticker": "LIN.DE",
+     "name": "Linde"
+    },
+    {
+     "ticker": "MC.PA",
+     "name": "LVMH Moët Hennessy"
+    },
+    {
+     "ticker": "MUV2.DE",
+     "name": "Münchener Rück"
+    },
+    {
+     "ticker": "NESN.SW",
+     "name": "Nestlé"
+    },
+    {
+     "ticker": "NG.L",
+     "name": "National Grid"
+    },
+    {
+     "ticker": "NOVN.SW",
+     "name": "Novartis"
+    },
+    {
+     "ticker": "NOVO-B.CO",
+     "name": "Novo Nordisk"
+    },
+    {
+     "ticker": "OR.PA",
+     "name": "L’Oréal"
+    },
+    {
+     "ticker": "PRX.AS",
+     "name": "Prosus"
+    },
+    {
+     "ticker": "REL.L",
+     "name": "RELX Group"
+    },
+    {
+     "ticker": "RHM.DE",
+     "name": "Rheinmetall"
+    },
+    {
+     "ticker": "RIO.L",
+     "name": "Rio Tinto"
+    },
+    {
+     "ticker": "RKT.L",
+     "name": "Reckitt"
+    },
+    {
+     "ticker": "RMS.PA",
+     "name": "Hermès"
+    },
+    {
+     "ticker": "ROP.SW",
+     "name": "Roche"
+    },
+    {
+     "ticker": "SAN.MC",
+     "name": "Banco Santander"
+    },
+    {
+     "ticker": "SAN.PA",
+     "name": "Sanofi"
+    },
+    {
+     "ticker": "SAP.DE",
+     "name": "SAP"
+    },
+    {
+     "ticker": "SHEL.L",
+     "name": "Shell"
+    },
+    {
+     "ticker": "SIE.DE",
+     "name": "Siemens"
+    },
+    {
+     "ticker": "SU.PA",
+     "name": "Schneider Electric"
+    },
+    {
+     "ticker": "TTE.PA",
+     "name": "TotalEnergies"
+    },
+    {
+     "ticker": "UBSG.SW",
+     "name": "UBS"
+    },
+    {
+     "ticker": "ULVR.L",
+     "name": "Unilever"
+    },
+    {
+     "ticker": "ZURN.SW",
+     "name": "Zurich Insurance Group"
+    }
+   ],
+   "status": "ok",
+   "problems": []
+  },
+  "aex": {
+   "name": "AEX",
+   "owner": "Euronext",
+   "source_url": "https://en.wikipedia.org/wiki/AEX_index",
+   "size": 25,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "ABN.AS",
+     "name": "ABN AMRO"
+    },
+    {
+     "ticker": "AD.AS",
+     "name": "Ahold Delhaize"
+    },
+    {
+     "ticker": "ADYEN.AS",
+     "name": "Adyen"
+    },
+    {
+     "ticker": "AGN.AS",
+     "name": "Aegon"
+    },
+    {
+     "ticker": "AKZA.AS",
+     "name": "AkzoNobel"
+    },
+    {
+     "ticker": "ASM.AS",
+     "name": "ASM International"
+    },
+    {
+     "ticker": "ASML.AS",
+     "name": "ASML Holding"
+    },
+    {
+     "ticker": "ASRNL.AS",
+     "name": "ASR Nederland"
+    },
+    {
+     "ticker": "BESI.AS",
+     "name": "BE Semiconductors"
+    },
+    {
+     "ticker": "DSFIR.AS",
+     "name": "DSM Firmenich AG"
+    },
+    {
+     "ticker": "EXO.AS",
+     "name": "Exor"
+    },
+    {
+     "ticker": "HEIA.AS",
+     "name": "Heineken"
+    },
+    {
+     "ticker": "IMCD.AS",
+     "name": "IMCD"
+    },
+    {
+     "ticker": "INGA.AS",
+     "name": "ING Group"
+    },
+    {
+     "ticker": "KPN.AS",
+     "name": "KPN"
+    },
+    {
+     "ticker": "MT.AS",
+     "name": "ArcelorMittal"
+    },
+    {
+     "ticker": "NN.AS",
+     "name": "NN Group"
+    },
+    {
+     "ticker": "PHIA.AS",
+     "name": "Philips"
+    },
+    {
+     "ticker": "PRX.AS",
+     "name": "Prosus"
+    },
+    {
+     "ticker": "RAND.AS",
+     "name": "Randstad"
+    },
+    {
+     "ticker": "REN.AS",
+     "name": "RELX"
+    },
+    {
+     "ticker": "SHELL.AS",
+     "name": "Shell plc"
+    },
+    {
+     "ticker": "UMG.AS",
+     "name": "Universal Music Group"
+    },
+    {
+     "ticker": "UNA.AS",
+     "name": "Unilever"
+    },
+    {
+     "ticker": "WKL.AS",
+     "name": "Wolters Kluwer"
+    }
+   ],
+   "status": "ok",
+   "problems": []
+  },
+  "atx": {
+   "name": "ATX",
+   "owner": "Wiener Börse",
+   "source_url": "https://de.wikipedia.org/wiki/Austrian_Traded_Index",
+   "size": 20,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "ANDR.VI",
+     "name": "Andritz AG"
+    },
+    {
+     "ticker": "ATS.VI",
+     "name": "Austria Technologie & Systemtechnik AG"
+    },
+    {
+     "ticker": "BG.VI",
+     "name": "BAWAG Group AG"
+    },
+    {
+     "ticker": "CAI.VI",
+     "name": "CA Immobilien Anlagen AG"
+    },
+    {
+     "ticker": "DOC.VI",
+     "name": "Do & Co"
+    },
+    {
+     "ticker": "EBS.VI",
+     "name": "Erste Group Bank AG"
+    },
+    {
+     "ticker": "EVN.VI",
+     "name": "EVN AG"
+    },
+    {
+     "ticker": "LNZ.VI",
+     "name": "Lenzing AG"
+    },
+    {
+     "ticker": "MMK.VI",
+     "name": "Mayr-Melnhof Karton"
+    },
+    {
+     "ticker": "OMV.VI",
+     "name": "OMV AG"
+    },
+    {
+     "ticker": "PAL.VI",
+     "name": "Palfinger"
+    },
+    {
+     "ticker": "POS.VI",
+     "name": "Porr AG"
+    },
+    {
+     "ticker": "POST.VI",
+     "name": "Österreichische Post AG"
+    },
+    {
+     "ticker": "RBI.VI",
+     "name": "Raiffeisen Bank International AG"
+    },
+    {
+     "ticker": "STR.VI",
+     "name": "Strabag"
+    },
+    {
+     "ticker": "UQA.VI",
+     "name": "Uniqa Insurance Group AG"
+    },
+    {
+     "ticker": "VER.VI",
+     "name": "Verbund AG"
+    },
+    {
+     "ticker": "VIG.VI",
+     "name": "Vienna Insurance Group AG"
+    },
+    {
+     "ticker": "VOE.VI",
+     "name": "Voestalpine AG"
+    },
+    {
+     "ticker": "WIE.VI",
+     "name": "Wienerberger AG"
+    }
+   ],
+   "status": "ok",
+   "problems": []
+  },
+  "bel_20": {
+   "name": "BEL 20",
+   "owner": "Euronext",
+   "source_url": "https://en.wikipedia.org/wiki/BEL_20",
+   "size": 20,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "ABI.BR",
+     "name": "AB InBev"
+    },
+    {
+     "ticker": "ACKB.BR",
+     "name": "Ackermans & van Haaren"
+    },
+    {
+     "ticker": "AED.BR",
+     "name": "Aedifica"
+    },
+    {
+     "ticker": "AGS.BR",
+     "name": "Ageas"
+    },
+    {
+     "ticker": "APAM.BR",
+     "name": "Aperam"
+    },
+    {
+     "ticker": "ARGX.BR",
+     "name": "arGEN-X"
+    },
+    {
+     "ticker": "AZE.BR",
+     "name": "Azelis Group"
+    },
+    {
+     "ticker": "DIE.BR",
+     "name": "D'Ieteren"
+    },
+    {
+     "ticker": "ELI.BR",
+     "name": "Elia Group"
+    },
+    {
+     "ticker": "GBLB.BR",
+     "name": "GBL"
+    },
+    {
+     "ticker": "KBC.BR",
+     "name": "KBC"
+    },
+    {
+     "ticker": "LOTB.BR",
+     "name": "Lotus Bakeries"
+    },
+    {
+     "ticker": "MELE.BR",
+     "name": "Melexis"
+    },
+    {
+     "ticker": "MONT.BR",
+     "name": "Montea"
+    },
+    {
+     "ticker": "SOF.BR",
+     "name": "Sofina"
+    },
+    {
+     "ticker": "SOLB.BR",
+     "name": "Solvay"
+    },
+    {
+     "ticker": "SYENS.BR",
+     "name": "Syensqo"
+    },
+    {
+     "ticker": "UCB.BR",
+     "name": "UCB"
+    },
+    {
+     "ticker": "UMI.BR",
+     "name": "Umicore"
+    },
+    {
+     "ticker": "WDP.BR",
+     "name": "WDP"
+    }
+   ],
+   "status": "check",
+   "problems": [
+    "APAM.BR (Aperam): not in the Euronext Brussels list"
+   ]
+  },
+  "cac_40": {
+   "name": "CAC 40",
+   "owner": "Euronext",
+   "source_url": "https://en.wikipedia.org/wiki/CAC_40",
+   "size": 40,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "AC.PA",
+     "name": "Accor"
+    },
+    {
+     "ticker": "ACA.PA",
+     "name": "Crédit Agricole"
+    },
+    {
+     "ticker": "AI.PA",
+     "name": "Air Liquide"
+    },
+    {
+     "ticker": "AIR.PA",
+     "name": "Airbus"
+    },
+    {
+     "ticker": "BN.PA",
+     "name": "Danone"
+    },
+    {
+     "ticker": "BNP.PA",
+     "name": "BNP Paribas"
+    },
+    {
+     "ticker": "BVI.PA",
+     "name": "Bureau Veritas"
+    },
+    {
+     "ticker": "CA.PA",
+     "name": "Carrefour"
+    },
+    {
+     "ticker": "CAP.PA",
+     "name": "Capgemini"
+    },
+    {
+     "ticker": "CS.PA",
+     "name": "Axa"
+    },
+    {
+     "ticker": "DG.PA",
+     "name": "Vinci"
+    },
+    {
+     "ticker": "DSY.PA",
+     "name": "Dassault Systèmes"
+    },
+    {
+     "ticker": "EL.PA",
+     "name": "EssilorLuxottica"
+    },
+    {
+     "ticker": "EN.PA",
+     "name": "Bouygues"
+    },
+    {
+     "ticker": "ENGI.PA",
+     "name": "Engie"
+    },
+    {
+     "ticker": "ENX.PA",
+     "name": "Euronext"
+    },
+    {
+     "ticker": "ERF.PA",
+     "name": "Eurofins Scientific"
+    },
+    {
+     "ticker": "FGR.PA",
+     "name": "Eiffage"
+    },
+    {
+     "ticker": "GLE.PA",
+     "name": "Société Générale"
+    },
+    {
+     "ticker": "HO.PA",
+     "name": "Thales"
+    },
+    {
+     "ticker": "KER.PA",
+     "name": "Kering"
+    },
+    {
+     "ticker": "LR.PA",
+     "name": "Legrand"
+    },
+    {
+     "ticker": "MC.PA",
+     "name": "LVMH"
+    },
+    {
+     "ticker": "ML.PA",
+     "name": "Michelin"
+    },
+    {
+     "ticker": "MT.AS",
+     "name": "ArcelorMittal"
+    },
+    {
+     "ticker": "OR.PA",
+     "name": "L'Oréal"
+    },
+    {
+     "ticker": "ORA.PA",
+     "name": "Orange"
+    },
+    {
+     "ticker": "PUB.PA",
+     "name": "Publicis"
+    },
+    {
+     "ticker": "RI.PA",
+     "name": "Pernod Ricard"
+    },
+    {
+     "ticker": "RMS.PA",
+     "name": "Hermès"
+    },
+    {
+     "ticker": "RNO.PA",
+     "name": "Renault"
+    },
+    {
+     "ticker": "SAF.PA",
+     "name": "Safran"
+    },
+    {
+     "ticker": "SAN.PA",
+     "name": "Sanofi"
+    },
+    {
+     "ticker": "SGO.PA",
+     "name": "Saint-Gobain"
+    },
+    {
+     "ticker": "STLAP.PA",
+     "name": "Stellantis"
+    },
+    {
+     "ticker": "STMPA.PA",
+     "name": "STMicroelectronics"
+    },
+    {
+     "ticker": "SU.PA",
+     "name": "Schneider Electric"
+    },
+    {
+     "ticker": "TTE.PA",
+     "name": "TotalEnergies"
+    },
+    {
+     "ticker": "URW.PA",
+     "name": "Unibail-Rodamco-Westfield"
+    },
+    {
+     "ticker": "VIE.PA",
+     "name": "Veolia"
+    }
+   ],
+   "status": "ok",
+   "problems": []
+  },
+  "dax": {
+   "name": "DAX",
+   "owner": "Deutsche Börse",
+   "source_url": "https://en.wikipedia.org/wiki/DAX",
+   "size": 40,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "ADS.DE",
+     "name": "Adidas"
+    },
+    {
+     "ticker": "AIR.PA",
+     "name": "Airbus"
+    },
+    {
+     "ticker": "ALV.DE",
+     "name": "Allianz"
+    },
+    {
+     "ticker": "BAS.DE",
+     "name": "BASF"
+    },
+    {
+     "ticker": "BAYN.DE",
+     "name": "Bayer"
+    },
+    {
+     "ticker": "BEI.DE",
+     "name": "Beiersdorf"
+    },
+    {
+     "ticker": "BMW.DE",
+     "name": "BMW"
+    },
+    {
+     "ticker": "BNR.DE",
+     "name": "Brenntag"
+    },
+    {
+     "ticker": "CBK.DE",
+     "name": "Commerzbank"
+    },
+    {
+     "ticker": "CON.DE",
+     "name": "Continental"
+    },
+    {
+     "ticker": "DB1.DE",
+     "name": "Deutsche Börse"
+    },
+    {
+     "ticker": "DBK.DE",
+     "name": "Deutsche Bank"
+    },
+    {
+     "ticker": "DHL.DE",
+     "name": "Deutsche Post"
+    },
+    {
+     "ticker": "DTE.DE",
+     "name": "Deutsche Telekom"
+    },
+    {
+     "ticker": "DTG.DE",
+     "name": "Daimler Truck"
+    },
+    {
+     "ticker": "ENR.DE",
+     "name": "Siemens Energy"
+    },
+    {
+     "ticker": "EOAN.DE",
+     "name": "E.ON"
+    },
+    {
+     "ticker": "FME.DE",
+     "name": "Fresenius Medical Care"
+    },
+    {
+     "ticker": "FRE.DE",
+     "name": "Fresenius"
+    },
+    {
+     "ticker": "G1A.DE",
+     "name": "GEA Group"
+    },
+    {
+     "ticker": "G24.DE",
+     "name": "Scout24"
+    },
+    {
+     "ticker": "HEI.DE",
+     "name": "Heidelberg Materials"
+    },
+    {
+     "ticker": "HEN3.DE",
+     "name": "Henkel"
+    },
+    {
+     "ticker": "HNR1.DE",
+     "name": "Hannover Re"
+    },
+    {
+     "ticker": "IFX.DE",
+     "name": "Infineon Technologies"
+    },
+    {
+     "ticker": "MBG.DE",
+     "name": "Mercedes-Benz Group"
+    },
+    {
+     "ticker": "MRK.DE",
+     "name": "Merck"
+    },
+    {
+     "ticker": "MTX.DE",
+     "name": "MTU Aero Engines"
+    },
+    {
+     "ticker": "MUV2.DE",
+     "name": "Munich Re"
+    },
+    {
+     "ticker": "PAH3.DE",
+     "name": "Porsche SE"
+    },
+    {
+     "ticker": "QIA.DE",
+     "name": "Qiagen"
+    },
+    {
+     "ticker": "RHM.DE",
+     "name": "Rheinmetall"
+    },
+    {
+     "ticker": "RWE.DE",
+     "name": "RWE"
+    },
+    {
+     "ticker": "SAP.DE",
+     "name": "SAP"
+    },
+    {
+     "ticker": "SHL.DE",
+     "name": "Siemens Healthineers"
+    },
+    {
+     "ticker": "SIE.DE",
+     "name": "Siemens"
+    },
+    {
+     "ticker": "SY1.DE",
+     "name": "Symrise"
+    },
+    {
+     "ticker": "VNA.DE",
+     "name": "Vonovia"
+    },
+    {
+     "ticker": "VOW3.DE",
+     "name": "Volkswagen Group"
+    },
+    {
+     "ticker": "ZAL.DE",
+     "name": "Zalando"
+    }
+   ],
+   "status": "check",
+   "problems": [
+    "G1A.DE (GEA Group): not in the Xetra list",
+    "G24.DE (Scout24): not in the Xetra list"
+   ]
+  },
+  "ftse_100": {
+   "name": "FTSE 100",
+   "owner": "FTSE Russell",
+   "source_url": "https://en.wikipedia.org/wiki/FTSE_100_Index",
+   "size": 100,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "AAF.L",
+     "name": "Airtel Africa"
+    },
+    {
+     "ticker": "AAL.L",
+     "name": "Anglo American plc"
+    },
+    {
+     "ticker": "ABDN.L",
+     "name": "Aberdeen Group"
+    },
+    {
+     "ticker": "ABF.L",
+     "name": "Associated British Foods"
+    },
+    {
+     "ticker": "ADM.L",
+     "name": "Admiral Group"
+    },
+    {
+     "ticker": "ALW.L",
+     "name": "Alliance Witan"
+    },
+    {
+     "ticker": "ANTO.L",
+     "name": "Antofagasta plc"
+    },
+    {
+     "ticker": "AUTO.L",
+     "name": "Autotrader Group"
+    },
+    {
+     "ticker": "AV.L",
+     "name": "Aviva"
+    },
+    {
+     "ticker": "AZN.L",
+     "name": "AstraZeneca"
+    },
+    {
+     "ticker": "BA.L",
+     "name": "BAE Systems"
+    },
+    {
+     "ticker": "BAB.L",
+     "name": "Babcock International"
+    },
+    {
+     "ticker": "BARC.L",
+     "name": "Barclays"
+    },
+    {
+     "ticker": "BATS.L",
+     "name": "British American Tobacco"
+    },
+    {
+     "ticker": "BBOX.L",
+     "name": "Tritax Big Box REIT"
+    },
+    {
+     "ticker": "BBY.L",
+     "name": "Balfour Beatty"
+    },
+    {
+     "ticker": "BGEO.L",
+     "name": "Lion Finance Group"
+    },
+    {
+     "ticker": "BLND.L",
+     "name": "British Land"
+    },
+    {
+     "ticker": "BNZL.L",
+     "name": "Bunzl"
+    },
+    {
+     "ticker": "BP.L",
+     "name": "BP"
+    },
+    {
+     "ticker": "BRBY.L",
+     "name": "Burberry Group"
+    },
+    {
+     "ticker": "BT-A.L",
+     "name": "BT Group"
+    },
+    {
+     "ticker": "BTRW.L",
+     "name": "Barratt Redrow"
+    },
+    {
+     "ticker": "CCC.L",
+     "name": "Computacenter"
+    },
+    {
+     "ticker": "CCEP.L",
+     "name": "Coca-Cola Europacific Partners"
+    },
+    {
+     "ticker": "CCH.L",
+     "name": "Coca-Cola HBC"
+    },
+    {
+     "ticker": "CNA.L",
+     "name": "Centrica"
+    },
+    {
+     "ticker": "CPG.L",
+     "name": "Compass Group"
+    },
+    {
+     "ticker": "CRDA.L",
+     "name": "Croda International"
+    },
+    {
+     "ticker": "CTEC.L",
+     "name": "Convatec"
+    },
+    {
+     "ticker": "DCC.L",
+     "name": "DCC Energy"
+    },
+    {
+     "ticker": "DGE.L",
+     "name": "Diageo"
+    },
+    {
+     "ticker": "DPLM.L",
+     "name": "Diploma"
+    },
+    {
+     "ticker": "EDV.L",
+     "name": "Endeavour Mining"
+    },
+    {
+     "ticker": "EXPN.L",
+     "name": "Experian"
+    },
+    {
+     "ticker": "EZJ.L",
+     "name": "EasyJet"
+    },
+    {
+     "ticker": "FCIT.L",
+     "name": "F & C Investment Trust"
+    },
+    {
+     "ticker": "FRES.L",
+     "name": "Fresnillo plc"
+    },
+    {
+     "ticker": "GAW.L",
+     "name": "Games Workshop"
+    },
+    {
+     "ticker": "GLEN.L",
+     "name": "Glencore"
+    },
+    {
+     "ticker": "GSK.L",
+     "name": "GSK plc"
+    },
+    {
+     "ticker": "HLMA.L",
+     "name": "Halma plc"
+    },
+    {
+     "ticker": "HLN.L",
+     "name": "Haleon"
+    },
+    {
+     "ticker": "HSBA.L",
+     "name": "HSBC"
+    },
+    {
+     "ticker": "HSX.L",
+     "name": "Hiscox"
+    },
+    {
+     "ticker": "HWDN.L",
+     "name": "Howdens Joinery"
+    },
+    {
+     "ticker": "IAG.L",
+     "name": "International Airlines Group"
+    },
+    {
+     "ticker": "ICG.L",
+     "name": "ICG"
+    },
+    {
+     "ticker": "IGG.L",
+     "name": "IG Group"
+    },
+    {
+     "ticker": "IHG.L",
+     "name": "IHG Hotels & Resorts"
+    },
+    {
+     "ticker": "III.L",
+     "name": "3i"
+    },
+    {
+     "ticker": "IMB.L",
+     "name": "Imperial Brands"
+    },
+    {
+     "ticker": "IMI.L",
+     "name": "IMI"
+    },
+    {
+     "ticker": "INF.L",
+     "name": "Informa"
+    },
+    {
+     "ticker": "INVP.L",
+     "name": "Investec"
+    },
+    {
+     "ticker": "ITH.L",
+     "name": "Ithaca Energy"
+    },
+    {
+     "ticker": "ITRK.L",
+     "name": "Intertek"
+    },
+    {
+     "ticker": "JD.L",
+     "name": "JD Sports"
+    },
+    {
+     "ticker": "KGF.L",
+     "name": "Kingfisher plc"
+    },
+    {
+     "ticker": "LAND.L",
+     "name": "Land Securities"
+    },
+    {
+     "ticker": "LGEN.L",
+     "name": "Legal & General"
+    },
+    {
+     "ticker": "LLOY.L",
+     "name": "Lloyds Banking Group"
+    },
+    {
+     "ticker": "LMP.L",
+     "name": "LondonMetric Property"
+    },
+    {
+     "ticker": "LSEG.L",
+     "name": "London Stock Exchange Group"
+    },
+    {
+     "ticker": "MKS.L",
+     "name": "Marks & Spencer"
+    },
+    {
+     "ticker": "MNG.L",
+     "name": "M&G"
+    },
+    {
+     "ticker": "MRO.L",
+     "name": "Melrose Industries"
+    },
+    {
+     "ticker": "MTLN.L",
+     "name": "Metlen Energy & Metals"
+    },
+    {
+     "ticker": "NG.L",
+     "name": "National Grid plc"
+    },
+    {
+     "ticker": "NWG.L",
+     "name": "NatWest Group"
+    },
+    {
+     "ticker": "NXT.L",
+     "name": "Next plc"
+    },
+    {
+     "ticker": "PCT.L",
+     "name": "Polar Capital Technology Trust"
+    },
+    {
+     "ticker": "PRU.L",
+     "name": "Prudential plc"
+    },
+    {
+     "ticker": "PSH.L",
+     "name": "Pershing Square Holdings"
+    },
+    {
+     "ticker": "PSON.L",
+     "name": "Pearson plc"
+    },
+    {
+     "ticker": "REL.L",
+     "name": "RELX"
+    },
+    {
+     "ticker": "RIO.L",
+     "name": "Rio Tinto"
+    },
+    {
+     "ticker": "RKT.L",
+     "name": "Reckitt"
+    },
+    {
+     "ticker": "RR.L",
+     "name": "Rolls-Royce Holdings"
+    },
+    {
+     "ticker": "RTO.L",
+     "name": "Rentokil Initial"
+    },
+    {
+     "ticker": "SBRY.L",
+     "name": "Sainsbury's"
+    },
+    {
+     "ticker": "SDLF.L",
+     "name": "Standard Life"
+    },
+    {
+     "ticker": "SGE.L",
+     "name": "Sage Group"
+    },
+    {
+     "ticker": "SGRO.L",
+     "name": "Segro"
+    },
+    {
+     "ticker": "SHEL.L",
+     "name": "Shell plc"
+    },
+    {
+     "ticker": "SMIN.L",
+     "name": "Smiths Group"
+    },
+    {
+     "ticker": "SMT.L",
+     "name": "Scottish Mortgage Investment Trust"
+    },
+    {
+     "ticker": "SN.L",
+     "name": "Smith & Nephew"
+    },
+    {
+     "ticker": "SPX.L",
+     "name": "Spirax Group"
+    },
+    {
+     "ticker": "SSE.L",
+     "name": "SSE plc"
+    },
+    {
+     "ticker": "STAN.L",
+     "name": "Standard Chartered"
+    },
+    {
+     "ticker": "STJ.L",
+     "name": "St. James's Place"
+    },
+    {
+     "ticker": "SVT.L",
+     "name": "Severn Trent"
+    },
+    {
+     "ticker": "TSCO.L",
+     "name": "Tesco"
+    },
+    {
+     "ticker": "ULVR.L",
+     "name": "Unilever"
+    },
+    {
+     "ticker": "UU.L",
+     "name": "United Utilities"
+    },
+    {
+     "ticker": "VOD.L",
+     "name": "Vodafone Group"
+    },
+    {
+     "ticker": "WEIR.L",
+     "name": "Weir"
+    },
+    {
+     "ticker": "WPP.L",
+     "name": "WPP"
+    },
+    {
+     "ticker": "WTB.L",
+     "name": "Whitbread"
+    }
+   ],
+   "status": "check",
+   "problems": [
+    "ALW.L (Alliance Witan): not in the London Stock Exchange list",
+    "FCIT.L (F & C Investment Trust): not in the London Stock Exchange list",
+    "PCT.L (Polar Capital Technology Trust): not in the London Stock Exchange list",
+    "SMT.L (Scottish Mortgage Investment Trust): not in the London Stock Exchange list"
+   ]
+  },
+  "ftse_athex_large_cap": {
+   "name": "FTSE/Athex Large Cap",
+   "owner": "FTSE Russell / Euronext Athens",
+   "source_url": "https://en.wikipedia.org/wiki/FTSE/Athex_Large_Cap",
+   "size": 25,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "AEGN.AT",
+     "name": "Aegean Airlines"
+    },
+    {
+     "ticker": "ALPHA.AT",
+     "name": "Alpha Bank"
+    },
+    {
+     "ticker": "BELA.AT",
+     "name": "Jumbo"
+    },
+    {
+     "ticker": "CENER.AT",
+     "name": "Cenergy Holdings"
+    },
+    {
+     "ticker": "EEE.AT",
+     "name": "Coca-Cola HBC AG"
+    },
+    {
+     "ticker": "ELHA.AT",
+     "name": "ElvalHalcor"
+    },
+    {
+     "ticker": "ELLAKTOR.AT",
+     "name": "Ellaktor"
+    },
+    {
+     "ticker": "ELPE.AT",
+     "name": "Hellenic Petroleum"
+    },
+    {
+     "ticker": "ETE.AT",
+     "name": "National Bank of Greece"
+    },
+    {
+     "ticker": "EUROB.AT",
+     "name": "Eurobank Ergasias"
+    },
+    {
+     "ticker": "EYDAP.AT",
+     "name": "EYDAP"
+    },
+    {
+     "ticker": "GEKTERNA.AT",
+     "name": "GEK Terna"
+    },
+    {
+     "ticker": "HTO.AT",
+     "name": "OTE"
+    },
+    {
+     "ticker": "LAMDA.AT",
+     "name": "Lamda Development"
+    },
+    {
+     "ticker": "MOH.AT",
+     "name": "Motor Oil Hellas"
+    },
+    {
+     "ticker": "MYTIL.AT",
+     "name": "Mytilineos Holdings"
+    },
+    {
+     "ticker": "OPAP.AT",
+     "name": "OPAP"
+    },
+    {
+     "ticker": "OTOEL.AT",
+     "name": "Autohellas"
+    },
+    {
+     "ticker": "PPC.AT",
+     "name": "Public Power Corporation"
+    },
+    {
+     "ticker": "QUEST.AT",
+     "name": "Quest Holdings"
+    },
+    {
+     "ticker": "SAR.AT",
+     "name": "Gr. Sarantis S.A."
+    },
+    {
+     "ticker": "TENERGY.AT",
+     "name": "Terna Energy"
+    },
+    {
+     "ticker": "TITC.AT",
+     "name": "Titan Cement"
+    },
+    {
+     "ticker": "TPEIR.AT",
+     "name": "Piraeus Bank"
+    },
+    {
+     "ticker": "VIO.AT",
+     "name": "Viohalco"
+    }
+   ],
+   "status": "check",
+   "problems": [
+    "MYTIL.AT (Mytilineos Holdings): not in the Euronext Athens list",
+    "OPAP.AT (OPAP): not in the Euronext Athens list",
+    "TENERGY.AT (Terna Energy): not in the Euronext Athens list"
+   ]
+  },
+  "ftse_mib": {
+   "name": "FTSE MIB",
+   "owner": "FTSE Russell",
+   "source_url": "https://en.wikipedia.org/wiki/FTSE_MIB",
+   "size": 40,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "A2A.MI",
+     "name": "A2A"
+    },
+    {
+     "ticker": "AMP.MI",
+     "name": "Amplifon"
+    },
+    {
+     "ticker": "AVIO.MI",
+     "name": "Avio"
+    },
+    {
+     "ticker": "AZM.MI",
+     "name": "Azimut"
+    },
+    {
+     "ticker": "BAMI.MI",
+     "name": "Banco BPM"
+    },
+    {
+     "ticker": "BC.MI",
+     "name": "Brunello Cucinelli"
+    },
+    {
+     "ticker": "BMED.MI",
+     "name": "Banca Mediolanum"
+    },
+    {
+     "ticker": "BMPS.MI",
+     "name": "Banca Monte dei Paschi di Siena"
+    },
+    {
+     "ticker": "BPE.MI",
+     "name": "BPER Banca"
+    },
+    {
+     "ticker": "BZU.MI",
+     "name": "Buzzi"
+    },
+    {
+     "ticker": "CPR.MI",
+     "name": "Campari"
+    },
+    {
+     "ticker": "DIA.MI",
+     "name": "Diasorin"
+    },
+    {
+     "ticker": "ENEL.MI",
+     "name": "Enel"
+    },
+    {
+     "ticker": "ENI.MI",
+     "name": "Eni"
+    },
+    {
+     "ticker": "FBK.MI",
+     "name": "FinecoBank"
+    },
+    {
+     "ticker": "FCT.MI",
+     "name": "Fincantieri"
+    },
+    {
+     "ticker": "G.MI",
+     "name": "Generali"
+    },
+    {
+     "ticker": "HER.MI",
+     "name": "Hera"
+    },
+    {
+     "ticker": "IG.MI",
+     "name": "Italgas"
+    },
+    {
+     "ticker": "INW.MI",
+     "name": "INWIT"
+    },
+    {
+     "ticker": "ISP.MI",
+     "name": "Intesa Sanpaolo"
+    },
+    {
+     "ticker": "IVG.MI",
+     "name": "Iveco"
+    },
+    {
+     "ticker": "LDO.MI",
+     "name": "Leonardo"
+    },
+    {
+     "ticker": "LTMC.MI",
+     "name": "Lottomatica Group"
+    },
+    {
+     "ticker": "MB.MI",
+     "name": "Mediobanca"
+    },
+    {
+     "ticker": "MONC.MI",
+     "name": "Moncler"
+    },
+    {
+     "ticker": "NEXI.MI",
+     "name": "Nexi"
+    },
+    {
+     "ticker": "PRY.MI",
+     "name": "Prysmian"
+    },
+    {
+     "ticker": "PST.MI",
+     "name": "Poste italiane"
+    },
+    {
+     "ticker": "RACE.MI",
+     "name": "Ferrari"
+    },
+    {
+     "ticker": "REC.MI",
+     "name": "Recordati"
+    },
+    {
+     "ticker": "SPM.MI",
+     "name": "Saipem"
+    },
+    {
+     "ticker": "SRG.MI",
+     "name": "Snam"
+    },
+    {
+     "ticker": "STLAM.MI",
+     "name": "Stellantis"
+    },
+    {
+     "ticker": "STMMI.MI",
+     "name": "STMicroelectronics"
+    },
+    {
+     "ticker": "TEN.MI",
+     "name": "Tenaris"
+    },
+    {
+     "ticker": "TIT.MI",
+     "name": "Telecom Italia"
+    },
+    {
+     "ticker": "TRN.MI",
+     "name": "Terna"
+    },
+    {
+     "ticker": "UCG.MI",
+     "name": "UniCredit"
+    },
+    {
+     "ticker": "UNI.MI",
+     "name": "Unipol"
+    }
+   ],
+   "status": "ok",
+   "problems": []
+  },
+  "ibex_35": {
+   "name": "IBEX 35",
+   "owner": "BME",
+   "source_url": "https://en.wikipedia.org/wiki/IBEX_35",
+   "size": 35,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "ACS.MC",
+     "name": "ACS"
+    },
+    {
+     "ticker": "ACX.MC",
+     "name": "Acerinox"
+    },
+    {
+     "ticker": "AENA.MC",
+     "name": "AENA"
+    },
+    {
+     "ticker": "AMS.MC",
+     "name": "Amadeus IT Group"
+    },
+    {
+     "ticker": "ANA.MC",
+     "name": "Acciona"
+    },
+    {
+     "ticker": "ANE.MC",
+     "name": "Acciona Energía"
+    },
+    {
+     "ticker": "BBVA.MC",
+     "name": "BBVA"
+    },
+    {
+     "ticker": "BKT.MC",
+     "name": "Bankinter"
+    },
+    {
+     "ticker": "CABK.MC",
+     "name": "CaixaBank"
+    },
+    {
+     "ticker": "CLNX.MC",
+     "name": "Cellnex Telecom"
+    },
+    {
+     "ticker": "COL.MC",
+     "name": "Inmobiliaria Colonial"
+    },
+    {
+     "ticker": "ELE.MC",
+     "name": "Endesa"
+    },
+    {
+     "ticker": "ENG.MC",
+     "name": "Enagás"
+    },
+    {
+     "ticker": "FDR.MC",
+     "name": "Fluidra"
+    },
+    {
+     "ticker": "FER.MC",
+     "name": "Ferrovial"
+    },
+    {
+     "ticker": "GRF.MC",
+     "name": "Grifols"
+    },
+    {
+     "ticker": "IAG.MC",
+     "name": "International Airlines Group"
+    },
+    {
+     "ticker": "IBE.MC",
+     "name": "Iberdrola"
+    },
+    {
+     "ticker": "IDR.MC",
+     "name": "Indra"
+    },
+    {
+     "ticker": "ITX.MC",
+     "name": "Inditex"
+    },
+    {
+     "ticker": "LOG.MC",
+     "name": "Logista"
+    },
+    {
+     "ticker": "MAP.MC",
+     "name": "Mapfre"
+    },
+    {
+     "ticker": "MRL.MC",
+     "name": "Merlin Properties"
+    },
+    {
+     "ticker": "MTS.MC",
+     "name": "ArcelorMittal"
+    },
+    {
+     "ticker": "NTGY.MC",
+     "name": "Naturgy"
+    },
+    {
+     "ticker": "PUIG.MC",
+     "name": "Puig"
+    },
+    {
+     "ticker": "RED.MC",
+     "name": "Redeia Corporación"
+    },
+    {
+     "ticker": "REP.MC",
+     "name": "Repsol"
+    },
+    {
+     "ticker": "ROVI.MC",
+     "name": "Laboratorios Rovi"
+    },
+    {
+     "ticker": "SAB.MC",
+     "name": "Banco Sabadell"
+    },
+    {
+     "ticker": "SAN.MC",
+     "name": "Santander"
+    },
+    {
+     "ticker": "SCYR.MC",
+     "name": "Sacyr"
+    },
+    {
+     "ticker": "SLR.MC",
+     "name": "Solaria"
+    },
+    {
+     "ticker": "TEF.MC",
+     "name": "Telefónica"
+    },
+    {
+     "ticker": "UNI.MC",
+     "name": "Unicaja"
+    }
+   ],
+   "status": "ok",
+   "problems": []
+  },
+  "iseq_20": {
+   "name": "ISEQ 20",
+   "owner": "Euronext",
+   "source_url": "https://en.wikipedia.org/wiki/ISEQ_20",
+   "size": 20,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "A5G.IR",
+     "name": "AIB Group"
+    },
+    {
+     "ticker": "BIRG.IR",
+     "name": "Bank of Ireland"
+    },
+    {
+     "ticker": "C5H.IR",
+     "name": "Cairn Homes"
+    },
+    {
+     "ticker": "DQ7A.IR",
+     "name": "Donegal investment group"
+    },
+    {
+     "ticker": "EG7.IR",
+     "name": "FBD Holdings"
+    },
+    {
+     "ticker": "GL9.IR",
+     "name": "Glanbia"
+    },
+    {
+     "ticker": "GRP.IR",
+     "name": "Greencoat Renewables"
+    },
+    {
+     "ticker": "GVR.IR",
+     "name": "Glenveagh Properties"
+    },
+    {
+     "ticker": "HMSO.IR",
+     "name": "Hammerson plc"
+    },
+    {
+     "ticker": "IR5B.IR",
+     "name": "Irish Continental Group"
+    },
+    {
+     "ticker": "IRES.IR",
+     "name": "Irish Residential Properties REIT"
+    },
+    {
+     "ticker": "KMR.IR",
+     "name": "Kenmare Resources"
+    },
+    {
+     "ticker": "KRX.IR",
+     "name": "Kingspan Group"
+    },
+    {
+     "ticker": "KRZ.IR",
+     "name": "Kerry Group"
+    },
+    {
+     "ticker": "MIO.IR",
+     "name": "Mincon group"
+    },
+    {
+     "ticker": "MLC.IR",
+     "name": "Malin Corp."
+    },
+    {
+     "ticker": "OIZ.IR",
+     "name": "Origin Enterprises"
+    },
+    {
+     "ticker": "PTSB.IR",
+     "name": "Permanent TSB"
+    },
+    {
+     "ticker": "RY4C.IR",
+     "name": "Ryanair Holdings"
+    },
+    {
+     "ticker": "UPR.IR",
+     "name": "Uniphar"
+    }
+   ],
+   "status": "check",
+   "problems": [
+    "RY4C.IR (Ryanair Holdings): not in the Euronext Dublin list"
+   ]
+  },
+  "obx": {
+   "name": "OBX",
+   "owner": "Euronext",
+   "source_url": "https://en.wikipedia.org/wiki/OBX_Index",
+   "size": 25,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "AKRBP.OL",
+     "name": "Aker BP"
+    },
+    {
+     "ticker": "BWLPG.OL",
+     "name": "BW LPG"
+    },
+    {
+     "ticker": "DNB.OL",
+     "name": "DNB Bank"
+    },
+    {
+     "ticker": "EQNR.OL",
+     "name": "Equinor"
+    },
+    {
+     "ticker": "FRO.OL",
+     "name": "Frontline"
+    },
+    {
+     "ticker": "GJF.OL",
+     "name": "Gjensidige Forsikring"
+    },
+    {
+     "ticker": "GOGL.OL",
+     "name": "Golden Ocean Group"
+    },
+    {
+     "ticker": "HAFNI.OL",
+     "name": "Hafnia Limited"
+    },
+    {
+     "ticker": "HAUTO.OL",
+     "name": "Höegh Autoliners ASA"
+    },
+    {
+     "ticker": "KOG.OL",
+     "name": "Kongsberg Gruppen"
+    },
+    {
+     "ticker": "MOWI.OL",
+     "name": "Mowi"
+    },
+    {
+     "ticker": "MPCC.OL",
+     "name": "MPC Container Ships"
+    },
+    {
+     "ticker": "NAS.OL",
+     "name": "Norwegian Air Shuttle"
+    },
+    {
+     "ticker": "NHY.OL",
+     "name": "Norsk Hydro"
+    },
+    {
+     "ticker": "NOD.OL",
+     "name": "Nordic Semiconductor"
+    },
+    {
+     "ticker": "ORK.OL",
+     "name": "Orkla"
+    },
+    {
+     "ticker": "SALM.OL",
+     "name": "SalMar"
+    },
+    {
+     "ticker": "STB.OL",
+     "name": "Storebrand"
+    },
+    {
+     "ticker": "SUBC.OL",
+     "name": "Subsea 7"
+    },
+    {
+     "ticker": "TEL.OL",
+     "name": "Telenor"
+    },
+    {
+     "ticker": "TGS.OL",
+     "name": "TGS ASA"
+    },
+    {
+     "ticker": "TOM.OL",
+     "name": "Tomra Systems"
+    },
+    {
+     "ticker": "VAR.OL",
+     "name": "Vår Energi ASA"
+    },
+    {
+     "ticker": "WAWI.OL",
+     "name": "Wallenius Wilhelmsen"
+    },
+    {
+     "ticker": "YAR.OL",
+     "name": "Yara International"
+    }
+   ],
+   "status": "check",
+   "problems": [
+    "GOGL.OL (Golden Ocean Group): not in the Oslo Børs list"
+   ]
+  },
+  "omx_baltic_benchmark": {
+   "name": "OMX Baltic Benchmark",
+   "owner": "Nasdaq",
+   "source_url": "https://nasdaqbaltic.com/",
+   "size": null,
+   "as_of": null,
+   "members": [],
+   "status": "to_fill"
+  },
+  "omxc25": {
+   "name": "OMX Copenhagen 25",
+   "owner": "Nasdaq",
+   "source_url": "https://en.wikipedia.org/wiki/OMX_Copenhagen_25",
+   "size": 25,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "ALSYDB.CO",
+     "name": "AL Sydbank"
+    },
+    {
+     "ticker": "AMBU-B.CO",
+     "name": "Ambu"
+    },
+    {
+     "ticker": "CARL-B.CO",
+     "name": "Carlsberg Group"
+    },
+    {
+     "ticker": "COLO-B.CO",
+     "name": "Coloplast"
+    },
+    {
+     "ticker": "DANSKE.CO",
+     "name": "Danske Bank"
+    },
+    {
+     "ticker": "DEMANT.CO",
+     "name": "Demant"
+    },
+    {
+     "ticker": "DSV.CO",
+     "name": "DSV"
+    },
+    {
+     "ticker": "FLS.CO",
+     "name": "FLSmidth & Co."
+    },
+    {
+     "ticker": "GMAB.CO",
+     "name": "Genmab"
+    },
+    {
+     "ticker": "GN.CO",
+     "name": "GN Store Nord"
+    },
+    {
+     "ticker": "ISS.CO",
+     "name": "ISS"
+    },
+    {
+     "ticker": "JYSK.CO",
+     "name": "Jyske Bank"
+    },
+    {
+     "ticker": "MAERSK-A.CO",
+     "name": "A.P. Møller-Mærsk (class A)"
+    },
+    {
+     "ticker": "MAERSK-B.CO",
+     "name": "A.P. Møller-Mærsk (class B)"
+    },
+    {
+     "ticker": "NDA.CO",
+     "name": "Nordea Bank Abp"
+    },
+    {
+     "ticker": "NKT.CO",
+     "name": "NKT"
+    },
+    {
+     "ticker": "NOVO-B.CO",
+     "name": "Novo Nordisk"
+    },
+    {
+     "ticker": "NSIS-B.CO",
+     "name": "Novonesis"
+    },
+    {
+     "ticker": "ORSTED.CO",
+     "name": "Ørsted"
+    },
+    {
+     "ticker": "PNDORA.CO",
+     "name": "Pandora"
+    },
+    {
+     "ticker": "RBREW.CO",
+     "name": "Royal Unibrew"
+    },
+    {
+     "ticker": "ROCK-B.CO",
+     "name": "Rockwool International"
+    },
+    {
+     "ticker": "TRYG.CO",
+     "name": "Tryg"
+    },
+    {
+     "ticker": "VWS.CO",
+     "name": "Vestas Wind Systems"
+    },
+    {
+     "ticker": "ZEAL.CO",
+     "name": "Zealand Pharma"
+    }
+   ],
+   "status": "check",
+   "problems": [
+    "NDA.CO (Nordea Bank Abp): not in the Nasdaq Copenhagen list"
+   ]
+  },
+  "omxh25": {
+   "name": "OMX Helsinki 25",
+   "owner": "Nasdaq",
+   "source_url": "https://en.wikipedia.org/wiki/OMX_Helsinki_25",
+   "size": 25,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "ELISA.HE",
+     "name": "Elisa"
+    },
+    {
+     "ticker": "FORTUM.HE",
+     "name": "Fortum"
+    },
+    {
+     "ticker": "HIAB.HE",
+     "name": "Hiab"
+    },
+    {
+     "ticker": "HUH1V.HE",
+     "name": "Huhtamäki"
+    },
+    {
+     "ticker": "KALMAR.HE",
+     "name": "Kalmar B"
+    },
+    {
+     "ticker": "KCR.HE",
+     "name": "Konecranes"
+    },
+    {
+     "ticker": "KEMIRA.HE",
+     "name": "Kemira"
+    },
+    {
+     "ticker": "KESKOB.HE",
+     "name": "Kesko B"
+    },
+    {
+     "ticker": "KNEBV.HE",
+     "name": "KONE"
+    },
+    {
+     "ticker": "KOJAMO.HE",
+     "name": "Kojamo"
+    },
+    {
+     "ticker": "MANTA.HE",
+     "name": "Mandatum"
+    },
+    {
+     "ticker": "METSO.HE",
+     "name": "Metso"
+    },
+    {
+     "ticker": "NDA-FI.HE",
+     "name": "Nordea"
+    },
+    {
+     "ticker": "NESTE.HE",
+     "name": "Neste"
+    },
+    {
+     "ticker": "NOKIA.HE",
+     "name": "Nokia"
+    },
+    {
+     "ticker": "ORNBV.HE",
+     "name": "Orion"
+    },
+    {
+     "ticker": "OUT1V.HE",
+     "name": "Outokumpu"
+    },
+    {
+     "ticker": "QTCOM.HE",
+     "name": "Qt Group"
+    },
+    {
+     "ticker": "SAMPO.HE",
+     "name": "Sampo A"
+    },
+    {
+     "ticker": "STERV.HE",
+     "name": "Stora Enso R"
+    },
+    {
+     "ticker": "TIETO.HE",
+     "name": "TietoEVRY"
+    },
+    {
+     "ticker": "TYRES.HE",
+     "name": "Nokian Tyres"
+    },
+    {
+     "ticker": "UPM.HE",
+     "name": "UPM-Kymmene"
+    },
+    {
+     "ticker": "VALMT.HE",
+     "name": "Valmet"
+    },
+    {
+     "ticker": "WRT1V.HE",
+     "name": "Wärtsilä"
+    }
+   ],
+   "status": "check",
+   "problems": [
+    "KOJAMO.HE (Kojamo): not in the Nasdaq Helsinki list"
+   ]
+  },
+  "omxi15": {
+   "name": "OMX Iceland 15",
+   "owner": "Nasdaq",
+   "source_url": "https://en.wikipedia.org/wiki/OMX_Iceland_15",
+   "size": 15,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "ALVO.IC",
+     "name": "Alvotech"
+    },
+    {
+     "ticker": "AMRQ.IC",
+     "name": "Amaroq Minerals"
+    },
+    {
+     "ticker": "ARION.IC",
+     "name": "Arion Bank"
+    },
+    {
+     "ticker": "EIM.IC",
+     "name": "Eimskipafélag Íslands"
+    },
+    {
+     "ticker": "FESTI.IC",
+     "name": "Festi"
+    },
+    {
+     "ticker": "HAGA.IC",
+     "name": "Hagar"
+    },
+    {
+     "ticker": "HEIMAR.IC",
+     "name": "Heimar"
+    },
+    {
+     "ticker": "ICEAIR.IC",
+     "name": "Icelandair Group"
+    },
+    {
+     "ticker": "ISB.IC",
+     "name": "Íslandsbanki"
+    },
+    {
+     "ticker": "JBTM.IC",
+     "name": "JBT Marel"
+    },
+    {
+     "ticker": "KVIKA.IC",
+     "name": "Kvika Banki"
+    },
+    {
+     "ticker": "OCS.IC",
+     "name": "Oculis"
+    },
+    {
+     "ticker": "REITIR.IC",
+     "name": "Reitir Fasteignafélag"
+    },
+    {
+     "ticker": "SJOVA.IC",
+     "name": "Sjóvá-Almennar Tryggingar"
+    },
+    {
+     "ticker": "SVN.IC",
+     "name": "Síldarvinnslan"
+    }
+   ],
+   "status": "ok",
+   "problems": []
+  },
+  "omxs30": {
+   "name": "OMX Stockholm 30",
+   "owner": "Nasdaq",
+   "source_url": "https://en.wikipedia.org/wiki/OMX_Stockholm_30",
+   "size": 30,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "ABB.ST",
+     "name": "ABB Ltd"
+    },
+    {
+     "ticker": "ADDT-B.ST",
+     "name": "Addtech B"
+    },
+    {
+     "ticker": "ALFA.ST",
+     "name": "Alfa Laval"
+    },
+    {
+     "ticker": "ASSA-B.ST",
+     "name": "Assa Abloy B"
+    },
+    {
+     "ticker": "ATCO-A.ST",
+     "name": "Atlas Copco A"
+    },
+    {
+     "ticker": "AZN.ST",
+     "name": "AstraZeneca"
+    },
+    {
+     "ticker": "BOL.ST",
+     "name": "Boliden"
+    },
+    {
+     "ticker": "EPI-A.ST",
+     "name": "Epiroc A"
+    },
+    {
+     "ticker": "EQT.ST",
+     "name": "EQT"
+    },
+    {
+     "ticker": "ERIC-B.ST",
+     "name": "Ericsson B"
+    },
+    {
+     "ticker": "ESSITY-B.ST",
+     "name": "Essity B"
+    },
+    {
+     "ticker": "EVO.ST",
+     "name": "Evolution"
+    },
+    {
+     "ticker": "HEXA-B.ST",
+     "name": "Hexagon B"
+    },
+    {
+     "ticker": "HM-B.ST",
+     "name": "Hennes & Mauritz B"
+    },
+    {
+     "ticker": "INDU-C.ST",
+     "name": "Industrivärden C"
+    },
+    {
+     "ticker": "INVE-B.ST",
+     "name": "Investor B"
+    },
+    {
+     "ticker": "LIFCO-B.ST",
+     "name": "Lifco B"
+    },
+    {
+     "ticker": "NDA-SE.ST",
+     "name": "Nordea Bank Abp"
+    },
+    {
+     "ticker": "NIBE-B.ST",
+     "name": "Nibe Industrier B"
+    },
+    {
+     "ticker": "SAAB-B.ST",
+     "name": "Saab B"
+    },
+    {
+     "ticker": "SAND.ST",
+     "name": "Sandvik"
+    },
+    {
+     "ticker": "SCA-B.ST",
+     "name": "SCA B"
+    },
+    {
+     "ticker": "SEB-A.ST",
+     "name": "SEB A"
+    },
+    {
+     "ticker": "SHB-A.ST",
+     "name": "Handelsbanken A"
+    },
+    {
+     "ticker": "SKA-B.ST",
+     "name": "Skanska B"
+    },
+    {
+     "ticker": "SKF-B.ST",
+     "name": "SKF B"
+    },
+    {
+     "ticker": "SWED-A.ST",
+     "name": "Swedbank A"
+    },
+    {
+     "ticker": "TEL2-B.ST",
+     "name": "Tele2 B"
+    },
+    {
+     "ticker": "TELIA.ST",
+     "name": "Telia Company"
+    },
+    {
+     "ticker": "VOLV-B.ST",
+     "name": "Volvo B"
+    }
+   ],
+   "status": "ok",
+   "problems": []
+  },
+  "psi": {
+   "name": "PSI",
+   "owner": "Euronext",
+   "source_url": "https://en.wikipedia.org/wiki/PSI-20",
+   "size": null,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "ALTR.LS",
+     "name": "Altri"
+    },
+    {
+     "ticker": "BCP.LS",
+     "name": "Banco Comercial Português"
+    },
+    {
+     "ticker": "COR.LS",
+     "name": "Corticeira Amorim"
+    },
+    {
+     "ticker": "CTT.LS",
+     "name": "CTT Correios de Portugal"
+    },
+    {
+     "ticker": "EDP.LS",
+     "name": "Energias de Portugal"
+    },
+    {
+     "ticker": "EDPR.LS",
+     "name": "EDP Renováveis"
+    },
+    {
+     "ticker": "EGL.LS",
+     "name": "Mota-Engil"
+    },
+    {
+     "ticker": "GALP.LS",
+     "name": "Galp Energia"
+    },
+    {
+     "ticker": "IBS.LS",
+     "name": "Ibersol"
+    },
+    {
+     "ticker": "JMT.LS",
+     "name": "Jerónimo Martins"
+    },
+    {
+     "ticker": "NBA.LS",
+     "name": "Novabase"
+    },
+    {
+     "ticker": "NOS.LS",
+     "name": "NOS"
+    },
+    {
+     "ticker": "NVG.LS",
+     "name": "The Navigator Company"
+    },
+    {
+     "ticker": "PHR.LS",
+     "name": "Pharol"
+    },
+    {
+     "ticker": "RENE.LS",
+     "name": "Redes Energéticas Nacionais"
+    },
+    {
+     "ticker": "SEM.LS",
+     "name": "Semapa"
+    },
+    {
+     "ticker": "SON.LS",
+     "name": "Sonae"
+    },
+    {
+     "ticker": "SONC.LS",
+     "name": "Sonae Capital"
+    }
+   ],
+   "status": "check",
+   "problems": [
+    "SONC.LS (Sonae Capital): not in the Euronext Lisbon list"
+   ]
+  },
+  "smi": {
+   "name": "SMI",
+   "owner": "SIX",
+   "source_url": "https://en.wikipedia.org/wiki/Swiss_Market_Index",
+   "size": 20,
+   "as_of": "2026-10-17",
+   "members": [
+    {
+     "ticker": "ABBN.SW",
+     "name": "ABB Ltd"
+    },
+    {
+     "ticker": "ALC.SW",
+     "name": "Alcon Inc"
+    },
+    {
+     "ticker": "AMRZ.SW",
+     "name": "Amrize AG"
+    },
+    {
+     "ticker": "CFR.SW",
+     "name": "Compagnie Financière Richemont SA"
+    },
+    {
+     "ticker": "GALD.SW",
+     "name": "Galderma"
+    },
+    {
+     "ticker": "GEBN.SW",
+     "name": "Geberit AG"
+    },
+    {
+     "ticker": "GIVN.SW",
+     "name": "Givaudan SA"
+    },
+    {
+     "ticker": "HOLN.SW",
+     "name": "Holcim Limited"
+    },
+    {
+     "ticker": "LOGN.SW",
+     "name": "Logitech International SA"
+    },
+    {
+     "ticker": "LONN.SW",
+     "name": "Lonza Group AG"
+    },
+    {
+     "ticker": "NESN.SW",
+     "name": "Nestlé SA"
+    },
+    {
+     "ticker": "NOVN.SW",
+     "name": "Novartis International AG"
+    },
+    {
+     "ticker": "PGHN.SW",
+     "name": "Partners Group Holding AG"
+    },
+    {
+     "ticker": "ROP.SW",
+     "name": "Roche Holding AG"
+    },
+    {
+     "ticker": "SDZ.SW",
+     "name": "Sandoz"
+    },
+    {
+     "ticker": "SIKA.SW",
+     "name": "Sika AG"
+    },
+    {
+     "ticker": "SLHN.SW",
+     "name": "Swiss Life Holding AG"
+    },
+    {
+     "ticker": "SREN.SW",
+     "name": "Swiss Reinsurance Company Ltd"
+    },
+    {
+     "ticker": "UBSG.SW",
+     "name": "UBS Group AG"
+    },
+    {
+     "ticker": "ZURN.SW",
+     "name": "Zurich Insurance Group AG"
+    }
+   ],
+   "status": "ok",
+   "problems": []
+  },
+  "wig20": {
+   "name": "WIG20",
+   "owner": "GPW Benchmark",
+   "source_url": "https://gpwbenchmark.pl/",
+   "size": 20,
+   "as_of": null,
+   "members": [],
+   "status": "to_fill"
+  }
+ }
+}

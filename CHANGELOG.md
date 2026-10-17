@@ -42,6 +42,19 @@ of that month); earlier releases used SemVer. Rules in
   exchange ("Volvo AB · B shares").
 - A ticker typed by hand (Watchlist, trade and dividend dialogs) is
   accepted as the exchange writes it: "NOVO B.CO" is stored as "NOVO-B.CO".
+- Index membership for 21 indices (EURO STOXX 50, STOXX Europe 50 and one
+  blue-chip index per market) in `uvalu/index_members.json`, a committed
+  snapshot with a date per index, drafted by
+  `tools/refresh_index_members.py` and refreshed by hand after each
+  quarterly index review. Not shown yet; it feeds the coming Index filter.
+  It is today's membership only and must never be used for a backtest.
+
+### Changed
+
+- When an exchange's ticker list can't be read, the last-resort list is
+  now the members of its blue-chip index from that snapshot, instead of
+  hand-kept lists that had drifted out of date (they still had Atlantia,
+  CNH Industrial and Just Eat Takeaway).
 
 ### Fixed
 
