@@ -1066,11 +1066,43 @@ def _next_expected_ex_div(ticker: str) -> dict:
         return empty
 
 
+def _fix_minor_unit_dividends(info: dict, price: "float | None") -> None:
+    """EX-15: on a pence-quoted line Yahoo's dividendRate is usually in
+    pounds, but not always. Check it against Yahoo's own dividend yield and
+    scale it to pounds when it is about 100× off. Changes ``info`` in place
+    and flags it (``dividendRate_unit_fixed``)."""
+    dy = _safe_float(info.get("dividendYield"))
+    if not price or price <= 0 or not dy or dy <= 0:
+        return
+    expected = dy / 100 if dy > 1.0 else dy          # Yahoo mixes percent and fraction
+    fixed = False
+    for key in ("dividendRate", "trailingAnnualDividendRate"):
+        rate = _safe_float(info.get(key))
+        if rate and rate > 0 and 30 < (rate / price) / expected < 300:
+            info[key] = rate / 100
+            fixed = True
+    if fixed:
+        info["dividendRate_unit_fixed"] = True
+
+
 def _fetch_one(ticker: str, stock: dict) -> dict:
     tkr   = yf.Ticker(ticker)
-    info  = tkr.info
+    info  = dict(tkr.info or {})
     mcap  = info.get("marketCap")
     price = info.get("currentPrice") or info.get("regularMarketPrice")
+
+    # EX-14 (exchange expansion plan): a London line is quoted in pence
+    # ("GBp") while EPS, book value and market cap are in pounds. Convert the
+    # price at the source and store the major currency, so fair values, P/E
+    # and the dividend yield below all compare like with like. Yahoo's own
+    # trailingPE / priceToBook are already corrected for pence.
+    _raw_ccy = info.get("currency") or "EUR"
+    quote_ccy, _divisor = marketdata.major_currency(_raw_ccy)
+    marketdata.record_quote_currency(ticker, _raw_ccy)
+    if _divisor != 1:
+        price = _safe_float(price)
+        price = price / _divisor if price is not None else None
+        _fix_minor_unit_dividends(info, price)
 
     def _unix_to_date(ts) -> str | None:
         """Convert a Unix timestamp (int) from yfinance to an ISO date string."""
@@ -1084,7 +1116,7 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
         "Ticker":     ticker,
         "ISIN":       stock["isin"],
         "Price":      _safe_float(price),
-        "Currency":   info.get("currency", "EUR"),
+        "Currency":   quote_ccy,
         # V1 (model M2): the currency the fundamentals are reported in, which
         # can differ from the quote currency (a Swiss company reporting in
         # USD). _convert_reporting_currency() reconciles the two.
@@ -1097,6 +1129,8 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
         "fetched_at":    datetime.now(timezone.utc).isoformat(),
         "next_fetch_at": _next_fetch_at(),
     }
+    if info.get("dividendRate_unit_fixed"):
+        row["dividendRate_unit_fixed"] = True        # EX-15: scaled from pence to pounds
 
     # Display multiples — sanity-bounded
     for key in ("trailingPE", "priceToBook", "enterpriseToEbitda"):

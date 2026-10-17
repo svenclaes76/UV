@@ -33,6 +33,10 @@ class Exchange:
     badge: str        # 3-letter venue code shown next to a ticker ("BRU")
     list_url: str     # stockanalysis.com list page
     list_label: str   # name of the cached list and its log endpoint ("Brussels")
+    # Yahoo quotes some exchanges' lines in the currency's minor unit (London:
+    # pence, "GBp"). The default divisor for a line whose own quote currency
+    # isn't known yet; marketdata.price_divisor() prefers the line's own.
+    price_divisor: int = 1
 
 
 EXCHANGES: tuple[Exchange, ...] = (

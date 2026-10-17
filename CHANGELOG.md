@@ -21,6 +21,17 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+### Added
+
+- Prices quoted in a currency's minor unit (London's pence, "GBp") are
+  converted to the major unit where they enter the app: the fundamentals
+  fetch, price history, dividend history (which the dividend auto-import
+  multiplies by shares held) and the live price feed. A dividend rate that
+  comes back in pence is scaled to pounds when it is about 100× off Yahoo's
+  own dividend yield. Each line's quote currency is recorded in
+  `.cache/quote_units.json`. No effect on the six covered exchanges; it is
+  the groundwork for adding London.
+
 ### Fixed
 
 - Positions in another currency than the euro were valued in their own

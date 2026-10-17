@@ -216,6 +216,17 @@ class TestFalsifyingFixtures:
         smallest_bug_ratio = min(fx.CONFIRMED_BUG_SIBLING_RATIOS.values())
         assert fx.BERKSHIRE_AB_SPLIT_RATIO > smallest_bug_ratio
 
+    def test_converted_currency_rows_clear_every_active_check(self):
+        """P10 (EX-W5): converted GBP / DKK / ISK rows aren't data defects."""
+        for ticker, row in fx.CONVERTED_CURRENCY_ROWS.items():
+            df = _df(row)
+            ni_hits, _ = va.check_net_income_cross_validation(df)
+            assert bool(va.check_implied_ptb_floor(df).iloc[0]) is False, ticker
+            assert bool(ni_hits.iloc[0]) is False, ticker
+            assert bool(va.check_shares_outstanding_sanity(df).iloc[0]) is False, ticker
+            assert bool(va.check_dividend_yield_sanity(df).iloc[0]) is False, ticker
+            assert va.check_fair_value_price_ratio(df).iloc[0] not in ("notable", "critical"), ticker
+
     def test_shares_outstanding_upper_bound_counterexamples_stay_unflagged(self):
         for shares in fx.SHARES_OUTSTANDING_UPPER_BOUND_COUNTEREXAMPLES.values():
             df = _df({"sharesOutstanding": shares})

@@ -82,3 +82,22 @@ SNB_LEGITIMATE_LOW_SHARE_COUNT = {
     "trailingEps": 666_185.9,
     "Price": 3140.0,
 }
+
+# ── Converted foreign-currency rows (exchange expansion plan P10, EX-W5) ──────
+# Correctly converted rows from the new unit and currency paths, as the
+# fundamentals fetch stores them: BT on London with the pence price converted
+# to pounds; Maersk on Copenhagen (DKK quote, a four-figure share price);
+# Arion on Iceland (ISK). Figures from Yahoo on 16 Oct 2026, rounded. No
+# active check may flag them: a high share price or a foreign currency is not
+# a data defect.
+CONVERTED_CURRENCY_ROWS = {
+    "BT-A.L": {"Ticker": "BT-A.L", "Currency": "GBP", "Price": 2.097, "bookValue": 1.275,
+               "trailingEps": 0.11, "sharesOutstanding": 9_850_000_000.0,
+               "netIncomeHistory": [1_083_000_000.0], "dividendYield": 0.0382, "fair_value": 2.45},
+    "MAERSK-B.CO": {"Ticker": "MAERSK-B.CO", "Currency": "DKK", "Price": 24_270.0, "bookValue": 25_440.5,
+                    "trailingEps": 999.09, "sharesOutstanding": 15_600_000.0,
+                    "netIncomeHistory": [15_590_000_000.0], "dividendYield": 0.035, "fair_value": 27_900.0},
+    "ARION.IC": {"Ticker": "ARION.IC", "Currency": "ISK", "Price": 174.5, "bookValue": 154.5,
+                 "trailingEps": 21.61, "sharesOutstanding": 1_450_000_000.0,
+                 "netIncomeHistory": [31_300_000_000.0], "dividendYield": 0.055, "fair_value": 205.0},
+}
