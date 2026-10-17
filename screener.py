@@ -1131,6 +1131,8 @@ def _fetch_one(ticker: str, stock: dict) -> dict:
     }
     if info.get("dividendRate_unit_fixed"):
         row["dividendRate_unit_fixed"] = True        # EX-15: scaled from pence to pounds
+    if stock.get("share_class"):
+        row["share_class"] = stock["share_class"]    # D20: one of several classes ("B")
 
     # Display multiples — sanity-bounded
     for key in ("trailingPE", "priceToBook", "enterpriseToEbitda"):

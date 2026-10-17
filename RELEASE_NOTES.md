@@ -20,6 +20,11 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+### Improved
+
+- **Add a stock the way your broker writes it**: a ticker like "NOVO B.CO"
+  is understood when you add it to your watchlist or record a trade.
+
 ### Fixed
 
 - **Swiss holdings valued in euros**: positions on the SIX Swiss Exchange

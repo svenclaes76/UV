@@ -15,7 +15,8 @@ from uvalu import a11y
 from uvalu.data import _load_all_screener_data, _cache_version
 from uvalu.components import list_provenance_html, page_header, fit_widths, header_cell_html, stock_row, empty_results_html, skeleton_rows
 from uvalu.drawer import open_drawer
-from uvalu.formatting import exchange_code, row_currency
+from uvalu.exchanges import normalize_ticker
+from uvalu.formatting import exchange_code, row_currency, share_class
 from uvalu.i18n import N_, _, h_, ngettext, tr
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun, poll_while_fetching
@@ -130,7 +131,7 @@ def render() -> None:
                                                     help=_("Viewer role is read-only") if _is_viewer else None)
 
     if _submitted and not _is_viewer:
-        _sym = _new_ticker.strip().upper()
+        _sym = normalize_ticker(_new_ticker)        # "NOVO B.CO" → "NOVO-B.CO" (P3)
         if not _sym:
             st.markdown(f'<div style="font-size:12px;color:var(--down-txt);">{h_("Enter a ticker symbol.")}</div>',
                        unsafe_allow_html=True)
@@ -229,6 +230,7 @@ def render() -> None:
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
                 show_action=False, show_remove=True, remove_help=_("Remove from watchlist"),
                 action_disabled=_is_viewer, widths=_fitted_widths(), currency=row_currency(_row),
+                share_class=share_class(_row),
             )
             if _result["remove"]:
                 save_watchlist(watchlist - {_ticker})

@@ -100,7 +100,7 @@ def _scrape_stockanalysis(url: str, suffix: str, mic: str, label: str) -> "list[
                         continue
                     seen.add(symbol)
                     new_symbols += 1
-                    stocks.append({"name": name, "isin": "", "ticker": f"{symbol}{suffix}", "mic": mic})
+                    stocks.append({"name": name, "isin": "", "ticker": yahoo_ticker(symbol, suffix), "mic": mic})
 
                 if len(df) < PAGE_SIZE or new_symbols == 0 or page >= MAX_PAGES:
                     break
@@ -527,3 +527,77 @@ FETCHERS = {
     "frankfurt": fetch_frankfurt_tickers,
     "swiss":     fetch_swiss_tickers,
 }
+
+
+# ── Symbols, per-exchange filters and share classes (EX-W3) ──────────────────
+# stockanalysis.com writes share classes and second lines with a dot or a
+# space ("INVE.B", "NOVO B", "NDA.FI"); Yahoo writes them with a dash
+# ("INVE-B.ST", "NOVO-B.CO", "NDA-FI.HE"). Ticker formats belong to the data
+# vendor (EX-40): this is the one place that converts between them.
+
+def yahoo_ticker(symbol: str, suffix: str) -> str:
+    """Yahoo's ticker for an exchange symbol: class and line separators
+    (dot, space) become a dash, then the exchange suffix."""
+    from uvalu.exchanges import yahoo_symbol
+    return f"{yahoo_symbol(symbol)}{suffix}"
+
+
+def _london_keep(symbol: str) -> bool:
+    """London's list is mostly the international order book: foreign lines
+    with codes that start with a digit ("0R1I"); 2,948 of 3,591 on 16 Oct 2026."""
+    return bool(symbol) and not symbol[0].isdigit()
+
+
+def _madrid_keep(symbol: str) -> bool:
+    """Madrid's list includes Latibex, Latin American companies traded in
+    euros, all with an "X" code ("XPBR")."""
+    return bool(symbol) and not symbol.startswith("X")
+
+
+# Exchange key → keep(symbol) filter, applied to the exchange's raw symbols
+# before any data is fetched (EX-10). Frankfurt keeps its own equity filter
+# with self-learning exceptions (_is_equity_symbol, EX-9); its shape rules
+# would reject valid tickers elsewhere, such as Tallinn's "TAL1T".
+LIST_FILTERS = {
+    "london": _london_keep,
+    "madrid": _madrid_keep,
+}
+
+
+def mark_share_classes(stocks: list[dict]) -> list[dict]:
+    """Set ``share_class`` ("A", "B" …) on lines that are one of several
+    classes of the same company on the same exchange: Volvo A and B, Maersk A
+    and B, Grifols and Grifols P. A single class line (BT's only line is
+    "BT-A") gets none, so its name isn't changed for nothing (D20)."""
+    groups: dict[str, list[dict]] = {}
+    for s in stocks:
+        base, dot, _suffix = s["ticker"].rpartition(".")
+        root, dash, cls = base.rpartition("-")
+        key = root if dash and len(cls) == 1 and cls.isalpha() else base
+        groups.setdefault(key, []).append(s)
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        for s in members:
+            base = s["ticker"].rpartition(".")[0]
+            root, dash, cls = base.rpartition("-")
+            if dash and len(cls) == 1 and cls.isalpha():
+                s["share_class"] = cls.upper()
+    return stocks
+
+
+def fetch_exchange_tickers(key: str, fetchers: "dict | None" = None) -> list[dict]:
+    """The ticker list of any exchange in the registry, covered or planned:
+    cached list → per-exchange filter → share classes. A planned exchange has
+    no hardcoded fallback yet (its index members come with EX-W9)."""
+    from uvalu.exchanges import KNOWN_BY_KEY
+    ex = KNOWN_BY_KEY[key]
+    fetchers = FETCHERS if fetchers is None else fetchers
+    if key in fetchers:
+        stocks = fetchers[key]()
+    else:
+        stocks = _cached_list(ex.list_url, ex.suffix, ex.mic, ex.list_label, fallback_fn=lambda: [])
+    keep = LIST_FILTERS.get(key)
+    if keep is not None:
+        stocks = [s for s in stocks if keep(s["ticker"][: -len(ex.suffix)])]
+    return mark_share_classes([dict(s) for s in stocks])

@@ -31,6 +31,17 @@ of that month); earlier releases used SemVer. Rules in
   own dividend yield. Each line's quote currency is recorded in
   `.cache/quote_units.json`. No effect on the six covered exchanges; it is
   the groundwork for adding London.
+- The 15 exchanges of the expansion plan are in the exchange registry as
+  planned, not covered: they don't appear in settings, Admin, the Market
+  filter or the universe yet. A holding on one of them (a London or
+  Stockholm stock added by hand) already gets its own currency, venue badge
+  and exchange name. Their ticker lists are read the same way as today's,
+  with Yahoo's ticker format (stockanalysis.com's "INVE.B" becomes
+  "INVE-B.ST"), London's foreign-order-book lines and Madrid's Latibex lines
+  filtered out, and share classes marked when a company has several on one
+  exchange ("Volvo AB · B shares").
+- A ticker typed by hand (Watchlist, trade and dividend dialogs) is
+  accepted as the exchange writes it: "NOVO B.CO" is stored as "NOVO-B.CO".
 
 ### Fixed
 

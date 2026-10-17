@@ -73,11 +73,11 @@ def _label_date(value) -> str:
     return "" if pd.isna(ts) else fmt_date(ts)
 
 
-def _name_html(name) -> str:
+def _name_html(name, share_class: "str | None" = None) -> str:
     """A company name for row markup: tidied for display (display_name,
     visual review G5) and HTML-escaped (names come from the data provider)."""
     import html as _html_mod
-    return _html_mod.escape(display_name(name))
+    return _html_mod.escape(display_name(name, share_class))
 
 
 def is_hard_veto(v: object) -> bool:
@@ -1082,7 +1082,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
              show_action: bool = True, action_active: bool = False, action_help: str = "",
              action_disabled: bool = False, widths: list | None = None,
              rank: "int | None" = None, show_remove: bool = False, remove_help: str = "",
-             currency: str = "EUR") -> dict:
+             currency: str = "EUR", share_class: "str | None" = None) -> dict:
     """One custom row matching Uvalu.dc.html's Screener/Watchlist row spec:
     ticker+exchange+name, colored signal badge, score bar, colored margin of safety,
     price/P-E/yield, and a leading watchlist star. Renders as one
@@ -1122,8 +1122,8 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
     star (Screener: toggle watchlist membership); `remove` on the "×".
     """
     # AC2: the star, "×" and "View" are named after the row's stock.
-    _who = a11y.stock_name(ticker, display_name(name))
-    name = _name_html(name)
+    _who = a11y.stock_name(ticker, display_name(name, share_class))
+    name = _name_html(name, share_class)
     # Streamlit sanitizes "." to "-" when turning a widget key into its
     # ".st-key-<key>" CSS class (tickers like "CAMB.BR" are common in these
     # keys) — a raw dot in a CSS class selector is parsed as two chained
