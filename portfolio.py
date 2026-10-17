@@ -647,6 +647,44 @@ def exchange_key_for_ticker(ticker: str) -> str | None:
     return ex.key if ex else None
 
 
+def eur_per_unit(currency: str) -> "float | None":
+    """EUR for 1 unit of ``currency`` at the latest ECB reference rate
+    (fx.py, the app's single FX source); 1.0 for EUR; None when no rate is
+    available, so a caller never treats a foreign amount as euros."""
+    import fx as _fx
+    try:
+        return float(_fx.get_rate(currency or "EUR", base="EUR").rate)
+    except _fx.FxUnavailable:
+        logkit.get_logger("uvalu.portfolio").warning("no EUR rate for %s; values in it are left unknown", currency,
+                     extra={"event": "fx.missing", "currency": currency})
+        return None
+
+
+def to_eur(df: "pd.DataFrame", amount_col: str, ticker_col: str = "ticker") -> "pd.Series":
+    """``df[amount_col]``, an amount in each row's native currency (its
+    ticker's exchange currency), converted to EUR. NaN where the amount is
+    missing or no rate is available.
+
+    Plan §10 P12: position values were ``shares × live_price`` with the price
+    in the stock's own currency, then added to EUR totals and compared with
+    the EUR ``purchase_value`` as if they were euros. Every place that values
+    a position (Dashboard, Portfolio, Risk, the drawer) goes through here."""
+    amounts = pd.to_numeric(df[amount_col], errors="coerce")
+    currencies = df[ticker_col].map(lambda t: currency_for_ticker(str(t)))
+    rates = {c: eur_per_unit(c) for c in currencies.dropna().unique()}
+    factor = pd.to_numeric(currencies.map(rates), errors="coerce")
+    return amounts * factor
+
+
+def position_values_eur(df: "pd.DataFrame", price_col: str = "live_price",
+                        shares_col: str = "shares", ticker_col: str = "ticker") -> "pd.Series":
+    """Each position's value in EUR: shares × price (native) × the EUR rate."""
+    tmp = pd.DataFrame({ticker_col: df[ticker_col],
+                        "_native": pd.to_numeric(df[shares_col], errors="coerce")
+                                   * pd.to_numeric(df[price_col], errors="coerce")}, index=df.index)
+    return to_eur(tmp, "_native", ticker_col)
+
+
 # Belgian "roerende voorheffing" — a fixed statutory rate on investment
 # income, not a guess about a foreign treaty rate (unlike the per-exchange
 # `dividend_withholding` table in settings.py, which stays 0%-by-default

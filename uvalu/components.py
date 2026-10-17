@@ -1736,7 +1736,7 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
                        show_edit: bool = False, edit_disabled: bool = False,
                        income_12m: float | None = None, income_12m_gross: float | None = None,
                        ttm_yield_pct: float | None = None, yoc_pct: float | None = None,
-                       widths: list | None = None) -> dict:
+                       widths: list | None = None, currency: str = "EUR") -> dict:
     """One open-position row — the whole row opens the detail drawer on
     click (matching the mockup's `h.onClick`); `show_edit=True` (the full
     Open positions page, not the Overview preview) adds a trailing
@@ -1783,7 +1783,9 @@ def portfolio_open_row(*, key: str, ticker: str, exchange: str | None, name: str
             st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
                        f"color:var(--muted);'>{_avg_str}</div>", unsafe_allow_html=True)
         with _cols[3]:
-            _price_str = fmt_money(price, "EUR")
+            # The live price is in the stock's own currency (P12); the average
+            # cost comes from the EUR purchase value and stays in EUR.
+            _price_str = fmt_money(price, ccy_code(currency))
             st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;'>{_price_str}</div>",
                        unsafe_allow_html=True)
         with _cols[4]:

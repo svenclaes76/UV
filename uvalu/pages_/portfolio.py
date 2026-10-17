@@ -14,7 +14,7 @@ import time
 import pandas as pd
 import streamlit as st
 
-from portfolio import (load_portfolio, load_sold, load_div_hist, save_portfolio,
+from portfolio import (position_values_eur, load_portfolio, load_sold, load_div_hist, save_portfolio,
                        save_sold, record_value_snapshot, ensure_value_history_fresh,
                        dividends_in_eur, dividend_income_summary,
                        import_dividends_from_market_data, exchange_key_for_ticker,
@@ -29,7 +29,7 @@ from uvalu.components import (back_link, page_header, fit_widths, header_cell_ht
                               portfolio_closed_row, portfolio_dividend_row, dividend_log_row,
                               dividend_log_header_html, DIVIDEND_LOG_COL_SPLIT,
                               refresh_top_bar_html, skeleton_kpi_card_html, skeleton_rows)
-from uvalu.formatting import exchange_code, safe_pct as _safe_pct
+from uvalu.formatting import exchange_code, row_currency, safe_pct as _safe_pct
 from uvalu.i18n import N_, _, fmt_date, fmt_money, fmt_pct, fmt_total, h_, ngettext, sort_df, tr
 from uvalu.runtime import current_user
 from uvalu.drawer import open_drawer
@@ -211,7 +211,7 @@ def render() -> None:
     # position shows a margin of safety consistent with its live price (WP-DQ1).
     _all_scr_df = apply_live_prices(_all_scr_df, live_data)
     pf["live_price"]     = pf["ticker"].map(lambda t: live_data[t].get("price"))
-    pf["current_value"]  = pf["live_price"] * pf["shares"]
+    pf["current_value"]  = position_values_eur(pf)   # EUR, like purchase_value (P12)
     pf["price_gain"]     = pf["current_value"] - pf["purchase_value"]
     _cost = pf["purchase_value"].replace(0, float("nan"))
     pf["price_gain_pct"] = (pf["price_gain"] / _cost * 100).round(2)
@@ -352,7 +352,7 @@ def render() -> None:
                         ttm_yield_pct=(_dr["regular_gross_eur"] / _prow["current_value"] * 100)
                         if _prow["current_value"] else None,
                         yoc_pct=(_dr["net_eur"] / _cost_val * 100) if _cost_val else None,
-                        show_edit=False, widths=_ov_open_w,
+                        show_edit=False, widths=_ov_open_w, currency=row_currency(_prow),
                     )
                     if _res["view"]:
                         _ov_view_target = _prow["ticker"]
@@ -501,7 +501,7 @@ def render() -> None:
                     ttm_yield_pct=(_dr["regular_gross_eur"] / _prow["current_value"] * 100)
                     if _prow["current_value"] else None,
                     yoc_pct=(_dr["net_eur"] / _cost_val * 100) if _cost_val else None,
-                    show_edit=True, edit_disabled=_is_viewer, widths=_open_w,
+                    show_edit=True, edit_disabled=_is_viewer, widths=_open_w, currency=row_currency(_prow),
                 )
                 if _res["view"]:
                     _view_target = _prow["ticker"]

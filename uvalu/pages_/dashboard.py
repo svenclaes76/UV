@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from portfolio import (portfolio_exists, load_portfolio, load_value_history, load_sold,
+from portfolio import (position_values_eur, portfolio_exists, load_portfolio, load_value_history, load_sold,
                        record_value_snapshot,
                        ensure_value_history_fresh, load_div_hist, dividends_in_eur,
                        exchange_key_for_ticker, BE_WITHHOLDING_RATE)
@@ -90,8 +90,9 @@ def render() -> None:
     _db_pf["dividends"]      = pd.to_numeric(_db_pf["dividends"],      errors="coerce").fillna(0)
 
     _db_cost = _db_pf["purchase_value"].where(_db_pf["purchase_value"] > 0)
-    _db_pf["current_value"] = (_db_pf["shares"] * _db_pf["live_price"]).where(
-        _db_pf["live_price"].notna(), _db_pf["purchase_value"])
+    # In EUR, like purchase_value (P12): the live price is in the stock's own currency.
+    _db_value_eur = position_values_eur(_db_pf)
+    _db_pf["current_value"] = _db_value_eur.where(_db_value_eur.notna(), _db_pf["purchase_value"])
     _db_pf["price_gain"]     = _db_pf["current_value"] - _db_pf["purchase_value"]
     _db_pf["price_gain_pct"] = (_db_pf["price_gain"] / _db_cost * 100).round(2)
     _db_pf["day_change_pct"] = pd.to_numeric(_db_pf["day_change_pct"], errors="coerce")

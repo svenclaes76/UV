@@ -21,6 +21,19 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+### Fixed
+
+- Positions in another currency than the euro were valued in their own
+  currency and added to euro totals: a SIX Swiss Exchange position counted
+  its CHF value as euros on the Dashboard, the Portfolio page, the Risk page
+  (weights and expected dividend income) and in the stock drawer, and its
+  gain compared that with the euro purchase value. Every position value is
+  now converted to EUR at the latest ECB rate before it is added up; the
+  price per share stays in the stock's own currency, now also in the
+  Portfolio rows. When no rate is available the value is left unknown (the
+  Dashboard then shows the purchase value), never the foreign amount as
+  euros. Euro-only portfolios are unchanged.
+
 ## [2026.10.9] — 2026-10-17
 
 **No signal changes; a portfolio's risk score can rise slightly** (stress
