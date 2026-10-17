@@ -40,9 +40,24 @@ def test_for_ticker(ticker, key):
     assert exchanges.for_ticker(ticker).key == key
 
 
-@pytest.mark.parametrize("ticker", ["AAPL", "BP.L", "", None, ".BR"])
+@pytest.mark.parametrize("ticker", ["AAPL", "X.NYSE", "", None, ".BR"])
 def test_for_ticker_unknown(ticker):
     assert exchanges.for_ticker(ticker) is None
+
+
+def test_planned_exchanges_are_known_but_not_covered():
+    """EX-W3: the 15 planned exchanges are recognised (a user's holding gets
+    its currency and badge) but stay out of everything that defines coverage."""
+    assert len(exchanges.PLANNED) == 15
+    bp = exchanges.for_ticker("BP.L")
+    assert bp.key == "london" and bp.currency == "GBP" and bp.price_divisor == 100
+    assert "london" not in exchanges.BY_KEY and "london" not in settings.ALL_EXCHANGES
+    assert "london" not in fetch_tickers.FETCHERS
+    assert universe.exchange_country("BP.L") is None          # never a home listing yet
+    all_known = (*exchanges.EXCHANGES, *exchanges.PLANNED)
+    for field in ("key", "name", "suffix", "mic", "badge", "list_url", "list_label"):
+        values = [getattr(e, field) for e in all_known]
+        assert len(values) == len(set(values)), field
 
 
 def test_every_consumer_reads_the_registry():

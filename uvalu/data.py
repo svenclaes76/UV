@@ -13,7 +13,7 @@ import streamlit as st
 
 from prices import fetch_prices
 from uvalu.market_hours import is_market_hours, MARKET_TZ
-from fetch_tickers import FETCHERS, list_status
+from fetch_tickers import FETCHERS, fetch_exchange_tickers, list_status
 from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_cache,
                       load_fundamentals_cache, backfill_thin_rows_from_screener_lane,
                       run_screener_from_df, fetch_fundamentals_nowait,
@@ -207,9 +207,10 @@ def _build_all_screener_data(enabled: tuple,
     _cached_country = {t: r.get("country") for t, r in _load_cache().items()}
     stock_lists: dict[str, list[dict]] = {}
     _all_listed: set[str] = set()      # every listed ticker, foreign or not: kept by prune_cache
-    for key, fetch_fn in FETCHERS.items():
+    for key in FETCHERS:
         if key in enabled_set:
-            _raw = fetch_fn()
+            # The exchange's list, filtered and with share classes marked (EX-W3).
+            _raw = fetch_exchange_tickers(key, FETCHERS)
             _all_listed.update(s["ticker"] for s in _raw)
             stock_lists[key] = [s for s in _raw
                                 if not universe.known_foreign(s["ticker"], _cached_country.get(s["ticker"]))]

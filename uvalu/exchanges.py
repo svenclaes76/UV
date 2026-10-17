@@ -55,8 +55,53 @@ EXCHANGES: tuple[Exchange, ...] = (
              "https://stockanalysis.com/list/six-swiss-exchange/", "Swiss"),
 )
 
+# Planned (exchange expansion plan §4): defined and tested here, but not yet
+# covered — not in settings, the ticker lists, the Market filter or Admin
+# until a later work package moves them into EXCHANGES. They are known to
+# for_ticker(), so a user's own holding on one of them gets the right
+# currency, name and badge already.
+PLANNED: tuple[Exchange, ...] = (
+    Exchange("madrid", "Bolsa de Madrid", "Spain", ".MC", "XMAD", "EUR", "MAD",
+             "https://stockanalysis.com/list/madrid-stock-exchange/", "Madrid"),
+    Exchange("stockholm", "Nasdaq Stockholm", "Sweden", ".ST", "XSTO", "SEK", "STO",
+             "https://stockanalysis.com/list/nasdaq-stockholm/", "Stockholm"),
+    Exchange("copenhagen", "Nasdaq Copenhagen", "Denmark", ".CO", "XCSE", "DKK", "CPH",
+             "https://stockanalysis.com/list/copenhagen-stock-exchange/", "Copenhagen"),
+    Exchange("helsinki", "Nasdaq Helsinki", "Finland", ".HE", "XHEL", "EUR", "HEL",
+             "https://stockanalysis.com/list/nasdaq-helsinki/", "Helsinki"),
+    # Part of Euronext; the official branding to show is still to be
+    # confirmed (open item EX4).
+    Exchange("oslo", "Oslo Børs", "Norway", ".OL", "XOSL", "NOK", "OSL",
+             "https://stockanalysis.com/list/oslo-bors/", "Oslo"),
+    Exchange("lisbon", "Euronext Lisbon", "Portugal", ".LS", "XLIS", "EUR", "LIS",
+             "https://stockanalysis.com/list/euronext-lisbon/", "Lisbon"),
+    Exchange("dublin", "Euronext Dublin", "Ireland", ".IR", "XMSM", "EUR", "DUB",
+             "https://stockanalysis.com/list/euronext-dublin/", "Dublin"),
+    Exchange("vienna", "Wiener Börse", "Austria", ".VI", "XWBO", "EUR", "VIE",
+             "https://stockanalysis.com/list/vienna-stock-exchange/", "Vienna"),
+    # Yahoo quotes London lines in pence (EX-14): price_divisor 100.
+    Exchange("london", "London Stock Exchange", "United Kingdom", ".L", "XLON", "GBP", "LON",
+             "https://stockanalysis.com/list/london-stock-exchange/", "London", price_divisor=100),
+    # Renamed from Athens Exchange in April 2026.
+    Exchange("athens", "Euronext Athens", "Greece", ".AT", "XATH", "EUR", "ATH",
+             "https://stockanalysis.com/list/athens-stock-exchange/", "Athens"),
+    Exchange("iceland", "Nasdaq Iceland", "Iceland", ".IC", "XICE", "ISK", "ICE",
+             "https://stockanalysis.com/list/nasdaq-iceland/", "Iceland"),
+    Exchange("tallinn", "Nasdaq Tallinn", "Estonia", ".TL", "XTAL", "EUR", "TAL",
+             "https://stockanalysis.com/list/nasdaq-tallinn/", "Tallinn"),
+    Exchange("riga", "Nasdaq Riga", "Latvia", ".RG", "XRIS", "EUR", "RIG",
+             "https://stockanalysis.com/list/nasdaq-riga/", "Riga"),
+    Exchange("vilnius", "Nasdaq Vilnius", "Lithuania", ".VS", "XLIT", "EUR", "VIL",
+             "https://stockanalysis.com/list/nasdaq-vilnius/", "Vilnius"),
+    Exchange("warsaw", "Warsaw Stock Exchange", "Poland", ".WA", "XWAR", "PLN", "WAR",
+             "https://stockanalysis.com/list/warsaw-stock-exchange/", "Warsaw"),
+)
+
 BY_KEY: dict[str, Exchange] = {e.key: e for e in EXCHANGES}
 BY_SUFFIX: dict[str, Exchange] = {e.suffix: e for e in EXCHANGES}
+# Covered and planned, for recognising any ticker a user may hold.
+KNOWN_BY_KEY: dict[str, Exchange] = {e.key: e for e in (*EXCHANGES, *PLANNED)}
+KNOWN_BY_SUFFIX: dict[str, Exchange] = {e.suffix: e for e in (*EXCHANGES, *PLANNED)}
 
 
 def keys() -> list[str]:
@@ -65,14 +110,33 @@ def keys() -> list[str]:
 
 
 def for_ticker(ticker: object) -> "Exchange | None":
-    """The covered exchange of a Yahoo ticker, by its suffix; None for a
-    ticker without one or on an exchange that isn't covered."""
+    """The exchange of a Yahoo ticker, by its suffix: a covered or a planned
+    one (check ``.key in BY_KEY`` for covered); None for a ticker without a
+    suffix or on an exchange the registry doesn't know."""
     t = str(ticker or "")
     dot = t.rfind(".")
-    return BY_SUFFIX.get(t[dot:].upper()) if dot > 0 else None
+    return KNOWN_BY_SUFFIX.get(t[dot:].upper()) if dot > 0 else None
+
+
+def yahoo_symbol(symbol: str) -> str:
+    """An exchange symbol in Yahoo's form, without the suffix: class and line
+    separators (dot, space) become a dash ("INVE.B", "NOVO B" → "INVE-B",
+    "NOVO-B"). EX-11 / EX-40."""
+    return "-".join(str(symbol).strip().replace(".", " ").split())
+
+
+def normalize_ticker(text: object) -> str:
+    """A ticker typed by a user, in Yahoo's form: "novo b.co", "NOVO.B.CO" →
+    "NOVO-B.CO" (plan §10 P3). Only when it ends in a known exchange suffix;
+    anything else is just trimmed and upper-cased."""
+    t = " ".join(str(text or "").strip().upper().split())
+    for suffix in sorted(KNOWN_BY_SUFFIX, key=len, reverse=True):
+        if t.endswith(suffix) and len(t) > len(suffix):
+            return f"{yahoo_symbol(t[: -len(suffix)])}{suffix}"
+    return t
 
 
 def name(key: str) -> str:
     """The official name of an exchange key; the key itself if unknown."""
-    e = BY_KEY.get(key)
+    e = KNOWN_BY_KEY.get(key)
     return e.name if e else key

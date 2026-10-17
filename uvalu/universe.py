@@ -24,9 +24,10 @@ EXCHANGE_COUNTRY: dict[str, str] = {e.suffix: e.country for e in exchanges.EXCHA
 
 
 def exchange_country(ticker: str) -> str | None:
-    """The covered country of the ticker's exchange suffix, or None."""
+    """The country of the ticker's exchange if that exchange is covered, or
+    None (a planned exchange isn't part of the public universe yet)."""
     ex = exchanges.for_ticker(ticker)
-    return ex.country if ex else None
+    return ex.country if ex and ex.key in exchanges.BY_KEY else None
 
 
 def is_home_listing(ticker: str, country: object) -> bool:

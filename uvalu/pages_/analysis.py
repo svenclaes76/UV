@@ -23,7 +23,7 @@ from uvalu.components import (_esc, back_link, fmt_mos_pct, model_signal_badge_h
                               six_model_ladder_reasons, six_model_ladder_caption,
                               sub_score_bar_html, quality_score_color, score_band_label, mos_text_color,
                               veto_reason_str, is_hard_veto, skeleton_chart_html, empty_results_html)
-from uvalu.formatting import display_name, exchange_label, row_currency
+from uvalu.formatting import display_name, exchange_label, row_currency, share_class as _share_class
 from uvalu.i18n import (N_, _, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, h_, localize_fig,
                         lowercase_noun, ngettext, plotly_money_axis, tr)
 from uvalu.runtime import brand_hoverlabel, theme_colors, current_user
@@ -238,7 +238,7 @@ def _render_model_summary(row, ticker: str) -> None:
                   N_("Dividend"): row.get("Sub Dividend")}
     _valid_subs = {k: v for k, v in _sub_fields.items() if pd.notna(v)}
     _thesis = [_("{name} trades at {price} against an estimated model fair value of {fair_value} ({mos} margin of safety).",
-                 name=display_name(row.get('Name')) or ticker, price=_fv(row, 'Price', _fmt_px),
+                 name=display_name(row.get('Name'), _share_class(row)) or ticker, price=_fv(row, 'Price', _fmt_px),
                  fair_value=_fv(row, 'fair_value', _fmt_px),
                  mos=_fv(row, 'MoS %', lambda v: fmt_mos_pct(v, compact=True)))]
     if _valid_subs:
@@ -325,7 +325,7 @@ def render() -> None:
             f'<div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;'
             f'margin-top:5px;margin-bottom:8px;">'
             f'<div style="font-size:13.5px;color:var(--muted);">'
-            f'{html.escape(display_name(row.get("Name")) or "—")} · {tr(_sector) if _sector else "—"} · {exchange_label(ticker, row.get("Exchange"))}</div>'
+            f'{html.escape(display_name(row.get("Name"), _share_class(row)) or "—")} · {tr(_sector) if _sector else "—"} · {exchange_label(ticker, row.get("Exchange"))}</div>'
             f'{_score_rating_html}</div>'
             f'{signal_provenance_html(row)}{founder_notice_html(row)}',
             unsafe_allow_html=True,

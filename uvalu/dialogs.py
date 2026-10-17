@@ -251,7 +251,8 @@ def identity_row(*, ticker: str = "", name: str = "", key_prefix: str, locked: b
     with _c2:
         n = st.text_input(_n_label, value=name,
                           placeholder=name_placeholder, key=f"{key_prefix}_name", disabled=locked)
-    return (t or "").strip().upper(), (n or "").strip()
+    from uvalu.exchanges import normalize_ticker
+    return normalize_ticker(t), (n or "").strip()       # "NOVO B.CO" → "NOVO-B.CO" (P3)
 
 
 def _confirm_key(key_prefix: str) -> str:
