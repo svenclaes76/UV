@@ -20,6 +20,8 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+## [2026.10.10] — 2026-10-17
+
 **Clearer currencies and dividend tax by country.** Signals don't change.
 If you had set withholding rates per exchange, they moved to the matching
 country: check them once in Settings.
@@ -34,7 +36,6 @@ country: check them once in Settings.
   follows the Netherlands rate). Change any rate in Settings, or reset it.
 - **Buy and sell prices in the stock's own currency**, converted to euros at
   that day's ECB rate.
-
 - **Add a stock the way your broker writes it**: a ticker like "NOVO B.CO"
   is understood when you add it to your watchlist or record a trade.
 
