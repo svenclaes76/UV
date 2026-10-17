@@ -962,3 +962,13 @@ def test_last_admin_cannot_delete(isolated_data, monkeypatch):
     at.button(key="privacy_delete").click().run()
     assert "only active Admin" in "".join(e.value for e in at.error)
     assert not [b for b in at.button if b.key == "set_delete_confirm"]
+
+
+def test_a_saved_rate_equal_to_the_default_reads_as_default(isolated_data, monkeypatch):
+    """A rate migrated from the old per-exchange table that equals the
+    statutory default isn't shown as "your rate"."""
+    s = settings.load_settings(TEST_EMAIL)
+    s["withholding_by_country"] = {"Netherlands": 15.0}
+    settings.save_settings(s, TEST_EMAIL)
+    at = _run(monkeypatch)
+    assert not any(b.key == "wh_reset_NL" for b in at.button)

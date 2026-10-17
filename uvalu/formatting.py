@@ -42,8 +42,11 @@ def money_html(value, currency: str, decimals: int = 2) -> str:
     import html as _h
     from uvalu.i18n import ccy_code
     text = _h.escape(fmt_money(value, ccy_code(currency), decimals))
-    return _CODE_RE.sub(lambda m: ('<span style="font-size:0.55em;color:var(--muted);letter-spacing:0.02em;">'
-                                   f'{m.group(1)}</span>'), text, count=1)
+    inner = _CODE_RE.sub(lambda m: ('<span style="font-size:0.55em;color:var(--muted);letter-spacing:0.02em;">'
+                                    f'{m.group(1)}</span>'), text, count=1)
+    # One unbreakable unit: in a narrow column (1024px) the browser otherwise
+    # put the small code on a line of its own above the number.
+    return f'<span style="white-space:nowrap;">{inner}</span>'
 
 
 def price_decimals(value) -> int:
@@ -107,13 +110,15 @@ def converted_text(amount, currency: str, decimals: int = 2) -> "str | None":
     return fmt_money(c[0], c[1], decimals, approx=True) if c else None
 
 
-def converted_line_html(amount, currency: str, decimals: int = 2) -> str:
+def converted_line_html(amount, currency: str, decimals: "int | None" = None) -> str:
     """The small muted second line under a foreign amount — the same style as
-    the dividend list's "… gross" line — or '' (D25, EX-42)."""
+    the dividend list's "… gross" line — or '' (D25, EX-42). By default it
+    follows the price rule (D22): no decimals from 1,000 up."""
     import html as _h
-    text = converted_text(amount, currency, decimals)
-    if not text:
+    c = converted(amount, currency)
+    if not c:
         return ""
+    text = fmt_money(c[0], c[1], price_decimals(c[0]) if decimals is None else decimals, approx=True)
     return (f'<div style="font-family:var(--uv-mono);font-size:10px;color:var(--muted);'
             f'line-height:1.25;white-space:nowrap;">{_h.escape(text)}</div>')
 
