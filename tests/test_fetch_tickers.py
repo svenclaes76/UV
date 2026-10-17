@@ -144,19 +144,23 @@ class TestExchangeFetchers:
         result = fn()
         assert result == [{"name": "Alpha Corp", "isin": "", "ticker": f"AAA{suffix}", "mic": mic}]
 
-    @pytest.mark.parametrize("fn,expected_mic,expected_suffix,expected_count", [
-        (fetch_tickers.fetch_brussels_tickers, "XBRU", ".BR", 20),
-        (fetch_tickers.fetch_amsterdam_tickers, "XAMS", ".AS", 25),
-        (fetch_tickers.fetch_paris_tickers, "XPAR", ".PA", 40),
-        (fetch_tickers.fetch_milan_tickers, "XMIL", ".MI", 40),
-        (fetch_tickers.fetch_swiss_tickers, "XSWX", ".SW", 23),
+    @pytest.mark.parametrize("fn,expected_mic,expected_suffix,index_key", [
+        (fetch_tickers.fetch_brussels_tickers, "XBRU", ".BR", "bel_20"),
+        (fetch_tickers.fetch_amsterdam_tickers, "XAMS", ".AS", "aex"),
+        (fetch_tickers.fetch_paris_tickers, "XPAR", ".PA", "cac_40"),
+        (fetch_tickers.fetch_milan_tickers, "XMIL", ".MI", "ftse_mib"),
+        (fetch_tickers.fetch_swiss_tickers, "XSWX", ".SW", "smi"),
     ])
-    def test_falls_back_to_hardcoded_index_on_network_failure(
-        self, monkeypatch, fn, expected_mic, expected_suffix, expected_count,
+    def test_falls_back_to_the_index_on_network_failure(
+        self, monkeypatch, fn, expected_mic, expected_suffix, index_key,
     ):
+        """EX-13: the fallback is the index's members on that exchange, from the
+        committed snapshot (a CAC 40 member listed in Amsterdam isn't in it)."""
+        from uvalu import indices
         monkeypatch.setattr(requests, "get", lambda *a, **k: (_ for _ in ()).throw(ConnectionError()))
         result = fn()
-        assert len(result) == expected_count
+        expected = {m["ticker"] for m in indices.members(index_key) if m["ticker"].endswith(expected_suffix)}
+        assert len(result) >= 15 and {s["ticker"] for s in result} == expected
         assert all(s["mic"] == expected_mic and s["ticker"].endswith(expected_suffix) for s in result)
 
 
@@ -267,6 +271,23 @@ class TestAutoValidate:
 # ── fetch_frankfurt_tickers integration ───────────────────────────────────
 
 class TestFetchFrankfurtTickers:
+    @pytest.fixture(autouse=True)
+    def _dax_snapshot(self, tmp_path, monkeypatch):
+        """A fixed DAX fallback, so the filter is tested rather than the
+        index's current membership: two seeded exceptions, a plain equity
+        and a member listed on another exchange."""
+        import json
+        from uvalu import indices
+        snap = tmp_path / "index_members.json"
+        snap.write_text(json.dumps({"indices": {"dax": {"name": "DAX", "members": [
+            {"ticker": "SAP.DE", "name": "SAP"}, {"ticker": "P911.DE", "name": "Porsche AG"},
+            {"ticker": "1COV.DE", "name": "Covestro"}, {"ticker": "AIR.PA", "name": "Airbus"}]}}}),
+            encoding="utf-8")
+        monkeypatch.setattr(indices, "SNAPSHOT", snap)
+        indices._data.cache_clear()
+        yield
+        indices._data.cache_clear()
+
     def test_filters_and_persists_exceptions_using_hardcoded_fallback(self, monkeypatch):
         monkeypatch.setattr(requests, "get", lambda *a, **k: (_ for _ in ()).throw(ConnectionError()))
         # Force every not-yet-cached symbol to fail Yahoo validation so this

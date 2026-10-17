@@ -178,6 +178,8 @@ Plan: [exchange-expansion-plan.md](exchange-expansion-plan.md) (decisions in §0
 | EX4 | **Oslo Børs official branding:** confirm the name to show (D10). | EX-W6 |
 | EX5 | **Model M5** (rate per currency, liquidity in EUR): bump `MODEL_VERSION`, methodology change log, release-note explanation. | Release 2 |
 | EX6 | **Index snapshot refresh** after each quarterly index review (third Friday of March, June, September, December), with `tools/refresh_index_members.py`. | Each quarter after release 2 |
+| EX8 | **Index snapshot to check** (`uvalu/index_members.json`, built 17 October 2026 with `tools/refresh_index_members.py`). 11 indices are clean. 8 are marked "check": BEL 20 (APAM.BR), DAX (G1A, G24: see EX9), FTSE 100 (four investment trusts, left out by D5 anyway), FTSE/Athex Large Cap (Mytilineos → Metlen, OPAP, Terna Energy look stale on Wikipedia), ISEQ 20 (Ryanair as RY4C vs RYA), OBX (Golden Ocean merged), OMX Copenhagen 25 (Nordea's line), OMX Helsinki 25 (Kojamo), PSI (Sonae Capital). WIG20 and OMX Baltic Benchmark have no usable public table and must be filled by hand. Check each against the index provider's list. | Release 2 (Index filter) |
+| EX9 | **Frankfurt exceptions keep DAX members out**: the self-learning Frankfurt filter (`.cache/frankfurt_exceptions.json`) marked G1A (GEA), G24 (Scout24), 8TRA (Traton) and 1U1 (1&1) as "not an equity", permanently, probably after a failed Yahoo probe. Re-probe a "no" after 30 days instead of keeping it forever. Adds stocks to the universe, so it changes signals. | Release 2 |
 
 ## Design and code
 
