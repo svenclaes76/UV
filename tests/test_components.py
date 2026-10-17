@@ -214,6 +214,20 @@ def test_stock_row_missing_mos_shows_dash():
     assert "<div style='text-align:right;color:var(--muted);'>—</div>" in html
 
 
+def test_stock_row_price_in_its_own_currency():
+    """EX-W0: a SIX row's price is CHF, not EUR (was always formatted as EUR)."""
+    def _script():
+        from uvalu.components import stock_row
+        stock_row(key="row1", ticker="ALPN.SW", name="Alpine Select", exchange="SWX",
+                 signal_code="neutral", veto=False, score=77.0, mos_pct=30.8,
+                 price=8.80, pe=5.4, div_yield=0.0682, currency="CHF")
+
+    at = _run(_script)
+    html = "".join(m.value for m in at.markdown)
+    assert "CHF" in html and "8.80" in html
+    assert "€8.80" not in html
+
+
 def test_portfolio_dividend_row_without_edit_hides_button():
     def _script():
         from uvalu.components import portfolio_dividend_row

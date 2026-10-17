@@ -19,7 +19,7 @@ from uvalu.data import (_load_portfolio_scored, peer_reference_pending, _fetch_p
                         load_portfolio_risk, apply_live_prices)
 from uvalu.dialogs import add_position_dialog
 from uvalu.drawer import open_drawer
-from uvalu.formatting import display_name, safe_pct as _safe_pct
+from uvalu.formatting import display_name, row_currency, safe_pct as _safe_pct
 from uvalu.i18n import (N_, _, conversion_note, frozen, fmt_date, fmt_num, fmt_pct, fmt_total, h_,
                         localize_fig, ngettext, pgettext, plotly_money_axis, to_display, tr)
 from uvalu.runtime import brand_hoverlabel, theme_colors, current_user
@@ -600,6 +600,7 @@ def render() -> None:
                         weight=_w, value=_cv, total_gain=_hr.get("price_gain"),
                         price_stale=bool(_ps) if pd.notna(_ps) else False,
                         data_thin=bool(_dt) if pd.notna(_dt) else False, grid_cols=_hold_grid,
+                        currency=row_currency(_hr),
                     ), unsafe_allow_html=True)
                     _hr_ticker = _hr.get("Ticker")
                     if pd.notna(_hr_ticker):

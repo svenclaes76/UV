@@ -16,16 +16,12 @@ from uvalu import logkit  # noqa: E402
 _DATA_DIR = Path(__file__).parent / "data" / "settings"
 _DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-ALL_EXCHANGES: list[str] = ["brussels", "amsterdam", "paris", "milan", "frankfurt", "swiss"]
+from uvalu import exchanges as _exchanges
 
-EXCHANGE_LABELS: dict[str, str] = {
-    "brussels":  "Euronext Brussels",
-    "amsterdam": "Euronext Amsterdam",
-    "paris":     "Euronext Paris",
-    "milan":     "Borsa Italiana",
-    "frankfurt": "Deutsche Börse",
-    "swiss":     "SIX Swiss Exchange",
-}
+# Keys and official names come from the exchange registry (uvalu/exchanges.py).
+ALL_EXCHANGES: list[str] = _exchanges.keys()
+
+EXCHANGE_LABELS: dict[str, str] = {e.key: e.name for e in _exchanges.EXCHANGES}
 
 _SHARED_FILE   = _DATA_DIR / "shared.json"
 _SHARED_DEFAULTS: dict = {

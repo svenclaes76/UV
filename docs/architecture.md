@@ -35,7 +35,7 @@ UV/
 ├── crypto.py                   # Symmetric encryption (Fernet)
 ├── backup.py                   # Encrypted ZIP export/import + on-demand backup history
 ├── workbook.py                 # User-facing .xlsx export and import (restore / bulk add)
-├── fetch_tickers.py            # Stock-universe loader (6 exchanges, scrape + hardcoded fallback)
+├── fetch_tickers.py            # Stock-universe loader (scrape + cache + hardcoded fallback)
 │
 │   # ── uvalu package (Streamlit app shell) ──
 ├── uvalu/
@@ -276,6 +276,16 @@ Symmetric encryption using Fernet (AES-128-CBC + HMAC-SHA256).
 #### `fetch_tickers.py`
 
 Builds the stock universe per exchange: scrapes ticker lists, with hardcoded index-constituent fallbacks (BEL 20, AEX 25, CAC 40, FTSE MIB, DAX 40, SMI 20). The `_hardcoded_*` lists also drive the screener's index-only toggles.
+
+Lists are cached per exchange in `.cache/ticker_lists/` (24 h, written atomically). A universe rebuild reads the cache; a stale list is served while a background thread refreshes it, and a scrape under 70% of the last good list is rejected (`tickers.shrunk`). `FETCHERS` maps each exchange key to its list function.
+
+#### `uvalu/exchanges.py`
+
+The exchange registry: key, official name, country, Yahoo suffix, MIC, quote currency, badge code and list URL of every covered exchange. Settings, the ticker lists, the home-listing rule, currencies, labels and badges all read from it; `tests/test_exchanges.py` fails if an exchange map is defined anywhere else. The scored universe is one frame with an `exchange_key` column (plus the extra-tickers frame), not one frame per exchange.
+
+#### Fetch load control (`screener.py`)
+
+Four workers per lane, two lanes (screener universe, portfolio). A rate limit (429) starts a cool-down shared by every worker in both lanes. **It is in memory, so it coordinates the threads of one process only;** a second worker process would need its own coordination. Rows that stay thin are refetched after 3 h, 12 h, then daily; rows with no price and no country after 1, 2, 4, 8, 16, then every 30 days. The cache file is written atomically, and rows in no list and no portfolio for 30 days are pruned.
 
 #### `backup.py`
 

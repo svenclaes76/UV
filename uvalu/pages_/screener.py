@@ -20,17 +20,15 @@ from uvalu.drawer import open_drawer
 from uvalu.components import (page_header, fit_widths, header_cell_html, signal_badge_for, stock_row, is_hard_veto,
                               list_provenance_html, signal_share_label, empty_results_html,
                               refresh_top_bar_html, skeleton_filter_bar_html, skeleton_rows, text_width_px)
-from uvalu.formatting import exchange_code
+from uvalu.formatting import exchange_code, row_currency
 from uvalu.i18n import N_, _, fmt_pct, frozen, h_, search_match, sort_key, tr
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun
 
 # Filter and column values stay English (stable across a language switch, so
 # filters survive it — spec L-06); widgets show them through tr().
-_EXCHANGE_LABELS = {
-    "brussels": N_("Brussels"), "amsterdam": N_("Amsterdam"), "paris": N_("Paris"),
-    "milan": N_("Milan"), "frankfurt": N_("Frankfurt"), "swiss": N_("Swiss"),
-}
+# Official exchange names from the registry, never translated (D10, D11).
+from uvalu.exchanges import name as _exchange_name
 _ALL_SECTORS = N_("All sectors")
 _ALL_MARKETS = N_("All markets")
 # Filter chips: model signal codes, shown with their translated label (BDG-1,
@@ -172,17 +170,16 @@ def render() -> None:
     dfs = _load_all_screener_data(
         _cache_version(), _enabled, tuple(_manual_tickers_map.keys()), tuple(_manual_tickers_map.values()),
         get_veto_thresholds(), get_score_weights())
-    _exch_dfs = list(dfs[:-1])  # extra (portfolio-only) tickers aren't shown in the ranked list
+    _universe_df = dfs[0]  # extra (portfolio-only) tickers aren't shown in the ranked list
     _exch_keys = [k for k in ALL_EXCHANGES if k in set(_enabled)]
 
-    # Check every enabled exchange, not just the first — a schema migration
-    # can leave one exchange's cached data missing the new columns while
-    # another (fetched/refreshed at a different time) already has them, since
-    # each ticker's cache entry refreshes independently with jitter.
-    if any(not d.empty and ("fair_value" not in d.columns or "signal_code" not in d.columns) for d in _exch_dfs):
+    # A schema migration can leave some cached rows missing the new columns,
+    # since each ticker's cache entry refreshes independently with jitter.
+    if not _universe_df.empty and ("fair_value" not in _universe_df.columns
+                                   or "signal_code" not in _universe_df.columns):
         _bust_cache()
 
-    _any_data = any(not d.empty for d in _exch_dfs)
+    _any_data = not _universe_df.empty
     _prog = get_fetch_progress()
     # With rows already on screen, a running fetch just gets the same
     # non-disruptive top sweep as a timed price refresh (Dashboard/Portfolio/
@@ -198,10 +195,10 @@ def render() -> None:
             st.markdown(refresh_top_bar_html(), unsafe_allow_html=True)
         _auto_rerun(5, "screener_fetch_refresh", version_fn=screener_refresh_signature)
 
-    _all_df = pd.concat([
-        d.assign(Exchange=_EXCHANGE_LABELS.get(k, k))
-        for k, d in zip(_exch_keys, _exch_dfs)
-    ], ignore_index=True) if _exch_dfs else pd.DataFrame()
+    # One frame with an exchange_key column (EX-W2): the label comes from the
+    # row's own key, so a disabled exchange can no longer shift the labels.
+    _all_df = (_universe_df.assign(Exchange=_universe_df["exchange_key"].map(_exchange_name))
+               if not _universe_df.empty and "exchange_key" in _universe_df.columns else _universe_df.copy())
 
     # ── Heading — filled in after filters are computed so the "Export list"
     # button (which needs the filtered set) can sit in the header row like
@@ -242,7 +239,7 @@ def render() -> None:
     # instead of native widgets sitting bare on the page background.
     _sector_vals = sorted((v for v in _all_df.get("sector", pd.Series(dtype=object)).dropna().unique() if str(v).strip()),
                           key=lambda v: sort_key(tr(v)))
-    _market_vals = [_EXCHANGE_LABELS[k] for k in _exch_keys]
+    _market_vals = [_exchange_name(k) for k in _exch_keys]
 
     def _filter_label(text: str) -> None:
         st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
@@ -452,7 +449,7 @@ def render() -> None:
                 pe=_row.get("trailingPE"), div_yield=_row.get("dividendYield"),
                 action_active=_in_wl,
                 action_help=_("Remove from watchlist") if _in_wl else _("Add to watchlist"),
-                action_disabled=_is_viewer, widths=_widths,
+                action_disabled=_is_viewer, widths=_widths, currency=row_currency(_row),
             )
             if _result["action"]:
                 if _in_wl:

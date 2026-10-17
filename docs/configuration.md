@@ -45,7 +45,7 @@ Stored in `data/settings/shared.json` (Fernet-encrypted), defaults in `settings.
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `enabled_exchanges` | list of strings | All 6 exchanges | Which exchanges the screener and portfolio analysis cover. Valid values: `"Brussels"`, `"Amsterdam"`, `"Paris"`, `"Milan"`, `"Frankfurt"`, `"Swiss"`. |
+| `enabled_exchanges` | list of strings | All 6 exchanges | Which exchanges the screener and portfolio analysis cover. Valid values are the exchange keys in `uvalu/exchanges.py`: `"brussels"`, `"amsterdam"`, `"paris"`, `"milan"`, `"frankfurt"` (Xetra), `"swiss"`. |
 | `max_debt_equity` | float (%) | `500.0` | Hard-veto D/E ceiling (`get_veto_thresholds()`). Sector-exempt for Financials / Real Estate / Utilities. |
 | `max_payout` | float (%) | `90.0` | Payout ratio above which a dividend is flagged "At Risk". |
 | `min_mos` | float (%) | `0.0` | Minimum margin of safety a stock must clear for a BUY signal. |

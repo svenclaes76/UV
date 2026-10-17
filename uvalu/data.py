@@ -13,14 +13,12 @@ import streamlit as st
 
 from prices import fetch_prices
 from uvalu.market_hours import is_market_hours, MARKET_TZ
-from fetch_tickers import (fetch_brussels_tickers, fetch_amsterdam_tickers,
-                            fetch_paris_tickers, fetch_milan_tickers,
-                            fetch_frankfurt_tickers, fetch_swiss_tickers)
+from fetch_tickers import FETCHERS, list_status
 from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_cache,
                       load_fundamentals_cache, backfill_thin_rows_from_screener_lane,
                       run_screener_from_df, fetch_fundamentals_nowait,
                       cancel_background_fetch, clear_live_cache, get_fetch_progress,
-                      peer_mask_for, load_founder_holdings)
+                      peer_mask_for, load_founder_holdings, prune_cache)
 from settings import ALL_EXCHANGES, get_veto_thresholds, get_score_weights
 from uvalu import logkit, universe
 from uvalu.store import get_scored_universe, clear_scored_universe
@@ -199,14 +197,6 @@ def _build_all_screener_data(enabled: tuple,
     stockanalysis.com ticker-list scrapes.
     """
     _max_de, _max_payout, _min_mos, _buy_threshold = thresholds
-    _fetch_map = {
-        "brussels":  (fetch_brussels_tickers,  ".BR"),
-        "amsterdam": (fetch_amsterdam_tickers, ".AS"),
-        "paris":     (fetch_paris_tickers,     ".PA"),
-        "milan":     (fetch_milan_tickers,     ".MI"),
-        "frankfurt": (fetch_frankfurt_tickers, ".DE"),
-        "swiss":     (fetch_swiss_tickers,     ".SW"),
-    }
     enabled_set = set(enabled)
     empty = pd.DataFrame(columns=["Ticker"])
 
@@ -216,11 +206,17 @@ def _build_all_screener_data(enabled: tuple,
     # once their country is known.
     _cached_country = {t: r.get("country") for t, r in _load_cache().items()}
     stock_lists: dict[str, list[dict]] = {}
-    for key, (fetch_fn, _) in _fetch_map.items():
+    _all_listed: set[str] = set()      # every listed ticker, foreign or not: kept by prune_cache
+    for key, fetch_fn in FETCHERS.items():
         if key in enabled_set:
-            stock_lists[key] = [s for s in fetch_fn()
+            _raw = fetch_fn()
+            _all_listed.update(s["ticker"] for s in _raw)
+            stock_lists[key] = [s for s in _raw
                                 if not universe.known_foreign(s["ticker"], _cached_country.get(s["ticker"]))]
     _listed = [s for stocks in stock_lists.values() for s in stocks]
+    # Lineage (EX-W1a): which cached list, of which date, this build used.
+    logkit.get_logger("uvalu.data").info(
+        "ticker lists used by this build", extra={"event": "universe.ticker_lists", "lists": list_status()})
     _listed_tickers = {s["ticker"] for s in _listed}
     _fetch_extra = [
         {"ticker": t, "name": n, "isin": ""}
@@ -232,9 +228,14 @@ def _build_all_screener_data(enabled: tuple,
         "building scored universe for %d stocks", len(_listed) + len(_fetch_extra),
         extra={"event": "universe.build", "stocks": len(_listed) + len(_fetch_extra)})
     all_fund = fetch_fundamentals_nowait(_listed + _fetch_extra)
+    # EX-22: drop rows of lines that left every list (and no user holds) a
+    # month ago. Only when every exchange is enabled, so switching one off in
+    # Admin doesn't throw away its rows.
+    if enabled_set >= set(ALL_EXCHANGES):
+        prune_cache(_all_listed | set(extra_tickers))
 
     if all_fund.empty:
-        return tuple(empty for _ in ALL_EXCHANGES) + (empty,)
+        return (empty, empty)
 
     _country = (dict(zip(all_fund["Ticker"], all_fund["country"]))
                 if "country" in all_fund.columns else {})
@@ -288,12 +289,15 @@ def _build_all_screener_data(enabled: tuple,
         tickers = {s["ticker"] for s in stock_list}
         return scored[scored["Ticker"].isin(tickers)].reset_index(drop=True)
 
-    exchange_dfs = tuple(
-        _subset(stock_lists[key]) if key in stock_lists else empty
-        for key in ALL_EXCHANGES
-    )
+    # EX-W2: one frame for the whole public universe with an exchange_key
+    # column (pages map it to the registry's name), instead of one frame per
+    # exchange matched to its key by position.
+    _key_of = {s["ticker"]: key for key, stocks in stock_lists.items() for s in stocks}
+    universe_df = _subset(all_stocks[:len(all_stocks) - len(_extra_stocks)])
+    if not universe_df.empty:
+        universe_df = universe_df.assign(exchange_key=universe_df["Ticker"].map(_key_of))
     _extra_df = _subset(_extra_stocks) if _extra_stocks else empty
-    return exchange_dfs + (_extra_df,)
+    return (universe_df, _extra_df)
 
 
 def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, changes: int) -> None:

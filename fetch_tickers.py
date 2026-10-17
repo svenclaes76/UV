@@ -8,9 +8,18 @@ Note: Euronext's official API (EWS) requires a paid commercial contract.
 
 Primary source : stockanalysis.com — reliable public lists.
 Last resort    : hardcoded index constituents.
+
+Lists are cached per exchange in .cache/ticker_lists/ (EX-W1a): a universe
+rebuild reads the cached list instead of scraping (the scrapes were 55 of the
+61 seconds of a median rebuild), a stale list is served while a background
+thread refreshes it, and a scrape that comes back much smaller than the last
+good list is rejected rather than shrinking the universe.
 """
 
 import json
+import os
+import threading
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -25,12 +34,21 @@ _log = logkit.get_logger("uvalu.tickers")
 _EXCEPTIONS_FILE  = Path(__file__).parent / ".cache" / "frankfurt_exceptions.json"
 _VALIDATE_BATCH   = 30   # rejected symbols to probe per fetch run
 
-STOCKANALYSIS_URL     = "https://stockanalysis.com/list/euronext-brussels/"
-STOCKANALYSIS_AMS_URL = "https://stockanalysis.com/list/euronext-amsterdam/"
-STOCKANALYSIS_PAR_URL = "https://stockanalysis.com/list/euronext-paris/"
-STOCKANALYSIS_MIL_URL = "https://stockanalysis.com/list/borsa-italiana/"
-STOCKANALYSIS_ETR_URL = "https://stockanalysis.com/list/frankfurt-stock-exchange/"
-STOCKANALYSIS_SWX_URL = "https://stockanalysis.com/list/six-swiss-exchange/"
+_LIST_CACHE_DIR      = Path(__file__).parent / ".cache" / "ticker_lists"
+LIST_TTL_HOURS       = 24     # a list younger than this is used as-is
+LIST_RETRY_MINUTES   = 60     # after a failed or rejected scrape, wait this long before trying again
+LIST_SHRINK_GUARD    = 0.70   # a new list under this share of the last good one is rejected
+BACKGROUND_REFRESH   = True   # refresh a stale list off the caller's thread (tests set False)
+
+from uvalu.exchanges import BY_KEY as _EX
+
+# List URLs come from the exchange registry (uvalu/exchanges.py).
+STOCKANALYSIS_URL     = _EX["brussels"].list_url
+STOCKANALYSIS_AMS_URL = _EX["amsterdam"].list_url
+STOCKANALYSIS_PAR_URL = _EX["paris"].list_url
+STOCKANALYSIS_MIL_URL = _EX["milan"].list_url
+STOCKANALYSIS_ETR_URL = _EX["frankfurt"].list_url
+STOCKANALYSIS_SWX_URL = _EX["swiss"].list_url
 
 HEADERS = {
     "User-Agent": (
@@ -45,17 +63,16 @@ PAGE_SIZE = 500
 MAX_PAGES = 50   # hard safety cap — well above any real exchange's page count (Frankfurt, the largest, is 22)
 
 
-def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
-                              fallback_fn) -> list[dict]:
+def _scrape_stockanalysis(url: str, suffix: str, mic: str, label: str) -> "list[dict] | None":
     """
-    Fetch all pages of a stockanalysis.com exchange list.
+    Fetch all pages of a stockanalysis.com exchange list; None on any error
+    or an empty result.
     Stops when a page adds no symbols not already seen (primary signal — a page
     short of PAGE_SIZE always qualifies, but some listings sit right at/above
     PAGE_SIZE while the site's ?page= param is a no-op past the real last page
     and just re-serves the same rows forever; SIX Swiss Exchange does exactly
     this at 512 rows, which used to spin the loop indefinitely). MAX_PAGES is
     a hard backstop in case a listing somehow keeps producing "new" rows.
-    Falls back to `fallback_fn()` on any error.
     """
     _endpoint = f"stockanalysis.{label.lower()}"
     try:
@@ -91,20 +108,153 @@ def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
 
             _call.note(pages=page, stocks=len(stocks),
                        status="ok" if stocks else "empty")
-        if stocks:
-            return stocks
-
+        return stocks or None
     except Exception:
-        pass  # external_call() already logged external_call.failed; fall back
+        return None  # external_call() already logged external_call.failed
 
+
+def _fetch_via_stockanalysis(url: str, suffix: str, mic: str, label: str,
+                              fallback_fn) -> list[dict]:
+    """A fresh scrape of a stockanalysis.com list, or `fallback_fn()` when it
+    fails or comes back empty. Uncached: the fetch_*_tickers functions go
+    through _cached_list instead."""
+    stocks = _scrape_stockanalysis(url, suffix, mic, label)
+    if stocks:
+        return stocks
     _log.info("using hardcoded fallback list for %s", label,
-              extra={"event": "fallback", "endpoint": _endpoint})
+              extra={"event": "fallback", "endpoint": f"stockanalysis.{label.lower()}"})
     return fallback_fn()
+
+
+# ── Ticker-list cache (EX-W1a) ────────────────────────────────────────────────
+
+_refresh_lock = threading.Lock()
+_refreshing: set[str] = set()
+
+
+def _list_file(label: str) -> Path:
+    return _LIST_CACHE_DIR / f"{label.lower().replace(' ', '_')}.json"
+
+
+def _read_list(label: str) -> "dict | None":
+    try:
+        entry = json.loads(_list_file(label).read_text(encoding="utf-8"))
+        return entry if isinstance(entry, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def _write_list(label: str, entry: dict) -> None:
+    """Atomic write: a crash mid-write never leaves a truncated list."""
+    path = _list_file(label)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(entry, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _age(ts: "str | None") -> "timedelta | None":
+    try:
+        when = datetime.fromisoformat(str(ts))
+    except (TypeError, ValueError):
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - when
+
+
+def _refresh_list(label: str, url: str, suffix: str, mic: str) -> "list[dict] | None":
+    """Scrape once and store the result if it is acceptable. Returns the new
+    list, or None when the scrape failed or was rejected by the shrink guard.
+    The last good list is kept either way, and the attempt is recorded so the
+    next one waits LIST_RETRY_MINUTES."""
+    entry = _read_list(label) or {}
+    last = entry.get("stocks") or []
+    now = datetime.now(timezone.utc).isoformat()
+    stocks = _scrape_stockanalysis(url, suffix, mic, label)
+    if stocks and (not last or len(stocks) >= LIST_SHRINK_GUARD * len(last)):
+        _write_list(label, {"label": label, "source": "stockanalysis", "fetched_at": now,
+                            "checked_at": now, "stocks": stocks})
+        _log.info("ticker list refreshed for %s (%d stocks)", label, len(stocks),
+                  extra={"event": "tickers.refreshed", "list": label, "stocks": len(stocks)})
+        return stocks
+    if stocks:
+        _log.warning("ticker list for %s shrank from %d to %d; keeping the last good list",
+                     label, len(last), len(stocks),
+                     extra={"event": "tickers.shrunk", "list": label, "last": len(last), "new": len(stocks)})
+    else:
+        _log.warning("ticker list refresh failed for %s", label,
+                     extra={"event": "tickers.refresh_failed", "list": label, "kept": len(last)})
+    _write_list(label, {**entry, "label": label, "checked_at": now, "stocks": last,
+                        "source": entry.get("source") or ("stockanalysis" if last else "fallback")})
+    return None
+
+
+def _refresh_in_background(label: str, url: str, suffix: str, mic: str) -> None:
+    """Refresh a stale list without making the caller (a universe rebuild)
+    wait for the scrape. One refresh per list at a time."""
+    with _refresh_lock:
+        if label in _refreshing:
+            return
+        _refreshing.add(label)
+
+    def _run() -> None:
+        try:
+            _refresh_list(label, url, suffix, mic)
+        finally:
+            with _refresh_lock:
+                _refreshing.discard(label)
+
+    if BACKGROUND_REFRESH:
+        logkit.spawn(_run, name=f"ticker_list_refresh:{label}")
+    else:
+        _run()
+
+
+def _cached_list(url: str, suffix: str, mic: str, label: str, fallback_fn) -> list[dict]:
+    """The exchange's ticker list, from the cache. A fresh list is returned
+    as-is; a stale one is returned at once and refreshed in the background.
+    With no usable list yet, the scrape runs now; if it fails, the hardcoded
+    fallback is used and the failure throttles the next attempt."""
+    entry = _read_list(label) or {}
+    stocks = entry.get("stocks") or []
+    ttl, retry = timedelta(hours=LIST_TTL_HOURS), timedelta(minutes=LIST_RETRY_MINUTES)
+    checked = _age(entry.get("checked_at"))
+    recently_tried = checked is not None and checked < retry
+    if stocks:
+        fetched = _age(entry.get("fetched_at"))
+        if not (fetched is not None and fetched < ttl) and not recently_tried:
+            _refresh_in_background(label, url, suffix, mic)
+        return stocks
+    if not recently_tried:
+        fresh_list = _refresh_list(label, url, suffix, mic)
+        if fresh_list:
+            return fresh_list
+    _log.info("using hardcoded fallback list for %s", label,
+              extra={"event": "fallback", "endpoint": f"stockanalysis.{label.lower()}"})
+    return fallback_fn()
+
+
+def list_status() -> dict:
+    """{label: {"fetched_at", "stocks", "source"}} of every cached list, for
+    the build's log line (lineage: which list date a build used)."""
+    out = {}
+    if not _LIST_CACHE_DIR.exists():
+        return out
+    for path in sorted(_LIST_CACHE_DIR.glob("*.json")):
+        try:
+            entry = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        out[entry.get("label") or path.stem] = {"fetched_at": entry.get("fetched_at"),
+                                                "stocks": len(entry.get("stocks") or []),
+                                                "source": entry.get("source")}
+    return out
 
 
 def fetch_brussels_tickers() -> list[dict]:
     """Returns Brussels (XBRU) stocks — stockanalysis.com with BEL20 fallback."""
-    return _fetch_via_stockanalysis(
+    return _cached_list(
         STOCKANALYSIS_URL, suffix=".BR", mic="XBRU",
         label="Brussels", fallback_fn=_hardcoded_bel20,
     )
@@ -112,7 +262,7 @@ def fetch_brussels_tickers() -> list[dict]:
 
 def fetch_amsterdam_tickers() -> list[dict]:
     """Returns Amsterdam (XAMS) stocks — stockanalysis.com with AEX25 fallback."""
-    return _fetch_via_stockanalysis(
+    return _cached_list(
         STOCKANALYSIS_AMS_URL, suffix=".AS", mic="XAMS",
         label="Amsterdam", fallback_fn=_hardcoded_aex25,
     )
@@ -141,7 +291,7 @@ def _hardcoded_bel20() -> list[dict]:
 
 def fetch_paris_tickers() -> list[dict]:
     """Returns Euronext Paris (XPAR) stocks — stockanalysis.com with CAC40 fallback."""
-    return _fetch_via_stockanalysis(
+    return _cached_list(
         STOCKANALYSIS_PAR_URL, suffix=".PA", mic="XPAR",
         label="Paris", fallback_fn=_hardcoded_cac40,
     )
@@ -149,7 +299,7 @@ def fetch_paris_tickers() -> list[dict]:
 
 def fetch_milan_tickers() -> list[dict]:
     """Returns Borsa Italiana (XMIL) stocks — stockanalysis.com with FTSE MIB fallback."""
-    return _fetch_via_stockanalysis(
+    return _cached_list(
         STOCKANALYSIS_MIL_URL, suffix=".MI", mic="XMIL",
         label="Milan", fallback_fn=_hardcoded_ftse_mib,
     )
@@ -233,7 +383,7 @@ def _is_equity_symbol(symbol: str, exceptions: dict[str, bool] | None = None) ->
 
 def fetch_frankfurt_tickers() -> list[dict]:
     """Returns Deutsche Börse (XETR) stocks — stockanalysis.com with DAX 40 fallback."""
-    all_tickers = _fetch_via_stockanalysis(
+    all_tickers = _cached_list(
         STOCKANALYSIS_ETR_URL, suffix=".DE", mic="XETR",
         label="Frankfurt", fallback_fn=_hardcoded_dax40,
     )
@@ -277,7 +427,7 @@ def _hardcoded_dax40() -> list[dict]:
 
 def fetch_swiss_tickers() -> list[dict]:
     """Returns SIX Swiss Exchange (XSWX) stocks — stockanalysis.com with SMI 20 fallback."""
-    return _fetch_via_stockanalysis(
+    return _cached_list(
         STOCKANALYSIS_SWX_URL, suffix=".SW", mic="XSWX",
         label="Swiss", fallback_fn=_hardcoded_smi20,
     )
@@ -366,3 +516,14 @@ def _hardcoded_ftse_mib() -> list[dict]:
         ("OVS",                "OVS"),   ("Salvatore Ferragamo","SFER"),
         ("Tod's",              "TOD"),   ("Tamburi",           "TIP"),
     ], ".MI", "XMIL", "FTSE MIB")
+
+
+# Exchange key (uvalu/exchanges.py) → its ticker-list function.
+FETCHERS = {
+    "brussels":  fetch_brussels_tickers,
+    "amsterdam": fetch_amsterdam_tickers,
+    "paris":     fetch_paris_tickers,
+    "milan":     fetch_milan_tickers,
+    "frankfurt": fetch_frankfurt_tickers,
+    "swiss":     fetch_swiss_tickers,
+}

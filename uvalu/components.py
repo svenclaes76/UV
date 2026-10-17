@@ -1081,7 +1081,8 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
              pe: float | None, div_yield: float | None,
              show_action: bool = True, action_active: bool = False, action_help: str = "",
              action_disabled: bool = False, widths: list | None = None,
-             rank: "int | None" = None, show_remove: bool = False, remove_help: str = "") -> dict:
+             rank: "int | None" = None, show_remove: bool = False, remove_help: str = "",
+             currency: str = "EUR") -> dict:
     """One custom row matching Uvalu.dc.html's Screener/Watchlist row spec:
     ticker+exchange+name, colored signal badge, score bar, colored margin of safety,
     price/P-E/yield, and a leading watchlist star. Renders as one
@@ -1206,7 +1207,7 @@ def stock_row(*, key: str, ticker: str, name: str, exchange: str | None, signal_
             # Matches r.price: mono 12.5px, var(--muted) — not the default
             # text color; price/P-E/yield are all muted-gray in the design,
             # only the ticker/score/upside figures are full-strength text.
-            _price_str = fmt_money(price, "EUR")
+            _price_str = fmt_money(price, ccy_code(currency))
             st.markdown(f"<div style='text-align:right;font-family:var(--uv-mono);font-size:12.5px;"
                        f"color:var(--muted);'>{_price_str}</div>", unsafe_allow_html=True)
         _i += 1

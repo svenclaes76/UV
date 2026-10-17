@@ -632,28 +632,19 @@ def _num_or(value, default):
     return v if pd.notna(v) else default
 
 
-# Ticker-suffix -> (native currency, settings.py exchange key), for
-# defaulting a dividend record's currency and its withholding-tax lookup.
-# Same six exchanges as settings.ALL_EXCHANGES / uvalu/pages_/portfolio.py's
-# _TICKER_SUFFIX_EXCHANGE; every listed exchange quotes in EUR except Swiss.
-_EXCHANGE_SUFFIX = {
-    ".BR": ("EUR", "brussels"), ".AS": ("EUR", "amsterdam"), ".PA": ("EUR", "paris"),
-    ".MI": ("EUR", "milan"),    ".DE": ("EUR", "frankfurt"), ".SW": ("CHF", "swiss"),
-}
-
-
+# The native currency and settings.py exchange key of a ticker, for
+# defaulting a dividend record's currency and its withholding-tax lookup —
+# both from the exchange registry (uvalu/exchanges.py).
 def currency_for_ticker(ticker: str) -> str:
-    for suffix, (ccy, _key) in _EXCHANGE_SUFFIX.items():
-        if str(ticker).endswith(suffix):
-            return ccy
-    return "EUR"
+    from uvalu import exchanges
+    ex = exchanges.for_ticker(ticker)
+    return ex.currency if ex else "EUR"
 
 
 def exchange_key_for_ticker(ticker: str) -> str | None:
-    for suffix, (_ccy, key) in _EXCHANGE_SUFFIX.items():
-        if str(ticker).endswith(suffix):
-            return key
-    return None
+    from uvalu import exchanges
+    ex = exchanges.for_ticker(ticker)
+    return ex.key if ex else None
 
 
 # Belgian "roerende voorheffing" — a fixed statutory rate on investment
