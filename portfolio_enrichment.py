@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from portfolio import position_values_eur, to_eur
 from screener import sector_for
 
 
@@ -29,7 +30,9 @@ def enrich_for_risk(pf: pd.DataFrame, scored_by_ticker: pd.DataFrame | None,
     out = pf.copy()
 
     out["live_price"]    = out["ticker"].map(lambda t: (live_prices.get(t) or {}).get("price"))
-    out["current_value"] = out["live_price"] * out["shares"]
+    # EUR, like the rest of the portfolio (P12): the live price is in the
+    # stock's own currency, so a CHF or SEK position needs its rate.
+    out["current_value"] = position_values_eur(out)
 
     def _scr(field, default=None) -> pd.Series:
         if scored_by_ticker is None or field not in getattr(scored_by_ticker, "columns", []):
@@ -45,5 +48,7 @@ def enrich_for_risk(pf: pd.DataFrame, scored_by_ticker: pd.DataFrame | None,
     out["sector"]          = [sector_for(t, s) for t, s in zip(out["ticker"], _raw_sector)]
     out["country"]         = _scr("country")
     out["div_rate"]        = _scr("trailingAnnualDividendRate").fillna(_scr("dividendRate")).fillna(0)
-    out["expected_annual"] = (out["div_rate"] * out["shares"]).round(2)
+    out["_div_native"]     = out["div_rate"] * out["shares"]
+    out["expected_annual"] = to_eur(out, "_div_native").fillna(0).round(2)
+    out = out.drop(columns=["_div_native"])
     return out

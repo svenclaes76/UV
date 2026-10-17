@@ -20,6 +20,13 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+### Fixed
+
+- **Swiss holdings valued in euros**: positions on the SIX Swiss Exchange
+  are converted from Swiss francs at the latest ECB rate before they count
+  towards your portfolio value, gains and risk figures. Portfolios with only
+  euro stocks don't change.
+
 ## [2026.10.9] — 2026-10-17
 
 **Prices in the right currency, clearer market names, and stress tests based

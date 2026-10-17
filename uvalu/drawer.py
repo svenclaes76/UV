@@ -20,7 +20,7 @@ import math
 import pandas as pd
 import streamlit as st
 
-from portfolio import load_watchlist, load_portfolio
+from portfolio import eur_per_unit, load_watchlist, load_portfolio
 from screener import signal_reason
 from settings import get_veto_thresholds
 from uvalu import nav as nav_registry
@@ -316,7 +316,9 @@ def open_drawer(row: "pd.Series") -> None:
         # flat (zero gain/loss) rather than letting _safe_float(NaN)'s 0.0
         # fabricate a fake "€0 value / -100% loss" -- matches dashboard.py's
         # holdings table, which falls back to purchase_value the same way.
-        _position_value = (_shares * float(_market_price)) if pd.notna(_market_price) else _purchase_value
+        # In EUR, like purchase_value (P12): the market price is in the stock's own currency.
+        _rate = eur_per_unit(_ccy) if pd.notna(_market_price) else None
+        _position_value = (_shares * float(_market_price) * _rate) if _rate is not None else _purchase_value
         _pnl = _position_value - _purchase_value
         _pnl_pct = (_pnl / _purchase_value * 100) if _purchase_value else 0.0
         _position_rows = [
