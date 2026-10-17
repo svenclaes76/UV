@@ -37,6 +37,7 @@ Sven answered the open decisions on 17 Oct. **Where this section differs from a 
 | Large prices | **No decimals from 1,000 up** (brand v1.4 exception) | D22 |
 | Withholding | **Per company country, prefilled with statutory rates**, editable with "Reset to default"; existing values kept | D13, §5b |
 | Discount rate | **Risk-free rate per currency** (10-year government yield, official data, quarterly) | D33 |
+| Yield series (17 Oct, EX2) | **OECD "Long-term interest rates"** (10-year government bonds, monthly) as the single source for EUR, CHF, GBP, SEK, DKK, NOK, ISK and PLN; **EUR = Germany 10-year (Bund)**. Refreshed each quarter by a tool that drafts the change, committed as a dated snapshot; never fetched at run time, so signals don't move with every yield change. Check the OECD reuse terms with L29/L30. | D33, EX-W5b |
 | Peer group | **Decide on evidence** in the shadow build: pooled stays unless one market's Undervalued share exceeds 3× the average, then sector × region | D37 |
 | Liquidity | **Traded value in EUR**, bands calibrated on today's universe | D35 |
 | Model version | D33/D35 change today's scores too, so **`MODEL_VERSION` M4 → M5**, with a methodology change-log entry and an explanation in the release notes | R2 |
