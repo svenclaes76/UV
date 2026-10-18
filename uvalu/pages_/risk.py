@@ -151,8 +151,10 @@ def _render_cash_banner(pf) -> None:
     try:
         import uvalu.data as _uv_data
         _live = _uv_data._fetch_prices_cached(tuple(pf["ticker"].dropna().astype(str).tolist()))
+        from portfolio import position_values_eur
         _px = pf["ticker"].map(lambda t: (_live.get(t) or {}).get("price"))
-        _mv = pd.to_numeric(pf["shares"], errors="coerce") * pd.to_numeric(_px, errors="coerce")
+        # In EUR like purchase_value: a CHF/DKK/GBP holding's native value isn't euros.
+        _mv = position_values_eur(pf.assign(live_price=_px), price_col="live_price")
         _invested = float(_mv.fillna(pd.to_numeric(pf["purchase_value"], errors="coerce")).fillna(0).sum())
     except Exception:
         _invested = float(pd.to_numeric(pf.get("purchase_value"), errors="coerce").fillna(0).sum())
