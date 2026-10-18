@@ -169,6 +169,11 @@ GLOBAL_CSS = """
   /* ── Chrome cleanup ──────────────────────────────────────────────────────── */
   [data-testid="stDecoration"] { display: none !important; }
   header[data-testid="stHeader"] { background: transparent !important; border-bottom: none !important; }
+  /* On Streamlit Community Cloud the header holds Cloud's own buttons (Share,
+     star, ...) and then takes clicks across its full width, over our top bar.
+     Clicks pass through it except on its own buttons and links. */
+  header[data-testid="stHeader"], header[data-testid="stHeader"] * { pointer-events: none !important; }
+  header[data-testid="stHeader"] :is(button, a, [role="button"], [role="menuitem"]) { pointer-events: auto !important; }
 
   /* ── Layout ──────────────────────────────────────────────────────────────── */
   .block-container {
