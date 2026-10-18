@@ -1,6 +1,6 @@
 # Demo mode plan (draft)
 
-18 October 2026 · Sven Claes · status: **all decisions DM-D1–D21 taken 18 Oct 2026 (§2); one follow-up: the analytics tool (DM-D10)**
+18 October 2026 · Sven Claes · status: **all decisions DM-D1–D21 taken 18 Oct 2026 (§2)**
 
 **Progress (18 Oct 2026, `feature/demo-mode`, not merged):** DM-1 core (`uvalu/datamode.py`, demo universe) and DM-3 (EODHD client, budget, snapshot store, `tools/demo_refresh.py`, `demo-data` workflow) built and tested. All 10 EODHD codes confirmed with a live backfill (10 calls on 18 Oct; 248–254 bars each, last bar 16 Oct; London in pence). DM-4 started: template + validator (`uvalu/demo/fundamentals.py`, `tools/demo_fundamentals.py check|template`); All 9 stocks entered for FY2023–FY2025 from results releases, annual reports and 20-Fs (SEC copies where they exist; company PDFs for KBC, LVMH and Nestlé), every figure with source and page; KBC uses the bank statement type. The six SEC filers were cross-checked against their 20-F XBRL facts (SAP's FY2025 moved to the audited 20-F figures as a result). Awaiting Sven's spot-check. Not wired into the app yet (DM-5).
 
@@ -32,7 +32,9 @@ Recommendation first. These change the work below. DM-D11–D21 added 18 Oct 202
 Different from the recommendation, and what follows from it:
 
 - **D6: Watchlist is shown,** kept per browser session like the sample portfolio (starred stocks reset when the session ends). Hidden: Admin, import/export, account pages; Settings only for language and region.
-- **D10: feedback form plus basic analytics.** Analytics means a consent check and a line in the demo privacy note. Follow-up to decide: which tool. Recommendation: Community Cloud's own app analytics (viewer counts in the app settings, nothing added to the page) before any third-party script.
+- **D10: feedback form plus basic analytics.** Tool decided 18 Oct 2026:
+  - **Invite-only phase: Community Cloud's built-in app analytics** (total viewers, the last 20 viewers with their last visit; named for a private app). Nothing added to the page, no cookies, no consent banner. Every invited viewer can also open these analytics and see the other testers' names, so the demo privacy note says so.
+  - **Before people you don't know get access: Uvalu's own anonymous page events**: page, language, session length, features used; no names or IP addresses; sent from the existing `logkit` render events to an EU-hosted store (e.g. Supabase, Frankfurt), key in Streamlit secrets; one line in the privacy note. Not Google Analytics; no third-party tracking script.
 - **D15: €25,000, a realistic mix:** uneven weights in 6 of the 9 stocks, still including the CHF, DKK and GBX lines and at least one dividend payer, so the spec's currency and dividend checks keep working (F-02, F-03, F-04, F-06).
 - **D16: benchmark matches the app (EURO STOXX 50).** One extra EODHD series, so 11 calls on weekdays (still under the stop at 18). The index code is checked with one call when built. L21 (STOXX licence) now applies to the demo too; VWCE stays in the universe as the ETF example.
 
