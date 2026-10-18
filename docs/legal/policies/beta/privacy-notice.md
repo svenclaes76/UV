@@ -27,11 +27,12 @@ Requirement IDs: GDPR-1..14, SEC-1..10 of "Uvalu — Legal Requirements for Laun
 15 October 2026 (still beta 1.4, before it takes effect): `uv_jwt` is kept in the cookie only (SR4); the
 browser-storage copy, which nothing read, is no longer written and is removed from browsers that hold one.
 Only removes processing (section 11), so no new notice; the section 7 row was narrowed accordingly.
+18 October 2026 (beta 1.5, draft): the uvalu.app domain isn't held, so every contact is uvalu.app@gmail.com; that makes Google (Gmail, USA) the mailbox provider (open item L5) — section 4 row, section 5 transfer via the EU–US Data Privacy Framework, and the list's location (no uvalu.app/privacy page). Adds a recipient and a transfer, so effective 14 days after users are told (section 11). Check Google's current DPF listing and sign Google's data processing terms for the mailbox.
 -->
 
 # Privacy notice — free beta
 
-**Version:** beta 1.4 · **Effective from:** 28 October 2026
+**Version:** beta 1.5 · **Effective from:** [14 days after users are told]
 
 This notice explains which personal data Uvalu collects, why, how long we keep it and what your rights are.
 
@@ -39,7 +40,7 @@ This notice explains which personal data Uvalu collects, why, how long we keep i
 
 The controller is **Sven Claes**, trading under the name Uvalu, Pol Heynsstraat 7, 2200 Herentals, Belgium. Registration with the Crossroads Bank for Enterprises: pending.
 
-Privacy contact: privacy@uvalu.app
+Privacy contact: uvalu.app@gmail.com
 
 We have not appointed a data protection officer, because the law does not require one for our activities.
 
@@ -77,15 +78,15 @@ We do not sell your data. We share it only with service providers that process i
 | --- | --- | --- |
 | Hetzner Online GmbH | Hosting and database | Germany |
 | Hetzner Online GmbH (Storage Box) | Encrypted backups | Germany |
-| [TBD: EMAIL HOSTING PROVIDER] | Mailboxes for support@, privacy@, security@ and complaints@uvalu.app | [TBD: LOCATION] |
+| Google LLC (Gmail) | The mailbox uvalu.app@gmail.com, for support, privacy, security and complaints | United States and other countries (see section 5) |
 
-This list is kept up to date in this notice at [uvalu.app/privacy](https://uvalu.app/privacy). We may also disclose data to authorities where the law requires it.
+This list is kept up to date in this notice, in the app under Legal › Privacy notice. We may also disclose data to authorities where the law requires it.
 
 Market data providers (Yahoo Finance, Frankfurter, the Kenneth R. French Data Library) do not receive your personal data. Our server asks them for data on ticker symbols, including those you add yourself, without any link to you or to the size of your positions.
 
 ## 5. Transfers outside the European Economic Area
 
-All data processed by us and our service providers listed above stays within the EEA.
+All data processed by us and by Hetzner stays within the EEA. Emails you send to uvalu.app@gmail.com, and our replies, are processed by Google, including in the United States. That transfer relies on Google LLC's certification under the EU–US Data Privacy Framework. Your account and portfolio data are never sent to the mailbox.
 
 ## 6. How we protect your data
 
@@ -115,13 +116,13 @@ You have the right to:
 
 - **access** your data and receive a copy;
 - **correct** data that is wrong;
-- **delete** your data. You can delete your account yourself in the settings: your account and data are removed from live systems at once and from backups within 30 days. You can also write to privacy@uvalu.app;
+- **delete** your data. You can delete your account yourself in the settings: your account and data are removed from live systems at once and from backups within 30 days. You can also write to uvalu.app@gmail.com;
 - **export** your portfolio data, account details and settings in a machine-readable format (an Excel workbook) from the settings;
 - **object** to processing based on our legitimate interest;
 - **restrict** processing in the cases the law provides;
 - **withdraw consent** at any time, without affecting earlier processing, where processing is based on consent.
 
-To use these rights, write to privacy@uvalu.app. We answer within one month. We may ask you to confirm your identity through your account email.
+To use these rights, write to uvalu.app@gmail.com. We answer within one month. We may ask you to confirm your identity through your account email.
 
 ## 9. Complaints
 

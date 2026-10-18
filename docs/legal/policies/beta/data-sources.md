@@ -48,7 +48,7 @@ Uvalu does not offer real-time prices. During the beta, prices are delayed quote
 - Figures in foreign currencies are converted using the rates listed above; conversion can cause small differences from other sources.
 - Before you act on a figure, check it against the company's own reports or your broker.
 
-Found an error? Tell us at support@uvalu.app with the ticker and the figure concerned.
+Found an error? Tell us at uvalu.app@gmail.com with the ticker and the figure concerned.
 
 ## 4. What Uvalu calculates itself
 

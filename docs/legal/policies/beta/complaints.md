@@ -17,7 +17,7 @@ If something went wrong, tell us. Most problems can be solved quickly and direct
 
 ## 1. Contact us first
 
-- Email: complaints@uvalu.app
+- Email: uvalu.app@gmail.com
 - Post: Sven Claes (Uvalu), Pol Heynsstraat 7, 2200 Herentals, Belgium
 
 Please include:

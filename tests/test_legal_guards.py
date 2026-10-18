@@ -120,7 +120,12 @@ class TestLegalPages:
         # Password sign-in only while providers are off (design reference v1.3).
         from uvalu import oauth
         if not oauth.providers_enabled():
-            assert "Google" not in privacy and "_streamlit_user" not in privacy
+            # No Google *sign-in* wording; Google as the mailbox provider is
+            # fine (L5, beta 1.5: every contact is uvalu.app@gmail.com).
+            import re
+            assert not re.search(r"sign[- ]in with Google|Google sign-in|Google account", privacy)
+            assert "_streamlit_user" not in privacy
+        assert "Google LLC (Gmail)" in privacy and "uvalu.app@gmail.com" in privacy
         assert "Have I Been Pwned" in privacy                     # G36
         data = public("data-sources.md")
         assert "Yahoo Finance" in data and "EODHD" not in data
@@ -140,7 +145,7 @@ class TestLegalPages:
         assert "<!--" not in md    # the drafting comment is not public
         # Header chips from the "**Version:** … · **Effective from:** …" line,
         # a section list, and the reference-language note only outside English.
-        assert "beta 1.4" in md and "Effective from" in md
+        assert "beta 1.5" in md and "Effective from" in md
         assert 'href="#sec-1"' in md and 'id="sec-1"' in md
         assert "Reference language" not in md
 

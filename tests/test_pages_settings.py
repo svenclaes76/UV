@@ -890,7 +890,7 @@ def test_language_preview_band_holds_the_try_a_number_field(isolated_data, monke
 def test_privacy_plan_and_legal_cards(isolated_data, monkeypatch):
     at = _run(monkeypatch)
     html = "".join(m.value for m in at.markdown)
-    for text in ("Export my data", "Delete account", "Privacy contact", "privacy&#64;uvalu.app",
+    for text in ("Export my data", "Delete account", "Privacy contact", "uvalu.app&#64;gmail.com",
                  "Free beta · by invitation", "Active", "Terms of use · beta", "Privacy notice · beta",
                  "No-personal-advice acknowledgement", "isn't recorded yet", "Not available",
                  "available in English only"):

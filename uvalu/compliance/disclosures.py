@@ -32,10 +32,12 @@ BETA_BANNER = N_("Free beta: a test version. Features and data can change, "
 PRODUCER_NAME = "Sven Claes"
 PRODUCER_TRADING_AS = "Uvalu"
 PRODUCER_ADDRESS = "Pol Heynsstraat 7, 2200 Herentals, Belgium"
-PRODUCER_CONTACT = "support@uvalu.app"
-PRODUCER_PRIVACY_CONTACT = "privacy@uvalu.app"
-# The demo doesn't use the uvalu.app domain (not held yet, 18 Oct 2026): one
-# mailbox for every contact, in the footer and on the legal pages.
+# One mailbox for every contact while the uvalu.app domain isn't held
+# (18 Oct 2026; open item L5: Gmail, Google LLC).
+PRODUCER_CONTACT = "uvalu.app@gmail.com"
+PRODUCER_PRIVACY_CONTACT = "uvalu.app@gmail.com"
+# The demo never names a uvalu.app address (footer, legal pages); today it is
+# the same mailbox as above, and stays so if the app later moves to a domain.
 DEMO_CONTACT = "uvalu.app@gmail.com"
 
 

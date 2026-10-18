@@ -18,7 +18,7 @@ These terms are the agreement between you and Uvalu for the free beta. Please re
 
 Uvalu is operated by **Sven Claes**, trading under the name Uvalu, Pol Heynsstraat 7, 2200 Herentals, Belgium. Registration with the Crossroads Bank for Enterprises: pending.
 
-Contact: support@uvalu.app
+Contact: uvalu.app@gmail.com
 
 ## 2. The free beta
 
@@ -57,7 +57,7 @@ The founder may hold shares that Uvalu covers. How this is disclosed and managed
 - If you move outside the EEA, tell us. We may then end your participation, after giving you time to export your data.
 - Give accurate information and keep it up to date.
 - Keep your login details secret. One account is for one person; do not share it or your invitation.
-- Tell us at once at support@uvalu.app if you think someone else has used your account.
+- Tell us at once at uvalu.app@gmail.com if you think someone else has used your account.
 
 ## 6. Acceptable use
 
@@ -116,7 +116,7 @@ We may change these terms for valid reasons, such as changes in the law or the s
 
 ## 14. Complaints and disputes
 
-Contact us first at complaints@uvalu.app; see the Complaints page for the procedure and for the Consumer Mediation Service.
+Contact us first at uvalu.app@gmail.com; see the Complaints page for the procedure and for the Consumer Mediation Service.
 
 These terms are governed by Belgian law. If you are a consumer living in another country of the European Economic Area, you keep the protection of the mandatory rules of your country of residence, and you may bring a claim before the courts of your country. Otherwise the courts of the judicial district of Antwerp, Belgium, are competent.
 

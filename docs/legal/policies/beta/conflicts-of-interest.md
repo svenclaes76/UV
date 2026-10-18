@@ -53,4 +53,4 @@ Where a specific conflict exists for a share, it is shown on that share's page. 
 
 ## 7. Questions
 
-Contact support@uvalu.app.
+Contact uvalu.app@gmail.com.

@@ -50,6 +50,6 @@ No accessibility specialist has tested Uvalu yet. A test with screen readers (NV
 
 ## 5. Contact
 
-If something in Uvalu is hard to use for you, or you need information in another format, write to **support@uvalu.app**. Tell us which page you were on and what you were trying to do. We read every message and will tell you how and when we plan to fix it.
+If something in Uvalu is hard to use for you, or you need information in another format, write to **uvalu.app@gmail.com**. Tell us which page you were on and what you were trying to do. We read every message and will tell you how and when we plan to fix it.
 
 If you are not satisfied with our answer, see the Complaints page.
