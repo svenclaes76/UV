@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-10-18 12:45+0000\n"
-"PO-Revision-Date: 2026-10-14 20:37+0200\n"
+"PO-Revision-Date: 2026-10-18 15:16+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
 "Language: nl\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "Generated-By: Babel 2.18.0\n"
-"X-Generator: Poedit 3.9\n"
+"X-Generator: Poedit 3.10\n"
 
 #. Context: Main navigation › page name in the top bar and browser tab
 #: app.py:122 uvalu/shell.py:48
@@ -25,9 +25,7 @@ msgid "Dashboard"
 msgstr "Dashboard"
 
 #. Context: Main navigation › page name. Also the Portfolio page title.
-#: app.py:123 uvalu/pages_/cash.py:95 uvalu/pages_/portfolio.py:259
-#: uvalu/pages_/portfolio.py:458 uvalu/pages_/portfolio.py:519
-#: uvalu/pages_/portfolio.py:570 uvalu/shell.py:51 workbook.py:292
+#: app.py:123 uvalu/pages_/cash.py:95 uvalu/pages_/portfolio.py:259 uvalu/pages_/portfolio.py:458 uvalu/pages_/portfolio.py:519 uvalu/pages_/portfolio.py:570 uvalu/shell.py:51 workbook.py:292
 msgid "Portfolio"
 msgstr "Portefeuille"
 
@@ -43,8 +41,7 @@ msgid "Screener"
 msgstr "Screener"
 
 #. Context: Main navigation › page name; also the Watchlist page title
-#: app.py:126 uvalu/pages_/screener.py:475 uvalu/pages_/watchlist.py:83
-#: uvalu/pages_/watchlist.py:225 uvalu/shell.py:50
+#: app.py:126 uvalu/pages_/screener.py:475 uvalu/pages_/watchlist.py:83 uvalu/pages_/watchlist.py:225 uvalu/shell.py:50
 msgid "Watchlist"
 msgstr "Volglijst"
 
@@ -58,8 +55,7 @@ msgstr "Analyse"
 msgid "Settings"
 msgstr "Instellingen"
 
-#: app.py:129 uvalu/compliance/disclosures.py:111 uvalu/pages_/help.py:215
-#: uvalu/shell.py:460
+#: app.py:129 uvalu/compliance/disclosures.py:111 uvalu/pages_/help.py:215 uvalu/shell.py:460
 msgid "Methodology"
 msgstr "Methodologie"
 
@@ -67,8 +63,7 @@ msgstr "Methodologie"
 msgid "Legal"
 msgstr "Juridisch"
 
-#: app.py:132 uvalu/pages_/about.py:203 uvalu/pages_/help.py:179
-#: uvalu/pages_/help.py:319 uvalu/shell.py:463
+#: app.py:132 uvalu/pages_/about.py:203 uvalu/pages_/help.py:179 uvalu/pages_/help.py:319 uvalu/shell.py:463
 msgid "About Uvalu"
 msgstr "Over Uvalu"
 
@@ -144,8 +139,7 @@ msgstr "De gebruikersgegevens konden niet worden gelezen (verkeerde encryptiesle
 
 #. Context: Settings › error when the signed-in account can't be found (e.g.
 #. deleted meanwhile)
-#: auth.py:806 auth.py:826 auth.py:902 auth.py:1149 auth.py:1231 auth.py:1254
-#: auth.py:1280 auth.py:1469
+#: auth.py:806 auth.py:826 auth.py:902 auth.py:1149 auth.py:1231 auth.py:1254 auth.py:1280 auth.py:1469
 msgid "User not found."
 msgstr "Gebruiker niet gevonden."
 
@@ -563,8 +557,7 @@ msgid "Below model fair value"
 msgstr "Onder de intrinsieke modelwaarde"
 
 #. Context: Risk page › value when a metric can't be computed
-#: risk.py:586 risk.py:741 risk.py:748 uvalu/pages_/risk.py:292
-#: uvalu/pages_/risk.py:294 uvalu/pages_/risk.py:296 uvalu/pages_/risk.py:297
+#: risk.py:586 risk.py:741 risk.py:748 uvalu/pages_/risk.py:292 uvalu/pages_/risk.py:294 uvalu/pages_/risk.py:296 uvalu/pages_/risk.py:297
 msgid "N/A"
 msgstr "n.v.t."
 
@@ -798,16 +791,12 @@ msgstr "De gewogen dividendgroei van {dgr} ligt onder de inflatiereferentie van 
 
 #: risk.py:1634
 #, python-brace-format
-msgid ""
-"Sharpe ratio {sharpe} is below {ref} in two consecutive risk reports (was "
-"{previous} at {date})"
+msgid "Sharpe ratio {sharpe} is below {ref} in two consecutive risk reports (was {previous} at {date})"
 msgstr "De Sharpe-ratio van {sharpe} ligt in twee opeenvolgende risicorapporten onder {ref} (was {previous} op {date})"
 
 #: risk.py:1640
 #, python-brace-format
-msgid ""
-"Sharpe ratio {sharpe} is below {ref}: historical return per unit of volatility "
-"was modest"
+msgid "Sharpe ratio {sharpe} is below {ref}: historical return per unit of volatility was modest"
 msgstr "De Sharpe-ratio van {sharpe} ligt onder {ref}: het historische rendement per eenheid volatiliteit was bescheiden"
 
 #: risk.py:1651
@@ -1373,8 +1362,7 @@ msgid "Language & region"
 msgstr "Taal en regio"
 
 #. Context: Planned (spec, not in code yet) › Settings label
-#: uvalu/locale_ui.py:188 uvalu/locale_ui.py:191 uvalu/locale_ui.py:295
-#: workbook.py:265
+#: uvalu/locale_ui.py:188 uvalu/locale_ui.py:191 uvalu/locale_ui.py:295 workbook.py:265
 msgid "Language"
 msgstr "Taal"
 
@@ -1443,8 +1431,7 @@ msgstr "Ticker · {ticker}"
 msgid "Concentration ceiling (HHI)"
 msgstr "Concentratieplafond (HHI)"
 
-#: uvalu/compliance/disclosures.py:71 uvalu/compliance/disclosures.py:81
-#: workbook.py:283
+#: uvalu/compliance/disclosures.py:71 uvalu/compliance/disclosures.py:81 workbook.py:283
 msgid "Dividends"
 msgstr "Dividenden"
 
@@ -1626,8 +1613,7 @@ msgstr "Er bestaan nog geen accounts. Dit account krijgt volledige beheerdersrec
 
 #. Context: Password reset and change-password forms › error when the two
 #. fields differ
-#: uvalu/authgate.py:33 uvalu/pages_/settings.py:413
-#: uvalu/pages_/settings.py:445
+#: uvalu/authgate.py:33 uvalu/pages_/settings.py:413 uvalu/pages_/settings.py:445
 msgid "New password and confirmation don't match."
 msgstr "Het nieuwe wachtwoord en de bevestiging komen niet overeen."
 
@@ -1665,12 +1651,7 @@ msgid "Use a backup code"
 msgstr "Een back-upcode gebruiken"
 
 #. Context: Generic Cancel button in dialogs and sign-in steps
-#: uvalu/authgate.py:240 uvalu/authgate.py:258 uvalu/dialogs.py:306
-#: uvalu/dialogs.py:314 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156
-#: uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198
-#: uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:406
-#: uvalu/pages_/settings.py:438 uvalu/pages_/settings.py:485
-#: uvalu/pages_/settings.py:528
+#: uvalu/authgate.py:240 uvalu/authgate.py:258 uvalu/dialogs.py:306 uvalu/dialogs.py:314 uvalu/locale_ui.py:267 uvalu/pages_/settings.py:156 uvalu/pages_/settings.py:161 uvalu/pages_/settings.py:198 uvalu/pages_/settings.py:240 uvalu/pages_/settings.py:406 uvalu/pages_/settings.py:438 uvalu/pages_/settings.py:485 uvalu/pages_/settings.py:528
 msgid "Cancel"
 msgstr "Annuleren"
 
@@ -1864,15 +1845,12 @@ msgstr "VAST DOOR UITNODIGING"
 
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
-#: uvalu/authgate.py:491 uvalu/authgate.py:548 uvalu/authgate.py:828
-#: uvalu/authgate.py:833 uvalu/authgate.py:874 uvalu/pages_/settings.py:597
-#: uvalu/pages_/settings.py:601
+#: uvalu/authgate.py:491 uvalu/authgate.py:548 uvalu/authgate.py:828 uvalu/authgate.py:833 uvalu/authgate.py:874 uvalu/pages_/settings.py:597 uvalu/pages_/settings.py:601
 msgid "Password"
 msgstr "Wachtwoord"
 
 #. Context: Password fields › tooltip with the minimum password length
-#: uvalu/authgate.py:493 uvalu/authgate.py:550 uvalu/authgate.py:617
-#: uvalu/pages_/settings.py:400 uvalu/pages_/settings.py:432
+#: uvalu/authgate.py:493 uvalu/authgate.py:550 uvalu/authgate.py:617 uvalu/pages_/settings.py:400 uvalu/pages_/settings.py:432
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr "Minstens {min_len} tekens."
@@ -2055,10 +2033,7 @@ msgstr "Zie Methodologie voor de drempels."
 #. header). Same wording as the "Model signal" column header.
 #. small uppercase label in front of a signal badge (stock drawer and Analysis
 #. header). Same wording as the "Model signal" column header.
-#: uvalu/components.py:132 uvalu/locale_ui.py:114 uvalu/pages_/dashboard.py:534
-#: uvalu/pages_/dashboard.py:542 uvalu/pages_/screener.py:55
-#: uvalu/pages_/screener.py:274 uvalu/pages_/screener.py:281
-#: uvalu/pages_/watchlist.py:33
+#: uvalu/components.py:132 uvalu/locale_ui.py:114 uvalu/pages_/dashboard.py:534 uvalu/pages_/dashboard.py:542 uvalu/pages_/screener.py:55 uvalu/pages_/screener.py:274 uvalu/pages_/screener.py:281 uvalu/pages_/watchlist.py:33
 msgid "Model signal"
 msgstr "Modelsignaal"
 
@@ -2109,7 +2084,7 @@ msgid "oldest {age}"
 msgstr "oudste {age}"
 
 #: uvalu/components.py:268
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "end-of-day price of {date}"
 msgstr "slotkoers van {date}"
 
@@ -2134,8 +2109,7 @@ msgid "Signals computed {when}"
 msgstr "Signalen berekend {when}"
 
 #: uvalu/components.py:310
-#, fuzzy, python-brace-format
-#| msgid "as of {date}"
+#, python-brace-format
 msgid "end-of-day prices of {date}"
 msgstr "slotkoersen van {date}"
 
@@ -2394,9 +2368,7 @@ msgid "Delayed quote — not a live intraday price"
 msgstr "Vertraagde koers — geen live intradaykoers"
 
 #. Context: Tooltip on disabled buttons for users with the Viewer role
-#: uvalu/components.py:1171 uvalu/components.py:1262 uvalu/drawer.py:349
-#: uvalu/pages_/cash.py:26 uvalu/pages_/dashboard.py:191 uvalu/pages_/portfolio.py:42
-#: uvalu/pages_/watchlist.py:132
+#: uvalu/components.py:1171 uvalu/components.py:1262 uvalu/drawer.py:349 uvalu/pages_/cash.py:26 uvalu/pages_/dashboard.py:191 uvalu/pages_/portfolio.py:42 uvalu/pages_/watchlist.py:132
 msgid "Viewer role is read-only"
 msgstr "De rol Lezer is alleen-lezen"
 
@@ -2411,13 +2383,11 @@ msgid "Remove {stock} from the watchlist"
 msgstr "{stock} van de volglijst verwijderen"
 
 #. Context: Button to open a stock row (Risk page, tables)
-#: uvalu/components.py:1265 uvalu/components.py:1864 uvalu/pages_/risk.py:473
-#: uvalu/pages_/settings.py:1182
+#: uvalu/components.py:1265 uvalu/components.py:1864 uvalu/pages_/risk.py:473 uvalu/pages_/settings.py:1182
 msgid "View"
 msgstr "Bekijken"
 
-#: uvalu/components.py:1266 uvalu/components.py:1865 uvalu/pages_/dashboard.py:608
-#: uvalu/pages_/dashboard.py:755 uvalu/pages_/risk.py:472
+#: uvalu/components.py:1266 uvalu/components.py:1865 uvalu/pages_/dashboard.py:608 uvalu/pages_/dashboard.py:755 uvalu/pages_/risk.py:472
 #, python-brace-format
 msgid "View {stock}"
 msgstr "{stock} bekijken"
@@ -2465,8 +2435,7 @@ msgstr "Positie bewerken: {stock}"
 
 #. Context: Portfolio › tooltip on the pencil icon of an open position; also
 #. the dialog title
-#: uvalu/components.py:1860 uvalu/dialogs.py:511 uvalu/drawer.py:369
-#: uvalu/pages_/portfolio.py:325 uvalu/pages_/portfolio.py:483
+#: uvalu/components.py:1860 uvalu/dialogs.py:511 uvalu/drawer.py:369 uvalu/pages_/portfolio.py:325 uvalu/pages_/portfolio.py:483
 msgid "Edit position"
 msgstr "Positie bewerken"
 
@@ -2485,8 +2454,7 @@ msgstr "Transactie bewerken: {stock}, {date}"
 
 #. Context: Portfolio › tooltip on the pencil of a closed trade; also the
 #. dialog title
-#: uvalu/components.py:1918 uvalu/pages_/portfolio.py:373
-#: uvalu/pages_/portfolio.py:550
+#: uvalu/components.py:1918 uvalu/pages_/portfolio.py:373 uvalu/pages_/portfolio.py:550
 msgid "Edit trade"
 msgstr "Transactie bewerken"
 
@@ -2507,8 +2475,7 @@ msgstr "Dividend bewerken: {stock}, {date}"
 
 #. Context: Portfolio › tooltip on the pencil of a dividend row; also the
 #. dialog title
-#: uvalu/components.py:2005 uvalu/components.py:2112 uvalu/dialogs.py:756
-#: uvalu/pages_/portfolio.py:415 uvalu/pages_/portfolio.py:646
+#: uvalu/components.py:2005 uvalu/components.py:2112 uvalu/dialogs.py:756 uvalu/pages_/portfolio.py:415 uvalu/pages_/portfolio.py:646
 msgid "Edit dividend"
 msgstr "Dividend bewerken"
 
@@ -2516,9 +2483,7 @@ msgstr "Dividend bewerken"
 #. Dashboard, Portfolio, Risk, Watchlist, Screener.
 #. Dashboard › Holdings table › column header (uppercase, narrow column): the shared
 #. model signal badge, the same for every user.
-#: uvalu/components.py:2027 uvalu/pages_/dashboard.py:534
-#: uvalu/pages_/dashboard.py:542 uvalu/pages_/portfolio.py:56
-#: uvalu/pages_/portfolio.py:62 uvalu/pages_/risk.py:34
+#: uvalu/components.py:2027 uvalu/pages_/dashboard.py:534 uvalu/pages_/dashboard.py:542 uvalu/pages_/portfolio.py:56 uvalu/pages_/portfolio.py:62 uvalu/pages_/risk.py:34
 msgid "Position"
 msgstr "Positie"
 
@@ -2534,8 +2499,7 @@ msgstr "Betaaldatum"
 
 #. Context: Column header / field label: dividend type (Cash, Stock, Special)
 #. or cash transaction type
-#: uvalu/components.py:2027 uvalu/components.py:2263 uvalu/dialogs.py:719
-#: uvalu/dialogs.py:804 uvalu/dialogs.py:1128
+#: uvalu/components.py:2027 uvalu/components.py:2263 uvalu/dialogs.py:719 uvalu/dialogs.py:804 uvalu/dialogs.py:1128
 msgid "Type"
 msgstr "Type"
 
@@ -2594,8 +2558,7 @@ msgstr "Handmatig"
 
 #. Context: Cash label: Dashboard KPI card, Risk allocation bar, dividend type
 #. 'Cash' (paid in cash, not shares)
-#: uvalu/components.py:2098 uvalu/components.py:2200 uvalu/dialogs.py:46
-#: uvalu/pages_/dashboard.py:218
+#: uvalu/components.py:2098 uvalu/components.py:2200 uvalu/dialogs.py:46 uvalu/pages_/dashboard.py:218
 msgid "Cash"
 msgstr "Cash"
 
@@ -2696,9 +2659,7 @@ msgstr "Boeking bewerken"
 msgid "View linked entry"
 msgstr "Gekoppelde boeking bekijken"
 
-#: uvalu/components.py:2375 uvalu/pages_/analysis.py:264 uvalu/pages_/cash.py:95
-#: uvalu/pages_/portfolio.py:458 uvalu/pages_/portfolio.py:519
-#: uvalu/pages_/portfolio.py:570
+#: uvalu/components.py:2375 uvalu/pages_/analysis.py:264 uvalu/pages_/cash.py:95 uvalu/pages_/portfolio.py:458 uvalu/pages_/portfolio.py:519 uvalu/pages_/portfolio.py:570
 #, python-brace-format
 msgid "← Back to {page}"
 msgstr "← Terug naar {page}"
@@ -2840,8 +2801,7 @@ msgstr "Verwijderen"
 
 #. Context: Trade and cash dialogs › preview row: cash balance before this
 #. action
-#: uvalu/dialogs.py:376 uvalu/dialogs.py:500 uvalu/dialogs.py:505
-#: uvalu/dialogs.py:1253 uvalu/dialogs.py:1257
+#: uvalu/dialogs.py:376 uvalu/dialogs.py:500 uvalu/dialogs.py:505 uvalu/dialogs.py:1253 uvalu/dialogs.py:1257
 msgid "Current balance"
 msgstr "Huidig saldo"
 
@@ -2885,8 +2845,7 @@ msgstr "Geen EUR-koers voor {currency} op {date}."
 
 #. Context: Portfolio › button to record a new holding; also the title of the
 #. Add position dialog
-#: uvalu/dialogs.py:418 uvalu/pages_/dashboard.py:190 uvalu/pages_/portfolio.py:201
-#: uvalu/pages_/portfolio.py:261 uvalu/pages_/portfolio.py:461
+#: uvalu/dialogs.py:418 uvalu/pages_/dashboard.py:190 uvalu/pages_/portfolio.py:201 uvalu/pages_/portfolio.py:261 uvalu/pages_/portfolio.py:461
 msgid "Add position"
 msgstr "Positie toevoegen"
 
@@ -2950,8 +2909,7 @@ msgid "Enter shares and either a total cost or a price per share."
 msgstr "Vul het aantal aandelen in, en een totale kost of een prijs per aandeel."
 
 #. Context: Cash dialog (edit) › preview row: difference in balance (noun)
-#: uvalu/dialogs.py:501 uvalu/dialogs.py:505 uvalu/dialogs.py:1254
-#: uvalu/locale_ui.py:111
+#: uvalu/dialogs.py:501 uvalu/dialogs.py:505 uvalu/dialogs.py:1254 uvalu/locale_ui.py:111
 msgid "Change"
 msgstr "Wijziging"
 
@@ -2962,8 +2920,7 @@ msgid "no cash change"
 msgstr "geen cashwijziging"
 
 #. Context: Cash dialog › preview total: balance after this entry
-#: uvalu/dialogs.py:502 uvalu/dialogs.py:508 uvalu/dialogs.py:1219
-#: uvalu/dialogs.py:1265
+#: uvalu/dialogs.py:502 uvalu/dialogs.py:508 uvalu/dialogs.py:1219 uvalu/dialogs.py:1265
 msgid "Balance after"
 msgstr "Saldo erna"
 
@@ -3483,9 +3440,7 @@ msgstr "Gesloten posities openen"
 
 #. Context: Portfolio › card and full-page heading; also a link in the Cash
 #. entry dialog
-#: uvalu/dialogs.py:1329 uvalu/pages_/portfolio.py:324 uvalu/pages_/portfolio.py:328
-#: uvalu/pages_/portfolio.py:329 uvalu/pages_/portfolio.py:460
-#: uvalu/pages_/portfolio.py:482
+#: uvalu/dialogs.py:1329 uvalu/pages_/portfolio.py:324 uvalu/pages_/portfolio.py:328 uvalu/pages_/portfolio.py:329 uvalu/pages_/portfolio.py:460 uvalu/pages_/portfolio.py:482
 msgid "Open positions"
 msgstr "Open posities"
 
@@ -3517,9 +3472,7 @@ msgstr "Sluiten"
 
 #. Context: Stock preview and Analysis › tile or column label for the current
 #. share price
-#: uvalu/drawer.py:235 uvalu/pages_/analysis.py:409 uvalu/pages_/analysis.py:426
-#: uvalu/pages_/portfolio.py:57 uvalu/pages_/screener.py:58
-#: uvalu/pages_/watchlist.py:33
+#: uvalu/drawer.py:235 uvalu/pages_/analysis.py:409 uvalu/pages_/analysis.py:426 uvalu/pages_/portfolio.py:57 uvalu/pages_/screener.py:58 uvalu/pages_/watchlist.py:33
 msgid "Price"
 msgstr "Koers"
 
@@ -3531,10 +3484,7 @@ msgstr "Intrinsieke waarde"
 
 #. Context: Label for the margin of safety (glossary term): stock preview tile,
 #. Analysis hero card, sub-score name, Watchlist column
-#: uvalu/drawer.py:239 uvalu/pages_/analysis.py:237 uvalu/pages_/analysis.py:375
-#: uvalu/pages_/analysis.py:465 uvalu/pages_/dashboard.py:534
-#: uvalu/pages_/dashboard.py:542 uvalu/pages_/screener.py:57
-#: uvalu/pages_/watchlist.py:33
+#: uvalu/drawer.py:239 uvalu/pages_/analysis.py:237 uvalu/pages_/analysis.py:375 uvalu/pages_/analysis.py:465 uvalu/pages_/dashboard.py:534 uvalu/pages_/dashboard.py:542 uvalu/pages_/screener.py:57 uvalu/pages_/watchlist.py:33
 msgid "Margin of safety"
 msgstr "Veiligheidsmarge"
 
@@ -3565,8 +3515,7 @@ msgstr "{score} / 100"
 
 #. Context: Composite score label (glossary term): stock preview row, Analysis
 #. header, Watchlist column
-#: uvalu/drawer.py:315 uvalu/pages_/analysis.py:321 uvalu/pages_/screener.py:56
-#: uvalu/pages_/watchlist.py:33
+#: uvalu/drawer.py:315 uvalu/pages_/analysis.py:321 uvalu/pages_/screener.py:56 uvalu/pages_/watchlist.py:33
 msgid "Composite score"
 msgstr "Totaalscore"
 
@@ -3947,8 +3896,6 @@ msgid "Switch to light theme"
 msgstr "Overschakelen naar licht thema"
 
 #: uvalu/shell.py:435
-#, fuzzy
-#| msgid "Deposit"
 msgid "Demo visitor"
 msgstr "Demobezoeker"
 
@@ -3958,7 +3905,6 @@ msgid "Account menu for {name}"
 msgstr "Accountmenu van {name}"
 
 #: uvalu/shell.py:449 uvalu/shell.py:542
-#, fuzzy
 msgid "Demo"
 msgstr "Demo"
 
@@ -3985,8 +3931,7 @@ msgstr "{name}, handelend onder de naam {trading_as}"
 
 #. Context: Risk metric label: Dashboard risk snapshot and Risk page (shown
 #. uppercase)
-#: uvalu/pages_/dashboard.py:506 uvalu/pages_/risk.py:34 uvalu/pages_/risk.py:291
-#: uvalu/shell.py:512
+#: uvalu/pages_/dashboard.py:506 uvalu/pages_/risk.py:34 uvalu/pages_/risk.py:291 uvalu/shell.py:512
 msgid "Beta"
 msgstr "Bèta"
 
@@ -3999,31 +3944,20 @@ msgstr "Voorwaarden →"
 #. Demo notice under the top bar. {prices_date} is the date of the newest end-of-day
 #. prices, {fundamentals_date} the balance-sheet date of the annual reports used.
 #: uvalu/shell.py:529
-#, fuzzy, python-brace-format
-msgid ""
-"9 European stocks · end-of-day prices from EODHD to {prices_date} · fundamentals"
-" from the companies' annual reports, as of {fundamentals_date} · a sample "
-"portfolio you can change in this session · not investment advice"
-msgstr ""
-"9 Europese aandelen · slotkoersen van EODHD tot {prices_date} · fundamentele "
-"gegevens uit de jaarverslagen van de bedrijven, per {fundamentals_date} · een "
-"voorbeeldportefeuille die je in deze sessie kunt aanpassen · geen "
-"beleggingsadvies"
+#, python-brace-format
+msgid "9 European stocks · end-of-day prices from EODHD to {prices_date} · fundamentals from the companies' annual reports, as of {fundamentals_date} · a sample portfolio you can change in this session · not investment advice"
+msgstr "9 Europese aandelen · slotkoersen van EODHD tot {prices_date} · fundamentele gegevens uit de jaarverslagen van de bedrijven, per {fundamentals_date} · een voorbeeldportefeuille die je in deze sessie kunt aanpassen · geen beleggingsadvies"
 
 #: uvalu/shell.py:538
-#, fuzzy
 msgid "Give feedback →"
 msgstr "Feedback geven →"
 
 #. Link-styled button at the end of the demo notice; puts the sample portfolio back.
 #: uvalu/shell.py:546
-#, fuzzy
-#| msgid "Reset sample portfolio"
 msgid "Reset sample"
 msgstr "Voorbeeld herstellen"
 
 #: uvalu/shell.py:547
-#, fuzzy
 msgid "Put the sample portfolio and watchlist back"
 msgstr "Zet de voorbeeldportefeuille en volglijst terug"
 
@@ -4032,12 +3966,8 @@ msgstr "Zet de voorbeeldportefeuille en volglijst terug"
 #. Strip under the beta notice while the app rebuilds its peer reference after a
 #. restart. “No signal” is the badge label.
 #: uvalu/shell.py:572
-msgid ""
-"Rebuilding the peer reference after a restart. Signals show “No signal” until it"
-" finishes, usually within a few minutes."
-msgstr ""
-"De vergelijkingsgroep wordt na een herstart opnieuw opgebouwd. Tot dat klaar is,"
-" tonen signalen „Geen signaal”, meestal binnen enkele minuten."
+msgid "Rebuilding the peer reference after a restart. Signals show “No signal” until it finishes, usually within a few minutes."
+msgstr "De vergelijkingsgroep wordt na een herstart opnieuw opgebouwd. Tot dat klaar is, tonen signalen „Geen signaal”, meestal binnen enkele minuten."
 
 #: uvalu/shell.py:634
 msgid "Couldn’t load this page. Try again in a moment."
@@ -4152,37 +4082,24 @@ msgid "ECB reference rates via frankfurter.dev"
 msgstr "ECB-referentiekoersen via frankfurter.dev"
 
 #: uvalu/compliance/disclosures.py:78
-#, fuzzy
 msgid "EODHD · end-of-day closes, refreshed each weekday evening"
 msgstr "EODHD · slotkoersen, elke weekdagavond bijgewerkt"
 
 #: uvalu/compliance/disclosures.py:79
-#, fuzzy
-msgid ""
-"The companies' annual reports and results releases · entered by hand, each "
-"figure with its source and page"
-msgstr ""
-"Jaarverslagen en resultaatpublicaties van de bedrijven · met de hand ingevoerd, "
-"elk cijfer met bron en pagina"
+msgid "The companies' annual reports and results releases · entered by hand, each figure with its source and page"
+msgstr "Jaarverslagen en resultaatpublicaties van de bedrijven · met de hand ingevoerd, elk cijfer met bron en pagina"
 
 #: uvalu/compliance/disclosures.py:81
-#, fuzzy
-#| msgid "Payment history · per share"
 msgid "EODHD payment history"
 msgstr "EODHD-uitkeringshistoriek"
 
 #: uvalu/compliance/disclosures.py:82
-#, fuzzy
-#| msgid "Sector targets"
 msgid "Sector multiples"
 msgstr "Sectormultiples"
 
 #: uvalu/compliance/disclosures.py:82
-#, fuzzy
 msgid "Aswath Damodaran, NYU Stern · European industry P/E and P/B, January 2026"
-msgstr ""
-"Aswath Damodaran, NYU Stern · Europese koers-winst- en koers-"
-"boekwaardeverhoudingen per sector, januari 2026"
+msgstr "Aswath Damodaran, NYU Stern · Europese koers-winst- en koers-boekwaardeverhoudingen per sector, januari 2026"
 
 #: uvalu/compliance/disclosures.py:94
 msgid "Tax figures are estimates"
@@ -4190,11 +4107,7 @@ msgstr "Belastingcijfers zijn schattingen"
 
 #: uvalu/compliance/disclosures.py:95
 #, python-brace-format
-msgid ""
-"Rules applied: Belgium. Foreign withholding at the rate for the company's "
-"country in Settings (its statutory rate unless you changed it), then the Belgian"
-" withholding tax (roerende voorheffing) of {be_rate} on the remainder; not "
-"applied to stock (scrip) dividends. Rates last reviewed {date}."
+msgid "Rules applied: Belgium. Foreign withholding at the rate for the company's country in Settings (its statutory rate unless you changed it), then the Belgian withholding tax (roerende voorheffing) of {be_rate} on the remainder; not applied to stock (scrip) dividends. Rates last reviewed {date}."
 msgstr "Toegepaste regels: België. Buitenlandse bronheffing tegen het tarief voor het land van de onderneming in Instellingen (het wettelijke tarief, tenzij je het aanpaste), daarna de Belgische roerende voorheffing van {be_rate} op de rest; niet toegepast op stockdividenden. Tarieven laatst nagekeken op {date}."
 
 #: uvalu/compliance/disclosures.py:99
@@ -4209,8 +4122,7 @@ msgstr "Je blijft zelf verantwoordelijk voor je belastingaangifte. Controleer de
 msgid "Privacy notice"
 msgstr "Privacyverklaring"
 
-#: uvalu/compliance/disclosures.py:112 uvalu/pages_/analysis.py:192
-#: uvalu/pages_/help.py:176 uvalu/pages_/help.py:296
+#: uvalu/compliance/disclosures.py:112 uvalu/pages_/analysis.py:192 uvalu/pages_/help.py:176 uvalu/pages_/help.py:296
 msgid "Data sources"
 msgstr "Gegevensbronnen"
 
@@ -4247,7 +4159,7 @@ msgstr "Deze pagina is nog niet beschikbaar in je taal; de Engelse referentiever
 #. Shown in demo mode when someone types a ticker outside the demo's fixed list.
 #. {tickers} is that list.
 #: uvalu/demo/messages.py:16
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "{ticker} isn't in the demo. The demo covers {tickers}."
 msgstr "{ticker} zit niet in de demo. De demo omvat {tickers}."
 
@@ -4527,9 +4439,7 @@ msgstr "Intrinsieke waarde {amount}"
 
 #: uvalu/pages_/analysis.py:446
 #, python-brace-format
-msgid ""
-"Chart: over the past year the price moved between {low} and {high}; it is {last}"
-" now."
+msgid "Chart: over the past year the price moved between {low} and {high}; it is {last} now."
 msgstr "Grafiek: het afgelopen jaar bewoog de koers tussen {low} en {high}; nu is hij {last}."
 
 #: uvalu/pages_/analysis.py:450
@@ -4870,15 +4780,13 @@ msgstr "Cashsaldo"
 msgid "{currency} base"
 msgstr "basis {currency}"
 
-#: uvalu/pages_/cash.py:62 uvalu/pages_/portfolio.py:329 uvalu/pages_/portfolio.py:378
-#: uvalu/pages_/portfolio.py:419
+#: uvalu/pages_/cash.py:62 uvalu/pages_/portfolio.py:329 uvalu/pages_/portfolio.py:378 uvalu/pages_/portfolio.py:419
 #, python-brace-format
 msgid "Open full page: {section}"
 msgstr "Volledige pagina openen: {section}"
 
 #. Context: Portfolio › tooltip on the expand icon of a card
-#: uvalu/pages_/cash.py:63 uvalu/pages_/portfolio.py:330 uvalu/pages_/portfolio.py:379
-#: uvalu/pages_/portfolio.py:420
+#: uvalu/pages_/cash.py:63 uvalu/pages_/portfolio.py:330 uvalu/pages_/portfolio.py:379 uvalu/pages_/portfolio.py:420
 msgid "Open full page"
 msgstr "Volledige pagina openen"
 
@@ -5077,9 +4985,7 @@ msgstr "gemengd rendement"
 
 #. Context: Dashboard KPI card label and Portfolio › Dividends received card
 #. heading
-#: uvalu/pages_/dashboard.py:230 uvalu/pages_/portfolio.py:414
-#: uvalu/pages_/portfolio.py:418 uvalu/pages_/portfolio.py:419
-#: uvalu/pages_/portfolio.py:645
+#: uvalu/pages_/dashboard.py:230 uvalu/pages_/portfolio.py:414 uvalu/pages_/portfolio.py:418 uvalu/pages_/portfolio.py:419 uvalu/pages_/portfolio.py:645
 msgid "Dividends received"
 msgstr "Ontvangen dividenden"
 
@@ -5157,8 +5063,7 @@ msgid "All time · incl. deposits"
 msgstr "Volledige periode · incl. stortingen"
 
 #. Context: Dashboard › chart card heading
-#: uvalu/pages_/dashboard.py:303 uvalu/pages_/dashboard.py:388
-#: uvalu/pages_/dashboard.py:393
+#: uvalu/pages_/dashboard.py:303 uvalu/pages_/dashboard.py:388 uvalu/pages_/dashboard.py:393
 msgid "Portfolio value over time"
 msgstr "Waarde van de portefeuille in de tijd"
 
@@ -5190,9 +5095,7 @@ msgstr "Euro Stoxx 50 (zelfde inleg)"
 
 #: uvalu/pages_/dashboard.py:356
 #, python-brace-format
-msgid ""
-"Chart: your holdings were worth {first} on {start} and {last} on {end}; amount "
-"invested {invested}."
+msgid "Chart: your holdings were worth {first} on {start} and {last} on {end}; amount invested {invested}."
 msgstr "Grafiek: je posities waren {first} waard op {start} en {last} op {end}; geïnvesteerd bedrag {invested}."
 
 #: uvalu/pages_/dashboard.py:359
@@ -5267,8 +5170,7 @@ msgstr "Modelsignalen zijn voor elke gebruiker dezelfde en houden geen rekening 
 
 #. Context: Table column header: position weight in the portfolio (Dashboard,
 #. Portfolio, Risk)
-#: uvalu/pages_/dashboard.py:534 uvalu/pages_/dashboard.py:542
-#: uvalu/pages_/portfolio.py:59 uvalu/pages_/risk.py:34
+#: uvalu/pages_/dashboard.py:534 uvalu/pages_/dashboard.py:542 uvalu/pages_/portfolio.py:59 uvalu/pages_/risk.py:34
 msgid "Weight"
 msgstr "Gewicht"
 
@@ -5488,24 +5390,12 @@ msgid "Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana."
 msgstr "Euronext Amsterdam/Brussel/Parijs, XETRA, SIX Swiss en Borsa Italiana."
 
 #: uvalu/pages_/help.py:145
-#, fuzzy
-msgid ""
-"The demo shows end-of-day closing prices from EODHD, refreshed each weekday "
-"evening. The fundamentals come from the companies' annual reports and are "
-"updated once a year. Intraday prices are not shown."
-msgstr ""
-"De demo toont slotkoersen van EODHD, elke weekdagavond bijgewerkt. De "
-"fundamentele gegevens komen uit de jaarverslagen van de bedrijven en worden één "
-"keer per jaar bijgewerkt. Intradaykoersen worden niet getoond."
+msgid "The demo shows end-of-day closing prices from EODHD, refreshed each weekday evening. The fundamentals come from the companies' annual reports and are updated once a year. Intraday prices are not shown."
+msgstr "De demo toont slotkoersen van EODHD, elke weekdagavond bijgewerkt. De fundamentele gegevens komen uit de jaarverslagen van de bedrijven en worden één keer per jaar bijgewerkt. Intradaykoersen worden niet getoond."
 
 #: uvalu/pages_/help.py:149
-#, fuzzy
-msgid ""
-"The demo covers 9 stocks on Euronext Amsterdam, Brussels and Paris, Xetra, SIX "
-"Swiss Exchange, Nasdaq Copenhagen and the London Stock Exchange, plus one ETF."
-msgstr ""
-"De demo omvat 9 aandelen op Euronext Amsterdam, Brussel en Parijs, Xetra, SIX "
-"Swiss Exchange, Nasdaq Copenhagen en de London Stock Exchange, plus één ETF."
+msgid "The demo covers 9 stocks on Euronext Amsterdam, Brussels and Paris, Xetra, SIX Swiss Exchange, Nasdaq Copenhagen and the London Stock Exchange, plus one ETF."
+msgstr "De demo omvat 9 aandelen op Euronext Amsterdam, Brussel en Parijs, Xetra, SIX Swiss Exchange, Nasdaq Copenhagen en de London Stock Exchange, plus één ETF."
 
 #. Methodology & help › left-hand section list › the signal badges (Undervalued,
 #. Neutral, …).
@@ -5677,8 +5567,7 @@ msgid "Income 12m"
 msgstr "Inkomen 12m"
 
 #. Context: Column header: dividend yield (Portfolio, Screener, Watchlist)
-#: uvalu/pages_/portfolio.py:58 uvalu/pages_/screener.py:60
-#: uvalu/pages_/watchlist.py:34
+#: uvalu/pages_/portfolio.py:58 uvalu/pages_/screener.py:60 uvalu/pages_/watchlist.py:34
 msgid "Yield"
 msgstr "Div.rend."
 
@@ -5741,9 +5630,7 @@ msgid "net"
 msgstr "netto"
 
 #. Context: Portfolio › card and full-page heading
-#: uvalu/pages_/portfolio.py:372 uvalu/pages_/portfolio.py:376
-#: uvalu/pages_/portfolio.py:378 uvalu/pages_/portfolio.py:521
-#: uvalu/pages_/portfolio.py:549
+#: uvalu/pages_/portfolio.py:372 uvalu/pages_/portfolio.py:376 uvalu/pages_/portfolio.py:378 uvalu/pages_/portfolio.py:521 uvalu/pages_/portfolio.py:549
 msgid "Closed positions"
 msgstr "Gesloten posities"
 
@@ -6061,21 +5948,12 @@ msgstr "uit cache: bron onbereikbaar"
 
 #: uvalu/pages_/risk.py:347
 #, python-brace-format
-msgid ""
-"Fama-French factor loadings{details}. A loading above {high} or below {low} "
-"means the portfolio leans heavily on that factor; below {small} either way it "
-"hardly does."
+msgid "Fama-French factor loadings{details}. A loading above {high} or below {low} means the portfolio leans heavily on that factor; below {small} either way it hardly does."
 msgstr "Fama-French-factorladingen{details}. Een lading boven {high} of onder {low} betekent dat de portefeuille sterk op die factor leunt; onder {small} in beide richtingen leunt hij er nauwelijks op."
 
 #: uvalu/pages_/risk.py:352
-#, fuzzy
-msgid ""
-"Factor analysis isn't part of the demo: it needs the Fama-French factor data and"
-" more than a year of prices. It's available in the full version."
-msgstr ""
-"Factoranalyse maakt geen deel uit van de demo: daarvoor zijn de Fama-French-"
-"factorgegevens en meer dan een jaar koersen nodig. Ze is beschikbaar in de "
-"volledige versie."
+msgid "Factor analysis isn't part of the demo: it needs the Fama-French factor data and more than a year of prices. It's available in the full version."
+msgstr "Factoranalyse maakt geen deel uit van de demo: daarvoor zijn de Fama-French-factorgegevens en meer dan een jaar koersen nodig. Ze is beschikbaar in de volledige versie."
 
 #. Context: Risk page › shown instead of the factor bars
 #: uvalu/pages_/risk.py:355
@@ -6180,8 +6058,7 @@ msgid "Company"
 msgstr "Bedrijf"
 
 #. Context: Screener › page heading
-#: uvalu/pages_/screener.py:211 uvalu/pages_/screener.py:379
-#: uvalu/pages_/screener.py:474
+#: uvalu/pages_/screener.py:211 uvalu/pages_/screener.py:379 uvalu/pages_/screener.py:474
 msgid "Value screener"
 msgstr "Waardescreener"
 
@@ -6261,8 +6138,7 @@ msgid "Sort by {column}"
 msgstr "Sorteren op {column}"
 
 #. Context: Screener/Watchlist › tooltip on the filled star
-#: uvalu/pages_/screener.py:455 uvalu/pages_/watchlist.py:227
-#: uvalu/pages_/watchlist.py:236
+#: uvalu/pages_/screener.py:455 uvalu/pages_/watchlist.py:227 uvalu/pages_/watchlist.py:236
 msgid "Remove from watchlist"
 msgstr "Van volglijst verwijderen"
 
@@ -6404,8 +6280,7 @@ msgid "Type your email address to confirm"
 msgstr "Typ je e-mailadres om te bevestigen"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:243 uvalu/pages_/settings.py:1114
-#: uvalu/pages_/settings.py:1118
+#: uvalu/pages_/settings.py:243 uvalu/pages_/settings.py:1114 uvalu/pages_/settings.py:1118
 msgid "Delete account"
 msgstr "Account verwijderen"
 
@@ -6559,8 +6434,6 @@ msgid "Regenerate"
 msgstr "Opnieuw genereren"
 
 #: uvalu/pages_/settings.py:574
-#, fuzzy
-#| msgid "Language & region"
 msgid "Language and region."
 msgstr "Taal en regio."
 
@@ -6826,27 +6699,18 @@ msgstr "Doelverdeling opgeslagen."
 #. Settings › Dividend withholding › explanation under the card title.
 #: uvalu/pages_/settings.py:835
 #, no-python-format
-msgid ""
-"Foreign withholding % used by default when you record a dividend, by the country"
-" where the company is registered, not where it trades: Airbus is Dutch, so its "
-"dividends follow the Netherlands rate. Each country starts at its statutory rate"
-" withheld at source, before any treaty refund; set it to what your broker "
-"withholds. You can always change it per dividend."
+msgid "Foreign withholding % used by default when you record a dividend, by the country where the company is registered, not where it trades: Airbus is Dutch, so its dividends follow the Netherlands rate. Each country starts at its statutory rate withheld at source, before any treaty refund; set it to what your broker withholds. You can always change it per dividend."
 msgstr "Buitenlandse bronheffing (%) die standaard geldt wanneer je een dividend registreert, volgens het land waar de onderneming gevestigd is, niet waar ze noteert: Airbus is Nederlands, dus voor zijn dividenden geldt het Nederlandse tarief. Elk land start op zijn wettelijke bronheffing, vóór een eventuele terugbetaling via een verdrag; zet het op wat je broker inhoudt. Je kunt het altijd per dividend aanpassen."
 
 #: uvalu/pages_/settings.py:844
 #, python-brace-format
-msgid ""
-"Your withholding rates moved from exchanges to countries: {rates}. Check them "
-"below."
+msgid "Your withholding rates moved from exchanges to countries: {rates}. Check them below."
 msgstr "Je bronheffingen zijn verhuisd van beurzen naar landen: {rates}. Controleer ze hieronder."
 
 #. Settings › Dividend withholding › Belgium has no field; this line says why.
 #: uvalu/pages_/settings.py:853
 #, no-python-format, python-brace-format
-msgid ""
-"{country}: the Belgian withholding tax (30%) is applied automatically for "
-"Belgian residents."
+msgid "{country}: the Belgian withholding tax (30%) is applied automatically for Belgian residents."
 msgstr "{country}: de Belgische roerende voorheffing (30%) wordt automatisch toegepast voor Belgische inwoners."
 
 #. Settings › Dividend withholding › marks a rate the user set, with the statutory
@@ -7950,19 +7814,5 @@ msgstr[1] "Nog geen screenergegevens voor je tickers op de volglijst; ze verschi
 #~ msgid "Price / share ({currency})"
 #~ msgstr "Prijs / aandeel ({currency})"
 
-#~ msgid ""
-#~ "Default withholding tax % applied when "
-#~ "you record a dividend on each exchange"
-#~ " — always editable per record. Depends "
-#~ "on your own tax residency and treaty, "
-#~ "which this app has no way to know,"
-#~ " so every rate starts at 0% until "
-#~ "you set it."
-#~ msgstr ""
-#~ "Standaardpercentage bronheffing dat wordt toegepast"
-#~ " wanneer je een dividend per beurs "
-#~ "registreert; per record altijd aan te "
-#~ "passen. Het hangt af van je eigen "
-#~ "fiscale woonplaats en belastingverdrag, die de"
-#~ " app niet kan kennen, dus elk tarief"
-#~ " begint op 0% tot je het instelt."
+#~ msgid "Default withholding tax % applied when you record a dividend on each exchange — always editable per record. Depends on your own tax residency and treaty, which this app has no way to know, so every rate starts at 0% until you set it."
+#~ msgstr "Standaardpercentage bronheffing dat wordt toegepast wanneer je een dividend per beurs registreert; per record altijd aan te passen. Het hangt af van je eigen fiscale woonplaats en belastingverdrag, die de app niet kan kennen, dus elk tarief begint op 0% tot je het instelt."
