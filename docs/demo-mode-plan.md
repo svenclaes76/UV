@@ -1,6 +1,6 @@
 # Demo mode plan (draft)
 
-18 October 2026 · Sven Claes · status: **draft; DM-D1, D3, D4, D5 decided 18 Oct 2026, the rest open (§2)**
+18 October 2026 · Sven Claes · status: **all decisions DM-D1–D21 taken 18 Oct 2026 (§2); one follow-up: the analytics tool (DM-D10)**
 
 **Progress (18 Oct 2026, `feature/demo-mode`, not merged):** DM-1 core (`uvalu/datamode.py`, demo universe) and DM-3 (EODHD client, budget, snapshot store, `tools/demo_refresh.py`, `demo-data` workflow) built and tested. All 10 EODHD codes confirmed with a live backfill (10 calls on 18 Oct; 248–254 bars each, last bar 16 Oct; London in pence). DM-4 started: template + validator (`uvalu/demo/fundamentals.py`, `tools/demo_fundamentals.py check|template`); All 9 stocks entered for FY2023–FY2025 from results releases, annual reports and 20-Fs (SEC copies where they exist; company PDFs for KBC, LVMH and Nestlé), every figure with source and page; KBC uses the bank statement type. The six SEC filers were cross-checked against their 20-F XBRL facts (SAP's FY2025 moved to the audited 20-F figures as a result). Awaiting Sven's spot-check. Not wired into the app yet (DM-5).
 
@@ -25,7 +25,16 @@ One setting picks the mode: `UVALU_DATA_MODE = personal | demo | commercial` (en
 
 ## 2. Decisions to take
 
-Recommendation first. These change the work below. **Decided 18 Oct 2026 (as recommended): DM-D1 invite-only first, DM-D3 hand-made sector reference file, DM-D4 per-session edits with reset, DM-D5 current compliant labels.**
+Recommendation first. These change the work below. DM-D11–D21 added 18 Oct 2026 after a second read of the plan and what building DM-1/3/4 turned up.
+
+**All decided 18 Oct 2026.** As recommended: D1 invite-only first, D2 demo question added to the L20 list and sent now, D3 hand-made sector reference, D4 per-session edits with reset, D5 compliant labels, D7 all six languages, D8 yearly update with audited figures winning, D9 Hetzner stays personal (testers move to the demo), D11 none of the 9 stocks held (no disclosure needed), D12 accept repo access for the invite-only phase, D13 Damodaran Europe (terms to check), D14 FY2025 annual only, D17 M4 now and M5 with R2, D18 release v2026.10.11 right after the merge, D19 21:00 UTC, D20 `uvalu-demo.streamlit.app`, D21 Poedit plus legal review.
+
+Different from the recommendation, and what follows from it:
+
+- **D6: Watchlist is shown,** kept per browser session like the sample portfolio (starred stocks reset when the session ends). Hidden: Admin, import/export, account pages; Settings only for language and region.
+- **D10: feedback form plus basic analytics.** Analytics means a consent check and a line in the demo privacy note. Follow-up to decide: which tool. Recommendation: Community Cloud's own app analytics (viewer counts in the app settings, nothing added to the page) before any third-party script.
+- **D15: €25,000, a realistic mix:** uneven weights in 6 of the 9 stocks, still including the CHF, DKK and GBX lines and at least one dividend payer, so the spec's currency and dividend checks keep working (F-02, F-03, F-04, F-06).
+- **D16: benchmark matches the app (EURO STOXX 50).** One extra EODHD series, so 11 calls on weekdays (still under the stop at 18). The index code is checked with one call when built. L21 (STOXX licence) now applies to the demo too; VWCE stays in the universe as the ETF example.
 
 | ID | Question | Recommendation | Why it matters |
 | --- | --- | --- | --- |
@@ -39,6 +48,17 @@ Recommendation first. These change the work below. **Decided 18 Oct 2026 (as rec
 | DM-D8 | **Fundamentals snapshot refresh.** | Once at setup, then after each annual report (March–April); every field carries the report and page it came from. | Hand entry is work: about 15–25 fields × 9 stocks. |
 | DM-D9 | **What happens to today's Hetzner beta?** | It stays in **personal** mode for you only. Beta testers you know move to the demo. | Today's beta shows Yahoo data to other people (L2). The demo is the clean way to keep showing the product. |
 | DM-D10 | **Feedback from viewers.** | A "Give feedback" link to a form (e.g. Tally, EU-hosted) and no analytics in the app. | You want to learn from backers, but Community Cloud already runs in the US (see §3); keep the app itself free of personal data. |
+| DM-D11 | **Do you hold any of the 9 demo stocks?** | Name them; then disclose them the way the app already does, or swap the stock for another in the same sector and currency. | §3 "Conflicts": signals on a stock the publisher holds need a disclosure. |
+| DM-D12 | **Repo access.** Community Cloud reads the whole private repo (business plans, legal drafts, expert reviews). | Accept it for the invite-only phase; decide on a separate small demo repo before the demo goes public. | It's a third party reading confidential documents. |
+| DM-D13 | **Source of the sector reference file** (DM-D3). | Damodaran's European industry multiples (January 2026), after checking his terms of use; dated and cited in the file. | DM-D3 chose a hand-made file but not where its numbers come from. |
+| DM-D14 | **How fresh the fundamentals are.** FY2025 is about 10 months old; H1 2026 interim results exist. | FY2025 audited annual figures only, shown as "as of 31 Dec 2025". | Interim figures are unaudited, differ per company and double the entry work. |
+| DM-D15 | **Sample portfolio contents.** | About €50,000, roughly equal weights in the 9 stocks, bought on different dates inside the 1-year history; fictional, round numbers. | The spec only says "pre-filled"; gains, losses and dividends should all show. |
+| DM-D16 | **Benchmark for beta and risk.** The app uses EURO STOXX 50 (licence question L21); the demo has VWCE. | VWCE in the demo, said on the Methodology page. | Methodology differs between modes; VWCE also sidesteps L21. |
+| DM-D17 | **Which model the demo runs.** | Deploy on M4 now; move to M5 with the R2 release (re-run the snapshot → cache step then). | M5 changes scores; waiting for it delays the demo by weeks. |
+| DM-D18 | **First deploy.** The workflow builds `deploy/demo` from the latest release tag. | Cut a small release right after the merge (v2026.10.11), so `deploy/demo` starts from a tag. | Before that, no tag contains the demo code. |
+| DM-D19 | **Refresh time.** The spec says 18:30 CET; built as 21:00 UTC. | Keep 21:00 UTC weekdays; record it as a spec change. | EODHD's European end-of-day prices aren't final right after the close; the job re-asks for the full year anyway. |
+| DM-D20 | **App address** on Community Cloud. | `uvalu-demo.streamlit.app`. | It's the link you share. |
+| DM-D21 | **New demo texts** (banner, privacy note, "full version" placeholders, "not in the demo"). | Draft them, review in Poedit as usual (six languages), and include them in the DM-7 legal-persona review. | New user-facing and legal-ish wording. |
 
 Answered already, by the spec or the existing code:
 
@@ -140,7 +160,7 @@ Calls come from **one place only**: `tools/demo_refresh.py` with an explicit `--
 | Building the client and parser | **0** | EODHD's public `demo` token (works for a few US tickers such as AAPL.US) for the request/response shape, then recorded JSON fixtures in `tests/fixtures/eodhd/`. |
 | First live check | **1** | One ticker (ABI.BR), 1-year backfill: proves the key, the code format and the parser on a European stock. |
 | Setup for the rest | **9** | Backfill of the other 9 tickers. A wrong code fails on its own call, so no separate symbol-list calls (saves ~7). Their responses become fixtures too. |
-| Daily | **10** | GitHub Action, weekdays. |
+| Daily | **11** | GitHub Action, weekdays: 10 tickers + the EURO STOXX 50 benchmark (DM-D16). |
 | Weekly | **10** | Dividends, on Sunday (a day with no EOD run). |
 
 The setup total is about 10 calls out of the 500 welcome calls, and every run after that replays recorded data. Guards:

@@ -47,7 +47,8 @@ def test_demo_profile_never_fetches_and_never_writes():
     assert not d.live_fetch and not d.sign_in and not d.persistent_writes
     assert d.banner and d.data_dir.name == "demo-data"
     assert d.universe == universe.TICKERS
-    assert {"watchlist", "admin"} <= d.hidden_pages
+    assert "admin" in d.hidden_pages
+    assert "watchlist" not in d.hidden_pages          # DM-D6: shown, per session
 
 
 def test_demo_universe_shape():

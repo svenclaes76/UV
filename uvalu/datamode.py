@@ -48,12 +48,12 @@ PERSONAL = DataMode(
     data_dir=None, universe=None, hidden_pages=frozenset(), banner=False,
 )
 
-# Hidden pages follow the recommendation in DM-D6 (still open): Watchlist and
-# Admin out; Settings stays for language and region.
+# DM-D6 (decided 18 Oct 2026): Admin out; Watchlist stays, kept per browser
+# session like the sample portfolio; Settings stays for language and region.
 DEMO = DataMode(
     key="demo", live_fetch=False, sign_in=False, persistent_writes=False,
     data_dir=DEMO_DATA_DIR, universe=_demo_universe.TICKERS,
-    hidden_pages=frozenset({"watchlist", "admin"}), banner=True,
+    hidden_pages=frozenset({"admin"}), banner=True,
 )
 
 COMMERCIAL = DataMode(
