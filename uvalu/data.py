@@ -277,6 +277,7 @@ def _build_all_screener_data(enabled: tuple,
     # additions) are scored against those peers without moving them, so every
     # user sees the same signal for the same stock.
     _ref_out: dict = {}
+    _prev_signals = _previous_signals()
     _universe_fund = all_fund[all_fund["Ticker"].isin({s["ticker"] for s in all_stocks})]
     scored = run_screener_from_df(_universe_fund,
                                   max_debt_equity=_max_de, max_payout=_max_payout,
@@ -284,14 +285,17 @@ def _build_all_screener_data(enabled: tuple,
                                   weights=score_weights, reference_out=_ref_out,
                                   peer_mask=peer_mask_for(_universe_fund, _exchange_ticker_set),
                                   founder_holdings=_founder_holdings(),
-                                  previous_signals=_previous_signals(),
+                                  previous_signals=_prev_signals,
                                   sector_multiples=_demo_sector_multiples() if _demo else None)
     if _ref_out.get("ref") is not None:
         _UNIVERSE_REFS[(tuple(enabled), tuple(extra_tickers), tuple(extra_names), tuple(thresholds),
                         tuple(score_weights))] = _ref_out["ref"]
 
     _changes = _record_signals(scored)
-    _log_data_quality(_universe_fund, scored, _exchange_ticker_set, _changes)
+    # A demo process starts with an empty signal history, so its first build
+    # logs every signal as new: not a change worth an alert.
+    _log_data_quality(_universe_fund, scored, _exchange_ticker_set, _changes,
+                      first_build=_demo and not _prev_signals)
 
     def _subset(stock_list):
         if scored.empty or "Ticker" not in scored.columns:
@@ -329,9 +333,11 @@ def _demo_sector_multiples():
     return ws.sector_multiples if ws else None
 
 
-def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, changes: int) -> None:
+def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, changes: int,
+                      first_build: bool = False) -> None:
     """Q2: log the build's data-quality summary, and a warning per threshold
-    crossed (uvalu/data_quality.py). Never fails a build."""
+    crossed (uvalu/data_quality.py), except on a first build against an empty
+    signal history. Never fails a build."""
     _log = logkit.get_logger("uvalu.data")
     try:
         from uvalu import data_quality
@@ -339,8 +345,8 @@ def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, cha
         pub_scored = scored[scored["Ticker"].isin(public)] if "Ticker" in scored.columns else scored
         summary = data_quality.build_summary(pub_fund, pub_scored, changes=changes)
         _log.info("build data quality: %d rows, %d signal changes", summary["rows"], summary["signal_changes"],
-                  extra={"event": "data_quality.summary", **summary})
-        for text in data_quality.alerts(summary):
+                  extra={"event": "data_quality.summary", "first_build": first_build, **summary})
+        for text in ([] if first_build else data_quality.alerts(summary)):
             _log.warning("data quality alert: %s", text, extra={"event": "data_quality.alert", "alert": text})
     except Exception:
         _log.error("data-quality summary failed", exc_info=True, extra={"event": "data_quality.failed"})
