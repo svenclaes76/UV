@@ -2,6 +2,8 @@
 
 18 October 2026 · Sven Claes · status: **draft; DM-D1, D3, D4, D5 decided 18 Oct 2026, the rest open (§2)**
 
+**Progress (18 Oct 2026, `feature/demo-mode`, not merged):** DM-1 core (`uvalu/datamode.py`, demo universe) and DM-3 (EODHD client, budget, snapshot store, `tools/demo_refresh.py`, `demo-data` workflow) built and tested. All 10 EODHD codes confirmed with a live backfill (10 calls on 18 Oct; 248–254 bars each, last bar 16 Oct; London in pence). Not wired into the app yet (DM-5).
+
 Source: *Uvalu Demo – Requirements Spec* (18 Oct 2026). This plan turns that spec into work packages for this repo. It also adds the things the spec doesn't cover yet: data modes, Streamlit Community Cloud, licensing and privacy.
 
 ## 1. Goal: three data modes, one codebase
@@ -47,14 +49,14 @@ Answered already, by the spec or the existing code:
 
 **Streamlit Community Cloud**
 
-- **The repo is private.** Community Cloud can deploy from a private repo, but you give Streamlit read access to the whole repo: business plans, legal drafts, expert reviews in `docs/`. Options: accept that, or deploy from a separate small demo repo that a CI job fills (more work). **Limits (checked 18 Oct 2026): 1 private app, unlimited public apps, 2.7 GB per app.** The invite-only demo (DM-D1) takes the one private slot, so there's no second private app for a staging copy. Test demo mode locally (`UVALU_DATA_MODE=demo`) before pushing to the `demo` branch. Going public later (after DM-D2) frees the slot.
+- **The repo is private.** Community Cloud can deploy from a private repo, but you give Streamlit read access to the whole repo: business plans, legal drafts, expert reviews in `docs/`. Options: accept that, or deploy from a separate small demo repo that a CI job fills (more work). **Limits (checked 18 Oct 2026): 1 private app, unlimited public apps, 2.7 GB per app.** The invite-only demo (DM-D1) takes the one private slot, so there's no second private app for a staging copy. Test demo mode locally (`UVALU_DATA_MODE=demo`) before pushing to the `deploy/demo` branch. Going public later (after DM-D2) frees the slot.
 - **Servers are in the US** (Snowflake). The privacy notice promises EU hosting at Hetzner. The demo needs its own short privacy note: no account, no personal data stored by Uvalu, Streamlit's own logs and cookies apply. No sign-in in demo mode keeps this simple.
 - **Sleep.** An app with no traffic for about 12 hours goes to sleep; the next visitor sees a "wake up" button and waits 30–60 s. A daily data push redeploys it, which helps but doesn't guarantee it's awake. Tell backers, or open it yourself before a presentation.
 - **`.streamlit/config.toml` forces a local SSL certificate** (`.ssl/cert.pem`). On Community Cloud that file doesn't exist and the app won't start. Move the SSL lines out of the committed config (into `run_app.py` / `_dev_entry.py` flags, or the Hetzner service file).
 - **Secrets.** `AUTH_SECRET` and `ENCRYPTION_KEY` are required at start-up today. In demo mode either skip what needs them or set throwaway values in Streamlit secrets, never the production ones.
 - **Python 3.12** must be chosen in the deploy settings (the app needs ≥ 3.12). Dependencies come from `requirements.txt`; check it installs cleanly without dev extras.
 - **Memory:** 2.7 GB per app. Plenty for 10 tickers; demo mode still loads only `demo-data/`, never the full 3,900-listing caches.
-- **Branch.** Community Cloud deploys from a **`demo` branch**, never from `master`. The daily Action checks out `demo`, merges the latest release tag into it, adds the new data under `demo-data/` and pushes. So `master` gets no daily bot commits (no pull-before-push, no data in release diffs, no clash with `tools/release.py`), and the demo moves to new code only when a release is tagged. Data commits carry `[skip ci]` so `tests.yml` doesn't run every weekday on private-repo minutes.
+- **Branch.** Community Cloud deploys from a **`deploy/demo` branch**, never from `master`. The daily Action checks out `deploy/demo`, merges the latest release tag into it, adds the new data under `demo-data/` and pushes. So `master` gets no daily bot commits (no pull-before-push, no data in release diffs, no clash with `tools/release.py`), and the demo moves to new code only when a release is tagged. Data commits carry `[skip ci]` so `tests.yml` doesn't run every weekday on private-repo minutes.
 
 **Data and model**
 
@@ -120,7 +122,7 @@ Building can start now on a branch `feature/demo-mode`; only the **merge** waits
 | Now (no R2 overlap) | After 21 Oct (merge) | After R2 |
 | --- | --- | --- |
 | DM-0 decisions; EODHD question added to L20 and sent | Merge `feature/demo-mode` | Re-run snapshot → cache for the R2/M5 row format |
-| DM-1 `uvalu/datamode.py` + profiles (new file) | First Community Cloud deploy from the `demo` branch | Hand-entered fields checked against M5 |
+| DM-1 `uvalu/datamode.py` + profiles (new file) | First Community Cloud deploy from the `deploy/demo` branch | Hand-entered fields checked against M5 |
 | DM-3 refresh job, budget counter, workflow, tests (new files) | | DM-7 acceptance, release |
 | DM-4 fundamentals template + validator; you start entering data | | |
 | Demo banner, sample portfolio, universe lock, privacy note, hidden pages (DM-5, mostly new code) | | |

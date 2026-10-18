@@ -140,3 +140,31 @@ def name(key: str) -> str:
     """The official name of an exchange key; the key itself if unknown."""
     e = KNOWN_BY_KEY.get(key)
     return e.name if e else key
+
+
+# ── EODHD codes (EX-40, demo-mode plan DM-3) ─────────────────────────────────
+# EODHD writes a ticker as SYMBOL.EXCHANGE with its own exchange codes. The
+# stored key stays Yahoo's (D12); this table is the one conversion. Only the
+# exchanges whose EODHD code is confirmed are listed: an unlisted one raises
+# rather than guess a code and waste a call on a 404.
+_EODHD_EXCHANGE: dict[str, str] = {
+    "brussels": "BR",
+    "amsterdam": "AS",
+    "paris": "PA",
+    "frankfurt": "XETRA",   # Yahoo .DE is Xetra (D10)
+    "swiss": "SW",
+    "copenhagen": "CO",
+    "london": "LSE",
+}
+
+
+def eodhd_ticker(ticker: str) -> str:
+    """The EODHD code of a stored (Yahoo-form) ticker: "SAP.DE" →
+    "SAP.XETRA", "SHEL.L" → "SHEL.LSE". The symbol part is unchanged (EODHD
+    also writes share classes with a dash, "NOVO-B.CO"). Raises ValueError
+    for an exchange without a confirmed EODHD code."""
+    e = for_ticker(ticker)
+    code = _EODHD_EXCHANGE.get(e.key) if e else None
+    if not code:
+        raise ValueError(f"no EODHD exchange code for {ticker!r}")
+    return f"{str(ticker)[: str(ticker).rfind('.')]}.{code}"
