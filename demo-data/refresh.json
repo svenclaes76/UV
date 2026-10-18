@@ -1,0 +1,26 @@
+{
+  "last_bar": {
+    "ABI.BR": "2026-10-16",
+    "ASML.AS": "2026-10-16",
+    "KBC.BR": "2026-10-16",
+    "MC.PA": "2026-10-16",
+    "NESN.SW": "2026-10-16",
+    "NOVO-B.CO": "2026-10-16",
+    "SAP.DE": "2026-10-16",
+    "SHEL.L": "2026-10-16",
+    "TTE.PA": "2026-10-16",
+    "VWCE.DE": "2026-10-16",
+    "^STOXX50E": "2026-10-16"
+  },
+  "last_run": {
+    "at": "2026-10-18T11:27:11+00:00",
+    "calls": 0,
+    "dividends": false,
+    "errors": {},
+    "fx": true,
+    "prices": false,
+    "updated": []
+  },
+  "refreshed_at": "2026-10-18T11:27:11+00:00",
+  "source": "EODHD end-of-day; ECB reference rates via frankfurter"
+}
