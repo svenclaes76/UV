@@ -26,6 +26,10 @@ import streamlit as st
 if not _DATA_MODE.live_fetch:
     from uvalu.demo import workspace as _demo_ws
     _demo_ws.activate()
+    # A newer snapshot (the evening's data commit, pulled into the running
+    # app) replaces the one in use; the scores are then computed again.
+    if _demo_ws.refresh_if_newer():
+        st.cache_data.clear()
 
 from auth import bootstrap_admin_from_env
 from portfolio import set_user

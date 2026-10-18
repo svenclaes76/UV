@@ -17,6 +17,11 @@
 Each browser session then gets its own pseudo-user (``session_email``) whose
 storage folder is seeded with the sample portfolio and watchlist (DM-D15);
 ``reset_session`` puts the sample back.
+
+``refresh_if_newer()`` (called on every run, checks at most every 5 minutes)
+loads a newer snapshot in place: Community Cloud pulls the evening's data
+commit into the running app without restarting it, and the snapshot would
+otherwise stay the one read at start until the next reboot or sleep.
 """
 from __future__ import annotations
 
@@ -27,6 +32,7 @@ import secrets
 import shutil
 import tempfile
 import threading
+import time
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -43,6 +49,8 @@ class Workspace:
     snapshot: object
     rows: dict
     sector_multiples: tuple
+    src: Path = Path(".")
+    signature: tuple = ()
 
 
 _WS: "Workspace | None" = None
@@ -89,6 +97,12 @@ SAMPLE_BUYS: tuple[tuple[str, float, str], ...] = (
 # The ETF (VWCE) isn't starred: the app lists only stocks with fundamentals.
 SAMPLE_WATCHLIST: tuple[str, ...] = ("KBC.BR", "SAP.DE", "MC.PA")
 SESSION_DOMAIN = "demo.uvalu.invalid"
+
+# A newer snapshot is looked for at most this often, and loaded only once its
+# newest file is this old (a git pull still writing files isn't read half-way).
+CHECK_EVERY_S = 300
+SETTLE_S = 30
+_last_check = 0.0
 
 
 def current() -> "Workspace | None":
@@ -207,6 +221,7 @@ def activate(src: "Path | None" = None) -> Workspace:
         os.environ.setdefault("AUTH_SECRET", secrets.token_urlsafe(32))
         root = Path(tempfile.mkdtemp(prefix="uvalu-demo-"))
         src = Path(src or datamode.DEMO_DATA_DIR)
+        signature = _signature(src)
         snap = snapshot.load(src)
         rows = rows_mod.build_all(snap)
         import screener
@@ -222,11 +237,72 @@ def activate(src: "Path | None" = None) -> Workspace:
         _warm_caches(snap)
         _write_rows(root, rows)
         _WS = Workspace(root=root, snapshot=snap, rows=rows,
-                        sector_multiples=rows_mod.sector_multiples(snap))
+                        sector_multiples=rows_mod.sector_multiples(snap),
+                        src=src, signature=signature)
         _log.info("demo workspace ready", extra={
             "event": "demo.workspace_ready", "root": str(root), "rows": len(rows),
             "last_bar": str(snap.last_bar()), "fundamentals": len(snap.fundamentals)})
         return _WS
+
+
+def _signature(src: Path) -> tuple:
+    """(path, modification time, size) of every file in the snapshot folder."""
+    src = Path(src)
+    out = []
+    for p in sorted(src.rglob("*")):
+        if p.is_file():
+            st_ = p.stat()
+            out.append((p.relative_to(src).as_posix(), st_.st_mtime, st_.st_size))
+    return tuple(out)
+
+
+def refresh_if_newer(now: "float | None" = None) -> bool:
+    """Load the snapshot again when demo-data/ changed since it was read.
+    Cheap on most runs (a clock check); True when it reloaded, so the caller
+    clears Streamlit's caches. Sessions keep their own portfolios."""
+    global _last_check
+    ws = _WS
+    if ws is None:
+        return False
+    now = time.monotonic() if now is None else now
+    if now - _last_check < CHECK_EVERY_S:
+        return False
+    _last_check = now
+    sig = _signature(ws.src)
+    if sig == ws.signature or time.time() - max((m for _p, m, _s in sig), default=0.0) < SETTLE_S:
+        return False
+    with _lock:
+        if _WS is not ws or ws.signature == sig:
+            return False
+        _reload(ws, sig)
+    return True
+
+
+def _reload(ws: Workspace, sig: tuple) -> None:
+    import fx
+    import marketdata
+    from uvalu.demo import rows as rows_mod, snapshot, yfshim
+    old_bar = ws.snapshot.last_bar()
+    snap = snapshot.load(ws.src)
+    rows = rows_mod.build_all(snap)
+    yfshim.install(snap, rows)
+    fx._http_get = _fx_http_get(snap)      # the original stays saved from activate()
+    # The caches warmed from the old snapshot go; the app's own code fills
+    # them again from the new one, as at start.
+    for d in (marketdata._HISTORY_DIR, marketdata._DIVIDEND_DIR):
+        shutil.rmtree(d, ignore_errors=True)
+        d.mkdir(parents=True, exist_ok=True)
+    with fx._lock:
+        Path(fx._CACHE_FILE).unlink(missing_ok=True)
+        fx._cache = None
+        fx._currencies = None
+    _warm_caches(snap)
+    _write_rows(ws.root, rows)
+    ws.snapshot, ws.rows, ws.signature = snap, rows, sig
+    ws.sector_multiples = rows_mod.sector_multiples(snap)
+    _log.info("demo snapshot reloaded", extra={
+        "event": "demo.snapshot_reloaded", "last_bar": str(snap.last_bar()),
+        "previous_last_bar": str(old_bar), "rows": len(rows)})
 
 
 def reset_for_tests() -> None:
@@ -243,6 +319,8 @@ def reset_for_tests() -> None:
         if _WS is not None:
             shutil.rmtree(_WS.root, ignore_errors=True)
         _WS = None
+        global _last_check
+        _last_check = 0.0
 
 
 # ── per-session sample portfolio ─────────────────────────────────────────────
