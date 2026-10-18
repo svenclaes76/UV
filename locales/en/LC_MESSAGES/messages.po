@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-18 12:45+0000\n"
+"POT-Creation-Date: 2026-10-18 13:54+0000\n"
 "PO-Revision-Date: 2026-10-18 15:17+0200\n"
 "Last-Translator: \n"
 "Language-Team: en_GB <LL@li.org>\n"
@@ -1089,47 +1089,47 @@ msgstr "retained earnings negative and still eroding"
 msgid "dividend cut in {year} with only {coverage}× cover"
 msgstr "dividend cut in {year} with only {coverage}× cover"
 
-#: screener.py:3242
+#: screener.py:3246
 msgid "The price is more than 72 hours old."
 msgstr "The price is more than 72 hours old."
 
-#: screener.py:3243
+#: screener.py:3247
 msgid "The time of the price is unknown."
 msgstr "The time of the price is unknown."
 
-#: screener.py:3244
+#: screener.py:3248
 msgid "No model could compute a fair value."
 msgstr "No model could compute a fair value."
 
-#: screener.py:3245
+#: screener.py:3249
 msgid "The fair value rests on fewer than two independent models."
 msgstr "The fair value rests on fewer than two independent models."
 
-#: screener.py:3246
+#: screener.py:3250
 msgid "The fair value was capped at the models' median."
 msgstr "The fair value was capped at the models' median."
 
-#: screener.py:3247
+#: screener.py:3251
 msgid "Earnings per share were derived from the P/E ratio."
 msgstr "Earnings per share were derived from the P/E ratio."
 
-#: screener.py:3248
+#: screener.py:3252
 msgid "Fewer than 20 stocks were available for comparison."
 msgstr "Fewer than 20 stocks were available for comparison."
 
-#: screener.py:3249
+#: screener.py:3253
 msgid "The company reports in another currency than its share price, and no exchange rate was available to convert its figures."
 msgstr "The company reports in another currency than its share price, and no exchange rate was available to convert its figures."
 
-#: screener.py:3251
+#: screener.py:3255
 msgid "Earnings per share come from the latest year only, and the price is under 4 times those earnings: they may include a one-off gain."
 msgstr "Earnings per share come from the latest year only, and the price is under 4 times those earnings: they may include a one-off gain."
 
-#: screener.py:3253
+#: screener.py:3257
 msgid "The models disagree: the highest value is more than 3 times the lowest, so the fair value is shown as a range."
 msgstr "The models disagree: the highest value is more than 3 times the lowest, so the fair value is shown as a range."
 
-#: screener.py:3255
+#: screener.py:3259
 #, no-python-format
 msgid "The price is more than 50% below the model fair value. A gap this large is more often a data error than a real discount: check the figures."
 msgstr "The price is more than 50% below the model fair value. A gap this large is more often a data error than a real discount: check the figures."
@@ -3889,7 +3889,7 @@ msgstr "Demo visitor"
 msgid "Account menu for {name}"
 msgstr "Account menu for {name}"
 
-#: uvalu/shell.py:449 uvalu/shell.py:542
+#: uvalu/shell.py:449 uvalu/shell.py:543
 msgid "Demo"
 msgstr "Demo"
 
@@ -3920,39 +3920,39 @@ msgstr "{name}, trading as {trading_as}"
 msgid "Beta"
 msgstr "Beta"
 
-#: uvalu/shell.py:515 uvalu/shell.py:534
+#: uvalu/shell.py:515 uvalu/shell.py:535
 msgid "Terms →"
 msgstr "Terms →"
 
 #. Demo notice under the top bar. {prices_date} is the date of the newest end-of-day
 #. prices, {fundamentals_date} the balance-sheet date of the annual reports used.
-#: uvalu/shell.py:529
+#: uvalu/shell.py:530
 #, python-brace-format
 msgid ""
-"9 European stocks · end-of-day prices from EODHD to {prices_date} · fundamentals"
-" from the companies' annual reports, as of {fundamentals_date} · a sample "
-"portfolio you can change in this session · not investment advice"
+"9 European stocks · end-of-day prices to {prices_date} · fundamentals from the "
+"companies' annual reports, as of {fundamentals_date} · a sample portfolio you "
+"can change in this session · not investment advice"
 msgstr ""
-"9 European stocks · end-of-day prices from EODHD to {prices_date} · fundamentals"
-" from the companies' annual reports, as of {fundamentals_date} · a sample "
-"portfolio you can change in this session · not investment advice"
+"9 European stocks · end-of-day prices to {prices_date} · fundamentals from the "
+"companies' annual reports, as of {fundamentals_date} · a sample portfolio you "
+"can change in this session · not investment advice"
 
-#: uvalu/shell.py:538
+#: uvalu/shell.py:539
 msgid "Give feedback →"
 msgstr "Give feedback →"
 
 #. Link-styled button at the end of the demo notice; puts the sample portfolio back.
-#: uvalu/shell.py:546
+#: uvalu/shell.py:547
 msgid "Reset sample"
 msgstr "Reset sample"
 
-#: uvalu/shell.py:547
+#: uvalu/shell.py:548
 msgid "Put the sample portfolio and watchlist back"
 msgstr "Put the sample portfolio and watchlist back"
 
 #. Strip under the beta notice while the app rebuilds its peer reference after a
 #. restart. “No signal” is the badge label.
-#: uvalu/shell.py:572
+#: uvalu/shell.py:573
 msgid ""
 "Rebuilding the peer reference after a restart. Signals show “No signal” until it"
 " finishes, usually within a few minutes."
@@ -3960,29 +3960,29 @@ msgstr ""
 "Rebuilding the peer reference after a restart. Signals show “No signal” until it"
 " finishes, usually within a few minutes."
 
-#: uvalu/shell.py:634
+#: uvalu/shell.py:635
 msgid "Couldn’t load this page. Try again in a moment."
 msgstr "Couldn’t load this page. Try again in a moment."
 
 #. Shown under an error message; {ref} is a technical reference (id, version, commit)
 #. to quote to support.
-#: uvalu/shell.py:637
+#: uvalu/shell.py:638
 #, python-brace-format
 msgid "Something went wrong. Reference for support: {ref}"
 msgstr "Something went wrong. Reference for support: {ref}"
 
 #. Maintenance screen › title, shown instead of the app while stored data waits for an
 #. update.
-#: uvalu/shell.py:650
+#: uvalu/shell.py:651
 msgid "Uvalu is being updated"
 msgstr "Uvalu is being updated"
 
 #. Maintenance screen › body text under "Uvalu is being updated".
-#: uvalu/shell.py:652
+#: uvalu/shell.py:653
 msgid "The app is waiting for a data update to finish. Please try again in a few minutes."
 msgstr "The app is waiting for a data update to finish. Please try again in a few minutes."
 
-#: uvalu/shell.py:727
+#: uvalu/shell.py:728
 msgid "About this version and what's new"
 msgstr "About this version and what's new"
 
@@ -5354,8 +5354,14 @@ msgid "Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana."
 msgstr "Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana."
 
 #: uvalu/pages_/help.py:145
-msgid "The demo shows end-of-day closing prices from EODHD, refreshed each weekday evening. The fundamentals come from the companies' annual reports and are updated once a year. Intraday prices are not shown."
-msgstr "The demo shows end-of-day closing prices from EODHD, refreshed each weekday evening. The fundamentals come from the companies' annual reports and are updated once a year. Intraday prices are not shown."
+msgid ""
+"The demo shows end-of-day closing prices, refreshed each weekday evening; the "
+"provider is named under Data sources. The fundamentals come from the companies' "
+"annual reports and are updated once a year. Intraday prices are not shown."
+msgstr ""
+"The demo shows end-of-day closing prices, refreshed each weekday evening; the "
+"provider is named under Data sources. The fundamentals come from the companies' "
+"annual reports and are updated once a year. Intraday prices are not shown."
 
 #: uvalu/pages_/help.py:149
 msgid "The demo covers 9 stocks on Euronext Amsterdam, Brussels and Paris, Xetra, SIX Swiss Exchange, Nasdaq Copenhagen and the London Stock Exchange, plus one ETF."

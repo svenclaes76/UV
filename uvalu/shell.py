@@ -525,8 +525,9 @@ def render_demo_banner() -> None:
     from uvalu.i18n import fmt_date
     last = workspace.last_refresh()
     fund = workspace.fundamentals_as_of()
+    # The price vendor is named on the Data sources page only, where attribution belongs (L41).
     # Translators: Demo notice under the top bar. {prices_date} is the date of the newest end-of-day prices, {fundamentals_date} the balance-sheet date of the annual reports used.
-    text = _("9 European stocks · end-of-day prices from EODHD to {prices_date} · fundamentals from the "
+    text = _("9 European stocks · end-of-day prices to {prices_date} · fundamentals from the "
              "companies' annual reports, as of {fundamentals_date} · a sample portfolio you can change in "
              "this session · not investment advice",
              prices_date=fmt_date(last) if last else "—",

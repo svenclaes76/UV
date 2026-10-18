@@ -142,9 +142,9 @@ _FAQ = [
 # Demo mode (DM-5): the two answers that differ for the fixed demo snapshot.
 _FAQ_DEMO = {
     N_("How often do prices update?"):
-        N_("The demo shows end-of-day closing prices from EODHD, refreshed each weekday evening. The "
-           "fundamentals come from the companies' annual reports and are updated once a year. "
-           "Intraday prices are not shown."),
+        N_("The demo shows end-of-day closing prices, refreshed each weekday evening; the provider is "
+           "named under Data sources. The fundamentals come from the companies' annual reports and are "
+           "updated once a year. Intraday prices are not shown."),
     N_("Which exchanges are covered?"):
         N_("The demo covers 9 stocks on Euronext Amsterdam, Brussels and Paris, Xetra, SIX Swiss Exchange, "
            "Nasdaq Copenhagen and the London Stock Exchange, plus one ETF."),
