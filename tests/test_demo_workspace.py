@@ -270,3 +270,50 @@ def test_sessions_are_separate(ws):
 def test_status_dates(ws):
     assert workspace.last_refresh() == LAST.date()
     assert workspace.fundamentals_as_of() == "2025-12-31"
+
+
+# ── a newer snapshot without a restart ───────────────────────────────────────
+
+def _add_day(src: Path, day: str, close: float, chf: float) -> None:
+    import os
+    import time as _time
+    p = src / "eod" / "ABI.BR.csv"
+    df = pd.read_csv(p)
+    df.loc[len(df)] = {"date": day, "open": close, "high": close, "low": close, "close": close,
+                       "adjusted_close": close, "volume": 10_000}
+    df.to_csv(p, index=False)
+    fxp = src / "fx.csv"
+    f = pd.read_csv(fxp)
+    f.loc[len(f)] = {"date": day, "CHF": chf, "DKK": 0.134, "GBP": 1.18, "USD": 0.89}
+    f.to_csv(fxp, index=False)
+    old = _time.time() - workspace.SETTLE_S - 5      # settled, like a finished git pull
+    for q in src.rglob("*"):
+        if q.is_file():
+            os.utime(q, (old, old))
+
+
+def test_newer_snapshot_is_loaded_in_place(ws):
+    import fx
+    import marketdata
+    import screener
+    src = ws.src
+    assert workspace.refresh_if_newer(now=1e9) is False          # nothing changed
+    _add_day(src, "2026-10-17", 123.45, 1.05)
+    assert workspace.refresh_if_newer(now=1e9 + 1) is False      # checked too recently
+    assert workspace.refresh_if_newer(now=1e9 + 2 * workspace.CHECK_EVERY_S) is True
+    assert workspace.last_refresh() == pd.Timestamp("2026-10-17").date()
+    h = marketdata.price_history(["ABI.BR"], period="1y")
+    assert h.index.max() == pd.Timestamp("2026-10-17") and h["ABI.BR"].iloc[-1] == pytest.approx(123.45)
+    assert fx.get_rate("CHF").rate == pytest.approx(1.05)
+    cached = json.loads(screener.SCREENER_FETCH.cache_file.read_text(encoding="utf-8"))
+    assert cached["ABI.BR"]["Price"] == pytest.approx(123.45)
+
+
+def test_snapshot_still_being_written_waits(ws):
+    import os
+    import time as _time
+    _add_day(ws.src, "2026-10-17", 99.0, 1.05)
+    now = _time.time()
+    os.utime(ws.src / "fx.csv", (now, now))                     # a file written just now
+    assert workspace.refresh_if_newer(now=1e9) is False
+    assert workspace.last_refresh() == LAST.date()
