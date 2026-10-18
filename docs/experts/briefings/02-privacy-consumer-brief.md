@@ -114,3 +114,22 @@ Export to PDF with version and date.
 4. Screenshots: invitation acceptance, Settings › Privacy (export and delete account), Settings › Legal documents
 5. A one-page data-flow diagram: what data, where it is stored, which processor ([Sven]: to draw)
 6. Optional: our internal first-pass [privacy and consumer-law review](../../legal/privacy-consumer-review.md)
+
+---
+
+## Demo addendum (18 Oct 2026)
+
+Uvalu now also runs as a **demo**: the same app on a fixed set of **9 European stocks and 1 ETF** (AB InBev, KBC, ASML, SAP, LVMH, TotalEnergies, Nestlé, Novo Nordisk, Shell; VWCE), with a **fictional sample portfolio** each visitor can change for the length of their session. There is **no account and no sign-in to Uvalu**. It runs on **Streamlit Community Cloud** (Snowflake Inc., USA), **invite-only** at first: viewers sign in to Streamlit with the email address the founder invited. Later it may be shown to **crowdfunding backers** the founder doesn't know. Prices are **EODHD end-of-day closes (free plan)**, refreshed each weekday evening; fundamentals are **hand-entered from the companies' annual reports** (FY2023–2025, each figure with its source and page); sector P/E and P/B come from **Aswath Damodaran's European industry averages**. The founder holds none of the nine stocks. Details: `docs/demo-mode-plan.md`; our first-pass review: `docs/legal/demo-privacy-consumer-review.md`.
+
+### Questions
+
+- **D-1. Roles with Streamlit.** For the free Community Cloud tier, is Streamlit (Snowflake) Uvalu's processor or a separate controller for viewer sign-in, hosting logs and app analytics? We can't sign a DPA for the free tier. How should the notice describe it?
+- **D-2. Viewer list.** Every invited viewer can see the last 20 viewers' email addresses in the app's analytics. Is telling testers this in the invitation and the notice enough, or must we avoid it (for example a public app with an access code inside Uvalu)?
+- **D-3. Transfers.** Which transfer mechanism applies to Community Cloud (EU–US Data Privacy Framework, standard contractual clauses), and must the notice name it?
+- **D-4. Demo terms.** A free demo with no account: is a one-page set of demo terms (what it is, not advice, liability, permitted use, adults in the EEA) enough, and is linking to it from every screen sufficient without acceptance?
+- **D-5. Draft texts.** Please mark up the demo privacy notice (`docs/legal/policies/demo/privacy-notice.md`).
+
+| Fact | Answer |
+|---|---|
+| Feedback form provider and its location | [Sven] |
+| Number of testers invited, and their countries | [Sven] |

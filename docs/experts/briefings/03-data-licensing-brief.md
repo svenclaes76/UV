@@ -70,3 +70,20 @@ Export to PDF with version and date.
 3. The EODHD plan page and terms under consideration ([Sven]: save as PDF with the date)
 4. Screenshots: stock page (price, ratios, chart, signal), Screener, Portfolio, Risk, Excel export
 5. Ticker list per exchange (from the screener universe)
+
+---
+
+## Demo addendum (18 Oct 2026)
+
+Uvalu now also runs as a **demo**: the same app on a fixed set of **9 European stocks and 1 ETF** (AB InBev, KBC, ASML, SAP, LVMH, TotalEnergies, Nestlé, Novo Nordisk, Shell; VWCE), with a **fictional sample portfolio** each visitor can change for the length of their session. There is **no account and no sign-in to Uvalu**. It runs on **Streamlit Community Cloud** (Snowflake Inc., USA), **invite-only** at first: viewers sign in to Streamlit with the email address the founder invited. Later it may be shown to **crowdfunding backers** the founder doesn't know. Prices are **EODHD end-of-day closes (free plan)**, refreshed each weekday evening; fundamentals are **hand-entered from the companies' annual reports** (FY2023–2025, each figure with its source and page); sector P/E and P/B come from **Aswath Damodaran's European industry averages**. The founder holds none of the nine stocks. Details: `docs/demo-mode-plan.md`; our first-pass review: `docs/legal/demo-data-licensing-review.md`.
+
+### Questions
+
+- **D-1. Free plan in a demo.** May EODHD free-plan (or low-tier personal-plan) end-of-day data be shown in an **invite-only, non-paying demo** to testers, and later to crowdfunding backers? If not, which plan allows it?
+- **D-2. Storage.** May that data be stored in a private GitHub repository and read by a hosting provider (Streamlit Community Cloud) to run the demo?
+- **D-3. Benchmark line.** The demo shows a benchmark line derived from EURO STOXX 50 index levels (the value of the same euros invested in the index). Is that "display" of index data under STOXX's or EODHD's terms (see question 7 of our EODHD list)? Is an ETF price (VWCE) a safer basis?
+- **D-4. Third-party averages.** May a product, free now and paid later, use Aswath Damodaran's published industry multiples with attribution, given that he builds them from commercial vendors' data?
+
+| Fact | Answer |
+|---|---|
+| EODHD plan and its terms as of the demo's start (saved as PDF with the date) | [Sven] |

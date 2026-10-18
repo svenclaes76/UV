@@ -91,3 +91,22 @@ Export to PDF with version and date.
 4. [`docs/stock_valuation_algorithm.md`](../../stock_valuation_algorithm.md) and [`docs/portfolio_risk_assessment_algorithm.md`](../../portfolio_risk_assessment_algorithm.md)
 5. Screenshots: Dashboard (Holdings with the Model signal column), Screener, Analysis (stock page with signal, provenance and founder notice), Portfolio, Risk
 6. Optional: our internal first-pass [signal label review](../../legal/signal-label-review.md)
+
+---
+
+## Demo addendum (18 Oct 2026)
+
+Uvalu now also runs as a **demo**: the same app on a fixed set of **9 European stocks and 1 ETF** (AB InBev, KBC, ASML, SAP, LVMH, TotalEnergies, Nestlé, Novo Nordisk, Shell; VWCE), with a **fictional sample portfolio** each visitor can change for the length of their session. There is **no account and no sign-in to Uvalu**. It runs on **Streamlit Community Cloud** (Snowflake Inc., USA), **invite-only** at first: viewers sign in to Streamlit with the email address the founder invited. Later it may be shown to **crowdfunding backers** the founder doesn't know. Prices are **EODHD end-of-day closes (free plan)**, refreshed each weekday evening; fundamentals are **hand-entered from the companies' annual reports** (FY2023–2025, each figure with its source and page); sector P/E and P/B come from **Aswath Damodaran's European industry averages**. The founder holds none of the nine stocks. Details: `docs/demo-mode-plan.md`; our first-pass review: `docs/legal/demo-financial-regulation-review.md`.
+
+### Questions
+
+- **D-1. Audience.** Does showing the demo's model signals on nine named, widely held stocks to crowdfunding backers the founder doesn't know make them investment recommendations distributed to the public (art. 3(1)(35) MAR), where the invite-only beta for acquaintances might not be? Please answer this together with question 1 (L3).
+- **D-2. Presentation.** Composite scores in the demo are percentile ranks among only nine stocks, and the fundamentals are up to ten months old (dated "as of 31 Dec 2025"). Is that objective presentation under art. 3 of Delegated Regulation 2016/958 with the notes we show, or does it need more?
+- **D-3. Crowdfunding.** If we raise money through **equity or lending crowdfunding** (Regulation (EU) 2020/1503) or another offer of shares in Uvalu, does a live demo with model signals become a marketing communication for that offer (art. 27 ECSP)? What may and may not be said about the models in campaign material? And if the campaign is **reward-based** (pre-orders), does any financial-services rule still apply?
+- **D-4. No acknowledgement.** Demo visitors don't confirm the "no personal advice" notice that beta users confirm. Is the notice on every screen ("not investment advice") and the footer disclaimer enough?
+- **D-5. Producer identity.** Is the founder's home address on the legal pages acceptable for a demo shown to strangers, or must the KBO registration and a business address (question 5, L4) come first?
+
+| Fact | Answer |
+|---|---|
+| Crowdfunding type (reward, equity, lending) and platform | [Sven] |
+| Expected number of backers who will see the demo | [Sven] |

@@ -4,7 +4,7 @@ One list of what is still open, so nothing has to be rediscovered. Tick an
 item off by deleting it (git history keeps it) and add new ones under the
 right heading with a date and a trigger: *when* it has to be done.
 
-Last updated: 17 October 2026.
+Last updated: 18 October 2026.
 
 The items whose trigger is "inviting anyone you don't know personally" are put in order in
 [before-strangers-plan.md](before-strangers-plan.md).
@@ -78,6 +78,21 @@ must be confirmed by an ITAA accountant.
 | L29 | **stockanalysis.com as a source** (exchange expansion plan, 17 October 2026): the ticker lists are scraped from it, but it isn't named on the Data sources page. Check its terms of use, and list it as a source or replace it (EODHD's symbol lists). | Medium | Release 2 of the exchange expansion | Founder |
 | L30 | **Withholding defaults per country** ([exchange-expansion-plan.md](exchange-expansion-plan.md) §5b, P11): tax advisor checks the statutory rates and the EPV tax rule for offshore registrations; this is the TAX-7 review for the new feature. | Medium | Release 2 of the exchange expansion | Accountant |
 | L31 | **Done 17 October 2026:** the 15 exchanges, index constituents and names, symbol lists with ISIN, and quote/reporting currencies are in the L20 question list ([data-licensing-review.md](legal/data-licensing-review.md) appendix, questions 1, 2, 8–10). Sending it is L20. | — | — | Founder |
+
+From the three demo reviews of 18 October 2026 ([financial regulation](legal/demo-financial-regulation-review.md), [privacy and consumer law](legal/demo-privacy-consumer-review.md), [data licensing](legal/demo-data-licensing-review.md)). Demo questions for the lawyers are in the briefing packs' demo addenda. L3 and L4 also gate the demo: **before crowdfunding backers see it**.
+
+| # | Item | Risk | Do it before | Who |
+| --- | --- | --- | --- | --- |
+| L32 | **Founder holdings in the demo:** the demo workspace starts with an empty founder-holdings file, so a later purchase of one of the 9 demo stocks wouldn't show the conflict notice the conflicts page promises within 2 business days. Load the file into the demo snapshot, or check the demo universe against it in the refresh job. | Medium | Testers | Dev |
+| L33 | **Crowdfunding type and campaign material:** equity or lending crowdfunding makes the demo part of the marketing of an investment offer (art. 27 ECSP); reward-based leaves consumer law. Decide the type, then ask with L3 (briefing 01, D-3). No backtests or model-success stories in campaign material. | Unclear, possibly high | Preparing any campaign material | Founder + lawyer |
+| L34 | **Streamlit usage statistics off:** `browser.gatherUsageStats` isn't set, so visitors' browsers send usage statistics to Streamlit (both modes); set it to false in `.streamlit/config.toml`. | Medium | Testers | Dev |
+| L35 | **Demo logs:** point the demo's file log into the workspace (it writes to the repo's `logs/` today) and reword the demo notice's "31 days" (Streamlit keeps the hosting log under its own policy). | Low–medium | Testers | Dev |
+| L36 | **Viewer list:** every invited viewer can see the last 20 viewers' email addresses. Say so in the invitation; keep the group small; consider a public app with an access code later (briefing 02, D-2). | Medium | Inviting testers | Founder |
+| L37 | **Demo terms of use:** a one-page `policies/demo/terms-of-use.md` (what the demo is, not advice, liability, permitted use, adults in the EEA), picked first in demo mode. | Low–medium | Testers | Founder + dev |
+| L38 | **EODHD free plan in the demo, in writing:** display to testers and backers, and storage on GitHub and the host (part of L20, DM-D2; briefing 03, D-1, D-2). Until then: testers you know only. | Medium; medium–high for backers | Testers you don't know; backers | Founder |
+| L39 | **EURO STOXX 50 benchmark line in the demo:** ask with L20 question 7 whether the derived line counts as display (L21); VWCE is the drop-in fallback (DM-D16). | Medium | Backers | Founder |
+| L40 | **Damodaran's industry multiples:** email to ask whether a commercial product may use them with attribution; file the answer next to `demo-data/reference/sector_multiples.json`. | Low (demo); must be settled for paid use | Paid use | Founder |
+
 
 ## Valuation model
 
