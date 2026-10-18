@@ -1,0 +1,76 @@
+{
+  "ticker": "SHEL.L",
+  "company": "Shell plc",
+  "reporting_currency": "USD",
+  "dividend_currency": "USD",
+  "fiscal_year_end": "12-31",
+  "entered_on": "2026-10-18",
+  "sources": {
+    "q425": {
+      "title": "Shell plc Unaudited Condensed Financial Report, fourth quarter and full year 2025 (SEC Form 6-K, exhibit 99.2, 5 February 2026); pages as printed",
+      "url": "https://www.sec.gov/Archives/edgar/data/1306965/000162828026005600/q42025exhibit992.htm",
+      "published": "2026-02-05"
+    },
+    "q424": {
+      "title": "Shell plc Unaudited Condensed Interim Financial Report, fourth quarter and full year 2024 (SEC Form 6-K, exhibit 99.2, 30 January 2025); pages as printed",
+      "url": "https://www.sec.gov/Archives/edgar/data/1306965/000130696525000003/q42024exhibit992.htm",
+      "published": "2025-01-30"
+    }
+  },
+  "years": [
+    {
+      "fiscal_year": 2025,
+      "revenue":              {"value": 266886, "source": "q425", "page": "17"},
+      "ebit":                 {"value": 34427, "source": "q425", "page": "17", "note": "No operating-profit line in Shell's statement: income before taxation 29,756 + interest expense 4,671"},
+      "net_income":           {"value": 17838, "source": "q425", "page": "17", "note": "Income attributable to Shell plc shareholders"},
+      "eps_basic":            {"value": 3.03, "source": "q425", "page": "17"},
+      "shares_weighted":      {"value": 5890.8, "source": "q425", "page": "32", "note": "Weighted average number of shares, basic"},
+      "cfo":                  {"value": 42863, "source": "q425", "page": "21"},
+      "capex":                {"value": 18947, "source": "q425", "page": "21", "note": "Capital expenditure (cash flow statement)"},
+      "total_assets":         {"value": 370351, "source": "q425", "page": "19"},
+      "equity":               {"value": 174392, "source": "q425", "page": "19", "note": "Equity attributable to Shell plc shareholders"},
+      "total_debt":           {"value": 75643, "source": "q425", "page": "19", "note": "Debt, non-current 66,515 + current 9,128"},
+      "cash":                 {"value": 30216, "source": "q425", "page": "19"},
+      "current_assets":       {"value": 107173, "source": "q425", "page": "19", "note": "Current assets including assets classified as held for sale"},
+      "current_liabilities":  {"value": 82415, "source": "q425", "page": "19", "note": "Current liabilities including liabilities associated with assets held for sale"},
+      "interest_expense":     {"value": 4671, "source": "q425", "page": "17"},
+      "dps":                  {"value": 1.446, "source": "q425", "page": "2", "note": "Dividends declared in USD"}
+    },
+    {
+      "fiscal_year": 2024,
+      "revenue":              {"value": 284312, "source": "q425", "page": "17"},
+      "ebit":                 {"value": 34709, "source": "q425", "page": "17", "note": "No operating-profit line in Shell's statement: income before taxation 29,922 + interest expense 4,787"},
+      "net_income":           {"value": 16094, "source": "q425", "page": "17", "note": "Income attributable to Shell plc shareholders"},
+      "eps_basic":            {"value": 2.55, "source": "q425", "page": "17"},
+      "shares_weighted":      {"value": 6299.6, "source": "q425", "page": "32", "note": "Weighted average number of shares, basic"},
+      "cfo":                  {"value": 54687, "source": "q425", "page": "21"},
+      "capex":                {"value": 19601, "source": "q425", "page": "21", "note": "Capital expenditure (cash flow statement)"},
+      "total_assets":         {"value": 387609, "source": "q425", "page": "19"},
+      "equity":               {"value": 178307, "source": "q425", "page": "19", "note": "Equity attributable to Shell plc shareholders"},
+      "total_debt":           {"value": 77078, "source": "q425", "page": "19", "note": "Debt, non-current 65,448 + current 11,630"},
+      "cash":                 {"value": 39110, "source": "q425", "page": "19"},
+      "current_assets":       {"value": 127926, "source": "q425", "page": "19", "note": "Current assets including assets classified as held for sale"},
+      "current_liabilities":  {"value": 95034, "source": "q425", "page": "19", "note": "Current liabilities including liabilities associated with assets held for sale"},
+      "interest_expense":     {"value": 4787, "source": "q425", "page": "17"},
+      "dps":                  {"value": 1.39, "source": "q425", "page": "2", "note": "Dividends declared in USD"}
+    },
+    {
+      "fiscal_year": 2023,
+      "revenue":              {"value": 316620, "source": "q424", "page": "16"},
+      "ebit":                 {"value": 37300, "source": "q424", "page": "16", "note": "No operating-profit line in Shell's statement: income before taxation 32,627 + interest expense 4,673"},
+      "net_income":           {"value": 19359, "source": "q424", "page": "16", "note": "Income attributable to Shell plc shareholders"},
+      "eps_basic":            {"value": 2.88, "source": "q424", "page": "16"},
+      "shares_weighted":      {"value": 6733.5, "source": "q424", "page": "25", "note": "Weighted average number of shares, basic"},
+      "cfo":                  {"value": 54191, "source": "q424", "page": "20"},
+      "capex":                {"value": 22993, "source": "q424", "page": "20", "note": "Capital expenditure (cash flow statement)"},
+      "total_assets":         {"value": 406270, "source": "q424", "page": "18"},
+      "equity":               {"value": 186607, "source": "q424", "page": "18", "note": "Equity attributable to Shell plc shareholders"},
+      "total_debt":           {"value": 81541, "source": "q424", "page": "18", "note": "Debt, non-current 71,610 + current 9,931"},
+      "cash":                 {"value": 38774, "source": "q424", "page": "18"},
+      "current_assets":       {"value": 134115, "source": "q424", "page": "18", "note": "Current assets including assets classified as held for sale"},
+      "current_liabilities":  {"value": 95467, "source": "q424", "page": "18", "note": "Current liabilities including liabilities associated with assets held for sale"},
+      "interest_expense":     {"value": 4673, "source": "q424", "page": "16"},
+      "dps":                  {"value": 1.2935, "source": "q424", "page": "2", "note": "Dividends declared in USD"}
+    }
+  ]
+}

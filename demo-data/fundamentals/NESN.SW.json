@@ -1,0 +1,82 @@
+{
+  "ticker": "NESN.SW",
+  "company": "Nestlé S.A.",
+  "reporting_currency": "CHF",
+  "dividend_currency": "CHF",
+  "fiscal_year_end": "12-31",
+  "entered_on": "2026-10-18",
+  "sources": {
+    "fs25": {
+      "title": "Consolidated Financial Statements of the Nestlé Group 2025 (19 February 2026); pages as printed",
+      "url": "https://www.nestle.com/sites/default/files/2026-02/financial-statements-2025-en.pdf",
+      "published": "2026-02-19"
+    },
+    "fs24": {
+      "title": "Consolidated Financial Statements of the Nestlé Group 2024 (February 2025); pages as printed",
+      "url": "https://www.nestle.com/sites/default/files/2025-02/financial-statements-2024-en.pdf",
+      "published": "2025-02-13"
+    }
+  },
+  "years": [
+    {
+      "fiscal_year": 2025,
+      "revenue":              {"value": 89490, "source": "fs25", "page": "80", "note": "Sales"},
+      "ebit":                 {"value": 12277, "source": "fs25", "page": "80", "note": "Operating profit"},
+      "ebit_normalized":      {"value": 12675, "source": "fs25", "page": "80", "note": "Trading operating profit"},
+      "net_income":           {"value": 9033, "source": "fs25", "page": "80"},
+      "eps_basic":            {"value": 3.51, "source": "fs25", "page": "80"},
+      "shares_weighted":      {"value": 2573, "source": "fs25", "page": "153"},
+      "cfo":                  {"value": 15904, "source": "fs25", "page": "84", "note": "Operating cash flow"},
+      "capex":                {"value": 4911, "source": "fs25", "page": "84", "note": "Capital expenditure 4,527 + expenditure on intangible assets 384"},
+      "total_assets":         {"value": 127151, "source": "fs25", "page": "82"},
+      "equity":               {"value": 32810, "source": "fs25", "page": "83"},
+      "retained_earnings":    {"value": 63551, "source": "fs25", "page": "83"},
+      "total_debt":           {"value": 57852, "source": "fs25", "page": "83", "note": "Financial debt, current 11,606 + non-current 46,246"},
+      "cash":                 {"value": 4579, "source": "fs25", "page": "82"},
+      "current_assets":       {"value": 31969, "source": "fs25", "page": "82"},
+      "current_liabilities":  {"value": 40694, "source": "fs25", "page": "83"},
+      "interest_expense":     {"value": 1683, "source": "fs25", "page": "104"},
+      "dps":                  {"value": 3.1, "source": "fs25", "page": "160", "note": "Proposed to the AGM of 16 April 2026"}
+    },
+    {
+      "fiscal_year": 2024,
+      "revenue":              {"value": 91354, "source": "fs25", "page": "80", "note": "Sales"},
+      "ebit":                 {"value": 14724, "source": "fs25", "page": "80", "note": "Operating profit"},
+      "ebit_normalized":      {"value": 14633, "source": "fs25", "page": "80", "note": "Trading operating profit"},
+      "net_income":           {"value": 10884, "source": "fs25", "page": "80"},
+      "eps_basic":            {"value": 4.19, "source": "fs25", "page": "80"},
+      "shares_weighted":      {"value": 2596, "source": "fs25", "page": "153"},
+      "cfo":                  {"value": 16675, "source": "fs25", "page": "84", "note": "Operating cash flow"},
+      "capex":                {"value": 5963, "source": "fs25", "page": "84", "note": "Capital expenditure 5,638 + expenditure on intangible assets 325"},
+      "total_assets":         {"value": 139264, "source": "fs25", "page": "82"},
+      "equity":               {"value": 35917, "source": "fs25", "page": "83"},
+      "retained_earnings":    {"value": 66363, "source": "fs25", "page": "83"},
+      "total_debt":           {"value": 63560, "source": "fs25", "page": "83", "note": "Financial debt, current 11,863 + non-current 51,697"},
+      "cash":                 {"value": 5556, "source": "fs25", "page": "82"},
+      "current_assets":       {"value": 35188, "source": "fs25", "page": "82"},
+      "current_liabilities":  {"value": 42863, "source": "fs25", "page": "83"},
+      "interest_expense":     {"value": 1700, "source": "fs25", "page": "104"},
+      "dps":                  {"value": 3.05, "source": "fs25", "page": "160"}
+    },
+    {
+      "fiscal_year": 2023,
+      "revenue":              {"value": 92998, "source": "fs24", "page": "80", "note": "Sales"},
+      "ebit":                 {"value": 14063, "source": "fs24", "page": "80", "note": "Operating profit"},
+      "ebit_normalized":      {"value": 14520, "source": "fs24", "page": "80", "note": "Trading operating profit"},
+      "net_income":           {"value": 11209, "source": "fs24", "page": "80"},
+      "eps_basic":            {"value": 4.24, "source": "fs24", "page": "80"},
+      "shares_weighted":      {"value": 2646, "source": "fs24", "page": "150"},
+      "cfo":                  {"value": 15941, "source": "fs24", "page": "84", "note": "Operating cash flow"},
+      "capex":                {"value": 6203, "source": "fs24", "page": "84", "note": "Capital expenditure 5,714 + expenditure on intangible assets 489"},
+      "total_assets":         {"value": 126550, "source": "fs24", "page": "82"},
+      "equity":               {"value": 35742, "source": "fs24", "page": "83"},
+      "retained_earnings":    {"value": 68261, "source": "fs24", "page": "83"},
+      "total_debt":           {"value": 55241, "source": "fs24", "page": "83", "note": "Financial debt, current 9,416 + non-current 45,825"},
+      "cash":                 {"value": 4816, "source": "fs24", "page": "82"},
+      "current_assets":       {"value": 30857, "source": "fs24", "page": "82"},
+      "current_liabilities":  {"value": 37084, "source": "fs24", "page": "83"},
+      "interest_expense":     {"value": 1500, "source": "fs24", "page": "102"},
+      "dps":                  {"value": 3.0, "source": "fs24", "page": "157"}
+    }
+  ]
+}

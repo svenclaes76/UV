@@ -1,0 +1,83 @@
+{
+  "ticker": "ASML.AS",
+  "company": "ASML Holding N.V.",
+  "reporting_currency": "EUR",
+  "dividend_currency": "EUR",
+  "fiscal_year_end": "12-31",
+  "entered_on": "2026-10-18",
+  "sources": {
+    "q425": {
+      "title": "ASML Summary US GAAP Financial Statements Q4 2025 (SEC Form 6-K, exhibit 99.3, 28 January 2026); pages as printed",
+      "url": "https://www.sec.gov/Archives/edgar/data/937966/000162828026003701/financialstatementsusgaa.htm",
+      "published": "2026-01-28"
+    },
+    "pr25": {
+      "title": "ASML reports €32.7 billion total net sales for 2025 (press release, SEC Form 6-K, exhibit 99.1, 28 January 2026)",
+      "url": "https://www.sec.gov/Archives/edgar/data/937966/000162828026003701/pressreleasefinancialresul.htm",
+      "published": "2026-01-28"
+    },
+    "q424": {
+      "title": "ASML Summary US GAAP Financial Statements Q4 2024 (SEC Form 6-K, exhibit 99.3, 29 January 2025); pages = page order in the exhibit",
+      "url": "https://www.sec.gov/Archives/edgar/data/937966/000093796625000003/financialstatementsusgaapq.htm",
+      "published": "2025-01-29"
+    },
+    "pr24": {
+      "title": "ASML Q4 2024 results press release (SEC Form 6-K, exhibit 99.1, 29 January 2025)",
+      "url": "https://www.sec.gov/Archives/edgar/data/937966/000093796625000003/pressreleasequarterlyresul.htm",
+      "published": "2025-01-29"
+    }
+  },
+  "years": [
+    {
+      "fiscal_year": 2025,
+      "revenue":              {"value": 32667.3, "source": "q425", "page": "2"},
+      "ebit":                 {"value": 11301.4, "source": "q425", "page": "2", "note": "Income from operations"},
+      "net_income":           {"value": 9609.4, "source": "q425", "page": "2"},
+      "eps_basic":            {"value": 24.73, "source": "q425", "page": "2"},
+      "shares_weighted":      {"value": 388.5, "source": "q425", "page": "2"},
+      "cfo":                  {"value": 12658.5, "source": "q425", "page": "5"},
+      "capex":                {"value": 1631.2, "source": "q425", "page": "5", "note": "Purchase of property, plant and equipment 1,573.6 + purchase of intangible assets 57.6"},
+      "total_assets":         {"value": 50566.6, "source": "q425", "page": "4"},
+      "equity":               {"value": 19612.2, "source": "q425", "page": "4", "note": "Total shareholders' equity"},
+      "total_debt":           {"value": 2709.0, "source": "q425", "page": "4", "note": "Long-term debt; the current portion isn't shown separately in the summary statements"},
+      "cash":                 {"value": 12916.0, "source": "q425", "page": "4"},
+      "current_assets":       {"value": 30616.1, "source": "q425", "page": "4"},
+      "current_liabilities":  {"value": 24263.9, "source": "q425", "page": "4"},
+      "dps":                  {"value": 7.5, "source": "pr25", "page": "2", "note": "Total dividend intended for the year 2025"}
+    },
+    {
+      "fiscal_year": 2024,
+      "revenue":              {"value": 28262.9, "source": "q425", "page": "2"},
+      "ebit":                 {"value": 9022.6, "source": "q425", "page": "2", "note": "Income from operations"},
+      "net_income":           {"value": 7571.6, "source": "q425", "page": "2"},
+      "eps_basic":            {"value": 19.25, "source": "q425", "page": "2"},
+      "shares_weighted":      {"value": 393.3, "source": "q425", "page": "2"},
+      "cfo":                  {"value": 11166.2, "source": "q425", "page": "5"},
+      "capex":                {"value": 2083.1, "source": "q425", "page": "5", "note": "Purchase of property, plant and equipment 2,067.2 + purchase of intangible assets 15.9"},
+      "total_assets":         {"value": 48589.6, "source": "q425", "page": "4"},
+      "equity":               {"value": 18476.8, "source": "q425", "page": "4", "note": "Total shareholders' equity"},
+      "total_debt":           {"value": 3677.3, "source": "q425", "page": "4", "note": "Long-term debt; the current portion isn't shown separately in the summary statements"},
+      "cash":                 {"value": 12735.9, "source": "q425", "page": "4"},
+      "current_assets":       {"value": 30737.4, "source": "q425", "page": "4"},
+      "current_liabilities":  {"value": 20051.4, "source": "q425", "page": "4"},
+      "dps":                  {"value": 6.4, "source": "pr24", "page": "2", "note": "Total dividend intended for the year 2024"}
+    },
+    {
+      "fiscal_year": 2023,
+      "revenue":              {"value": 27558.5, "source": "q424", "page": "1"},
+      "ebit":                 {"value": 9042.3, "source": "q424", "page": "1", "note": "Income from operations"},
+      "net_income":           {"value": 7839.0, "source": "q424", "page": "1"},
+      "eps_basic":            {"value": 19.91, "source": "q424", "page": "1"},
+      "shares_weighted":      {"value": 393.8, "source": "q424", "page": "1"},
+      "cfo":                  {"value": 5443.4, "source": "q424", "page": "3"},
+      "capex":                {"value": 2196.2, "source": "q424", "page": "3", "note": "Purchase of property, plant and equipment 2,155.6 + purchase of intangible assets 40.6"},
+      "total_assets":         {"value": 39957.5, "source": "q424", "page": "2"},
+      "equity":               {"value": 13452.4, "source": "q424", "page": "2", "note": "Total shareholders' equity"},
+      "total_debt":           {"value": 4631.5, "source": "q424", "page": "2", "note": "Long-term debt; the current portion isn't shown separately in the summary statements"},
+      "cash":                 {"value": 7004.7, "source": "q424", "page": "2"},
+      "current_assets":       {"value": 24393.9, "source": "q424", "page": "2"},
+      "current_liabilities":  {"value": 16274.7, "source": "q424", "page": "2"},
+      "dps":                  {"value": 6.1, "source": "pr24", "page": "2", "note": "Not stated directly: the 2024 dividend of €6.40 is described as a 4.9% increase on 2023"}
+    }
+  ]
+}

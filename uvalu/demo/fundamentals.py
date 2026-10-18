@@ -15,6 +15,7 @@ File shape (``template()`` writes an empty one):
       "reporting_currency": "USD",        currency of the statements
       "dividend_currency": "EUR",         currency the dividend is declared in
       "fiscal_year_end": "12-31",         MM-DD
+      "statement_type": "bank",           optional; "industrial" when left out
       "entered_on": "2026-10-18",         when this file was last checked
       "sources": {"fy25": {"title": ..., "url": ..., "published": "2026-02-12"}},
       "years": [                          newest first, 3 or more
@@ -67,6 +68,14 @@ FIELDS: dict[str, tuple[bool, str]] = {
 
 TOP_KEYS = ("ticker", "company", "reporting_currency", "dividend_currency",
             "fiscal_year_end", "entered_on", "sources", "years")
+OPTIONAL_TOP_KEYS = ("statement_type",)
+
+# A bank's statements have no operating profit, current assets or liabilities,
+# capex or meaningful operating cash flow; with "statement_type": "bank" these
+# become optional. Revenue is the bank's total income.
+STATEMENT_TYPES = ("industrial", "bank")
+BANK_OPTIONAL = frozenset({"ebit", "cfo", "capex", "total_debt", "cash",
+                           "current_assets", "current_liabilities", "interest_expense"})
 
 _ISO_CCY = re.compile(r"^[A-Z]{3}$")
 _MMDD = re.compile(r"^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
@@ -122,8 +131,11 @@ def validate(doc: dict, *, file_ticker: "str | None" = None) -> list[Problem]:
         if k not in doc:
             err(k, "missing")
     for k in doc:
-        if k not in TOP_KEYS:
+        if k not in TOP_KEYS and k not in OPTIONAL_TOP_KEYS:
             warn(k, "unknown key")
+    kind = doc.get("statement_type", "industrial")
+    if kind not in STATEMENT_TYPES:
+        err("statement_type", f"expected one of: {', '.join(STATEMENT_TYPES)}")
 
     ticker = doc.get("ticker")
     if ticker not in universe.STOCKS:
@@ -165,6 +177,7 @@ def validate(doc: dict, *, file_ticker: "str | None" = None) -> list[Problem]:
             if k != "fiscal_year" and k not in FIELDS:
                 warn(f"{w}.{k}", "unknown field")
         for name, (required, _desc) in FIELDS.items():
+            required = required and not (kind == "bank" and name in BANK_OPTIONAL)
             entry = y.get(name)
             if entry is None:
                 if required:

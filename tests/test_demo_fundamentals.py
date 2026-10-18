@@ -68,6 +68,18 @@ def test_optional_fields_may_be_null():
     assert _errors(doc) == []
 
 
+def test_bank_statements_skip_industrial_fields():
+    def as_bank(d):
+        d["statement_type"] = "bank"
+        for y in d["years"]:
+            for f in ("ebit", "cfo", "capex", "current_assets", "current_liabilities"):
+                y.pop(f)
+    assert _errors(_mutated(as_bank)) == []
+    industrial = _mutated(lambda d: d["years"][0].pop("cfo"))
+    assert any(p.where == "years[0].cfo" for p in _errors(industrial))
+    assert any(p.where == "statement_type" for p in _errors(_mutated(lambda d: d.update(statement_type="insurer"))))
+
+
 def test_small_eps_gap_is_only_a_warning():
     doc = _mutated(lambda d: d["years"][0]["eps_basic"].update(value=3.55))   # ~3% off
     problems = fundamentals.validate(doc)

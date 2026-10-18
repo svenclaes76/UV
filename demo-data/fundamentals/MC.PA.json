@@ -1,0 +1,74 @@
+{
+  "ticker": "MC.PA",
+  "company": "LVMH Moët Hennessy Louis Vuitton SE",
+  "reporting_currency": "EUR",
+  "dividend_currency": "EUR",
+  "fiscal_year_end": "12-31",
+  "entered_on": "2026-10-18",
+  "sources": {
+    "fd25": {
+      "title": "LVMH Financial Documents - December 31, 2025 (27 January 2026); pages as printed",
+      "url": "https://lvmh-com.cdn.prismic.io/lvmh-com/aXjqHgIvOtkhB_8I_Financialdocuments-December31%2C2025.pdf",
+      "published": "2026-01-27"
+    }
+  },
+  "years": [
+    {
+      "fiscal_year": 2025,
+      "revenue":              {"value": 80807, "source": "fd25", "page": "22"},
+      "ebit":                 {"value": 17099, "source": "fd25", "page": "22", "note": "Operating profit"},
+      "ebit_normalized":      {"value": 17755, "source": "fd25", "page": "22", "note": "Profit from recurring operations"},
+      "net_income":           {"value": 10878, "source": "fd25", "page": "22", "note": "Net profit, Group share"},
+      "eps_basic":            {"value": 21.86, "source": "fd25", "page": "22"},
+      "shares_weighted":      {"value": 497.65, "source": "fd25", "page": "22", "note": "Number of shares on which the basic calculation is based, in millions (497,650,238)"},
+      "cfo":                  {"value": 18874, "source": "fd25", "page": "26"},
+      "capex":                {"value": 4567, "source": "fd25", "page": "26", "note": "Operating investments"},
+      "total_assets":         {"value": 142037, "source": "fd25", "page": "24"},
+      "equity":               {"value": 67472, "source": "fd25", "page": "24", "note": "Equity, Group share"},
+      "total_debt":           {"value": 20343, "source": "fd25", "page": "24", "note": "Long-term borrowings 12,418 + short-term borrowings 7,925"},
+      "cash":                 {"value": 8794, "source": "fd25", "page": "24"},
+      "current_assets":       {"value": 48179, "source": "fd25", "page": "24"},
+      "current_liabilities":  {"value": 30416, "source": "fd25", "page": "24"},
+      "interest_expense":     {"value": 348, "source": "fd25", "page": "22", "note": "Cost of net financial debt (net of income on cash)"},
+      "dps":                  {"value": 13.0, "source": "fd25", "page": "3", "note": "Proposed to the Shareholders' Meeting of 23 April 2026, including the interim dividend paid in December 2025"}
+    },
+    {
+      "fiscal_year": 2024,
+      "revenue":              {"value": 84683, "source": "fd25", "page": "22"},
+      "ebit":                 {"value": 18907, "source": "fd25", "page": "22", "note": "Operating profit"},
+      "ebit_normalized":      {"value": 19571, "source": "fd25", "page": "22", "note": "Profit from recurring operations"},
+      "net_income":           {"value": 12550, "source": "fd25", "page": "22", "note": "Net profit, Group share"},
+      "eps_basic":            {"value": 25.13, "source": "fd25", "page": "22"},
+      "shares_weighted":      {"value": 499.41, "source": "fd25", "page": "22", "note": "Number of shares on which the basic calculation is based, in millions (499,412,515)"},
+      "cfo":                  {"value": 18924, "source": "fd25", "page": "26"},
+      "capex":                {"value": 5531, "source": "fd25", "page": "26", "note": "Operating investments"},
+      "total_assets":         {"value": 149190, "source": "fd25", "page": "24"},
+      "equity":               {"value": 67517, "source": "fd25", "page": "24", "note": "Equity, Group share"},
+      "total_debt":           {"value": 22942, "source": "fd25", "page": "24", "note": "Long-term borrowings 12,091 + short-term borrowings 10,851"},
+      "cash":                 {"value": 9631, "source": "fd25", "page": "24"},
+      "current_assets":       {"value": 47471, "source": "fd25", "page": "24"},
+      "current_liabilities":  {"value": 33696, "source": "fd25", "page": "24"},
+      "interest_expense":     {"value": 442, "source": "fd25", "page": "22", "note": "Cost of net financial debt (net of income on cash)"},
+      "dps":                  {"value": 13.0, "source": "fd25", "page": "3"}
+    },
+    {
+      "fiscal_year": 2023,
+      "revenue":              {"value": 86153, "source": "fd25", "page": "22"},
+      "ebit":                 {"value": 22560, "source": "fd25", "page": "22", "note": "Operating profit"},
+      "ebit_normalized":      {"value": 22802, "source": "fd25", "page": "22", "note": "Profit from recurring operations"},
+      "net_income":           {"value": 15174, "source": "fd25", "page": "22", "note": "Net profit, Group share"},
+      "eps_basic":            {"value": 30.34, "source": "fd25", "page": "22"},
+      "shares_weighted":      {"value": 500.06, "source": "fd25", "page": "22", "note": "Number of shares on which the basic calculation is based, in millions (500,056,586)"},
+      "cfo":                  {"value": 18400, "source": "fd25", "page": "26"},
+      "capex":                {"value": 7478, "source": "fd25", "page": "26", "note": "Operating investments"},
+      "total_assets":         {"value": 143694, "source": "fd25", "page": "24"},
+      "equity":               {"value": 61017, "source": "fd25", "page": "24", "note": "Equity, Group share"},
+      "total_debt":           {"value": 21907, "source": "fd25", "page": "24", "note": "Long-term borrowings 11,227 + short-term borrowings 10,680"},
+      "cash":                 {"value": 7774, "source": "fd25", "page": "24"},
+      "current_assets":       {"value": 43710, "source": "fd25", "page": "24"},
+      "current_liabilities":  {"value": 33145, "source": "fd25", "page": "24"},
+      "interest_expense":     {"value": 367, "source": "fd25", "page": "22", "note": "Cost of net financial debt (net of income on cash)"},
+      "dps":                  {"value": 13.0, "source": "fd25", "page": "3"}
+    }
+  ]
+}
