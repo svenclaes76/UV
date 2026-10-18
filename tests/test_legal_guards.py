@@ -206,7 +206,7 @@ class TestFooter:
         # INT-5/6 moved to the Terms (test below); the footer stays short.
         assert "Not directed at residents" not in md
 
-    @pytest.mark.parametrize("terms", ["beta/terms-of-use.md", "terms-of-use.md"])
+    @pytest.mark.parametrize("terms", ["beta/terms-of-use.md", "terms-of-use.md", "demo/terms-of-use.md"])
     def test_terms_state_the_service_is_not_directed_at_uk_us_ch(self, terms):
         """INT-5 / INT-6: the Terms of use say the service is not directed at
         UK, US or Swiss residents (removed from the footer, Oct 4 2026)."""

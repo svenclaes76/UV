@@ -3126,14 +3126,18 @@ def strip_analyst_fields(data):
     return data
 
 
-def load_founder_holdings(path: Path = FOUNDER_HOLDINGS_FILE) -> frozenset:
+def load_founder_holdings(path: "Path | None" = None) -> frozenset:
     """REC-8: the tickers the founder holds a position in, at any size, for the
     `founder_holds` disclosure flag. The file is kept by hand and updated with
     each personal trade in a covered stock (see the conflicts of interest
     policy): {"updated": "YYYY-MM-DD", "tickers": ["ABI.BR", ...]}.
 
     A missing file means "no positions". A file that exists but can't be read
-    raises: silently showing no disclosure would be a false statement."""
+    raises: silently showing no disclosure would be a false statement.
+
+    ``path`` defaults to FOUNDER_HOLDINGS_FILE read at call time, so the demo
+    workspace's redirect applies (uvalu/demo/workspace.py, L32)."""
+    path = Path(path) if path is not None else FOUNDER_HOLDINGS_FILE
     if not path.exists():
         return frozenset()
     data = json.loads(path.read_text(encoding="utf-8"))

@@ -118,6 +118,19 @@ def _redirect(root: Path) -> None:
     _set(fx, "_currencies", None)
 
 
+def _install_founder_holdings(src: Path, personal: Path) -> None:
+    """The founder's positions in the demo (conflicts policy, open item L32):
+    the committed demo-data/compliance/founder_holdings.json, plus the
+    personal file when it exists on this machine, so a local demo run can't
+    miss a holding the personal app discloses. Written to the redirected
+    screener.FOUNDER_HOLDINGS_FILE; an unreadable file raises, as in the app."""
+    import screener
+    tickers = set(screener.load_founder_holdings(Path(src) / "compliance" / "founder_holdings.json"))
+    tickers |= set(screener.load_founder_holdings(personal))
+    screener.FOUNDER_HOLDINGS_FILE.write_text(
+        json.dumps({"updated": date.today().isoformat(), "tickers": sorted(tickers)}), encoding="utf-8")
+
+
 def _fx_http_get(snap):
     """A stand-in for fx._http_get answering frankfurter's two request
     shapes from the snapshot's ECB rates."""
@@ -193,9 +206,13 @@ def activate(src: "Path | None" = None) -> Workspace:
         os.environ.setdefault("ENCRYPTION_KEY", secrets.token_urlsafe(32))
         os.environ.setdefault("AUTH_SECRET", secrets.token_urlsafe(32))
         root = Path(tempfile.mkdtemp(prefix="uvalu-demo-"))
-        snap = snapshot.load(src or datamode.DEMO_DATA_DIR)
+        src = Path(src or datamode.DEMO_DATA_DIR)
+        snap = snapshot.load(src)
         rows = rows_mod.build_all(snap)
+        import screener
+        personal_holdings = screener.FOUNDER_HOLDINGS_FILE
         _redirect(root)
+        _install_founder_holdings(src, personal_holdings)
         # A fresh data folder at the current schema, as run_app.py does in
         # production before Streamlit starts (VM-08/VM-09).
         from uvalu import migrations

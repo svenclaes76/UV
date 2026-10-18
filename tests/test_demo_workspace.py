@@ -91,6 +91,11 @@ def test_no_loaded_module_still_points_at_the_repo_data(ws):
         for attr, val in vars(mod).items():
             if isinstance(val, Path) and any(val == d or d in val.parents for d in repo_data):
                 offenders.append(f"{name}.{attr}")
+            # A default argument is bound when the module loads, so a redirect
+            # never reaches it (the L32 founder-holdings bug).
+            for default in (getattr(val, "__defaults__", None) or ()):
+                if isinstance(default, Path) and any(default == d or d in default.parents for d in repo_data):
+                    offenders.append(f"{name}.{attr}() default")
     assert offenders == []
 
 
@@ -111,6 +116,35 @@ def test_reset_restores_the_personal_paths(tmp_path, monkeypatch, no_network):
 def test_throwaway_secrets_are_set(ws):
     import os
     assert os.environ.get("ENCRYPTION_KEY") and os.environ.get("AUTH_SECRET")
+
+
+def test_founder_holdings_reach_the_demo(tmp_path, monkeypatch, no_network):
+    """L32: the committed demo file and the personal file both count."""
+    import screener
+    src = tmp_path / "demo-data"
+    _write_snapshot(src)
+    (src / "compliance").mkdir()
+    (src / "compliance" / "founder_holdings.json").write_text(json.dumps({"tickers": ["ASML.AS"]}))
+    personal = tmp_path / "personal_holdings.json"
+    personal.write_text(json.dumps({"updated": "2026-10-18", "tickers": ["SHEL.L"]}))
+    monkeypatch.setattr(screener, "FOUNDER_HOLDINGS_FILE", personal)
+    monkeypatch.setenv(datamode.ENV_VAR, "demo")
+    try:
+        workspace.activate(src)
+        assert screener.load_founder_holdings() == {"ASML.AS", "SHEL.L"}
+        from settings import ALL_EXCHANGES
+        from uvalu import data
+        u, _extra = data._build_all_screener_data(tuple(ALL_EXCHANGES))
+        held = set(u.loc[u["founder_holds"].astype(bool), "Ticker"]) if "founder_holds" in u.columns else set()
+        assert held == {"ASML.AS", "SHEL.L"}
+    finally:
+        workspace.reset_for_tests()
+
+
+def test_committed_demo_founder_file_is_valid():
+    import screener
+    held = screener.load_founder_holdings(ROOT / "demo-data" / "compliance" / "founder_holdings.json")
+    assert held <= set(universe.TICKERS)
 
 
 # ── offline stand-ins ────────────────────────────────────────────────────────

@@ -13,16 +13,16 @@ load_dotenv(Path(__file__).parent / ".env")
 # Logging must come up before anything else can want to log. init_logging() is
 # idempotent (a no-op after the first rerun in this process); begin_run() stamps
 # a fresh correlation id on every rerun (see uvalu/logkit/).
-from uvalu import logkit
-logkit.init_logging()
+from uvalu import datamode, logkit
+_DATA_MODE = datamode.current()
+# Demo mode keeps its log file out of the repo's logs/ folder (open item L35).
+logkit.init_logging(log_dir=None if _DATA_MODE.live_fetch else datamode.demo_log_dir())
 logkit.begin_run()
 
 import streamlit as st
 
 # Demo mode (docs/demo-mode-plan.md): a temporary workspace built from the
 # committed snapshot, set up once per process before anything reads data.
-from uvalu import datamode
-_DATA_MODE = datamode.current()
 if not _DATA_MODE.live_fetch:
     from uvalu.demo import workspace as _demo_ws
     _demo_ws.activate()

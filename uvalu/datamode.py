@@ -81,3 +81,11 @@ def current() -> DataMode:
 
 def is_demo() -> bool:
     return current().key == DEMO.key
+
+
+def demo_log_dir() -> Path:
+    """Where demo mode writes its log file: the system temp folder, never the
+    repo's logs/ (open item L35). Gone when a Community Cloud container
+    restarts; the host keeps its own console log under its policy."""
+    import tempfile
+    return Path(tempfile.gettempdir()) / "uvalu-demo"

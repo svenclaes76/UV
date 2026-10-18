@@ -1,7 +1,7 @@
 <!--
 Uvalu public legal page — DEMO version (demo-mode plan DM-5, docs/demo-mode-plan.md).
 Shown instead of the beta notice when UVALU_DATA_MODE=demo (uvalu/pages_/legal.py looks in demo/ first).
-Draft 18 October 2026, for the DM-7 legal-persona review (DM-D21). Describes only what the demo does:
+Draft 18 October 2026, for the DM-7 legal-persona review (DM-D21); log, local-storage and usage-statistics wording updated after the demo privacy review (L34, L35). Describes only what the demo does:
 no account, no sign-in to Uvalu, a per-session sample portfolio in temporary storage, hosting on Streamlit
 Community Cloud (USA), the host's built-in viewer analytics (DM-D10), an optional feedback form.
 Open before publishing:
@@ -29,9 +29,9 @@ Privacy contact: privacy@uvalu.app
 | Data | Purpose | Legal basis (GDPR art. 6) | Kept for |
 | --- | --- | --- | --- |
 | The changes you make to the sample portfolio and watchlist, and your language choice | Letting you try the app | Legitimate interest (showing how Uvalu works) | Until your browser session ends; a page reload or "Reset sample" starts again from the sample. Temporary storage is wiped when the demo restarts |
-| Technical logs: the pages opened, errors and timings, under a random code for the session | Keeping the demo working and fixing errors | Legitimate interest | 31 days |
+| Technical logs: the pages opened, errors and timings, under a random code for the session; no name, email or IP address | Keeping the demo working and fixing errors | Legitimate interest | Uvalu's own log file: while the demo runs, at most 31 days; it is deleted when the demo restarts. The hosting log is kept by Streamlit (section 3) |
 
-Uvalu asks for no name, email address or password in the demo, and sets no cookies of its own. The sample portfolio is fictional; please don't enter real holdings.
+Uvalu asks for no name, email address or password in the demo, and sets no cookies of its own. If you switch between the light and dark theme, your browser keeps that choice in its local storage. The sample portfolio is fictional; please don't enter real holdings.
 
 ## 3. Who hosts the demo
 
@@ -49,7 +49,7 @@ Streamlit Community Cloud runs in the United States. Transfers rely on the safeg
 
 ## 6. Cookies
 
-Uvalu sets no cookies in the demo. Streamlit sets cookies needed to run the app and to keep you signed in to the invite-only demo; see Streamlit's privacy policy.
+Uvalu sets no cookies in the demo. The theme switch stores your light or dark choice in your browser's local storage; it is needed for a function you ask for, so no consent is asked. Streamlit sets cookies needed to run the app and to keep you signed in to the invite-only demo; see Streamlit's privacy policy. The demo doesn't send usage statistics to Streamlit.
 
 ## 7. Your rights
 
