@@ -3927,11 +3927,7 @@ msgstr "Voorwaarden →"
 #. Demo notice under the top bar. {prices_date} is the date of the newest end-of-day
 #. prices, {fundamentals_date} the balance-sheet date of the annual reports used.
 #: uvalu/shell.py:530
-#, fuzzy, python-brace-format
-#| msgid ""
-#| "9 European stocks · end-of-day prices from EODHD to {prices_date} · fundamentals"
-#| " from the companies' annual reports, as of {fundamentals_date} · a sample "
-#| "portfolio you can change in this session · not investment advice"
+#, python-brace-format
 msgid ""
 "9 European stocks · end-of-day prices to {prices_date} · fundamentals from the "
 "companies' annual reports, as of {fundamentals_date} · a sample portfolio you "
@@ -4082,7 +4078,6 @@ msgid "The companies' annual reports and results releases · entered by hand, ea
 msgstr "Jaarverslagen en resultaatpublicaties van de bedrijven · met de hand ingevoerd, elk cijfer met bron en pagina"
 
 #: uvalu/compliance/disclosures.py:81
-#, fuzzy
 msgid "EODHD payment history"
 msgstr "Uitkeringshistoriek van EODHD"
 
@@ -5356,11 +5351,6 @@ msgid "Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana."
 msgstr "Euronext Amsterdam/Brussel/Parijs, XETRA, SIX Swiss en Borsa Italiana."
 
 #: uvalu/pages_/help.py:145
-#, fuzzy
-#| msgid ""
-#| "The demo shows end-of-day closing prices from EODHD, refreshed each weekday "
-#| "evening. The fundamentals come from the companies' annual reports and are "
-#| "updated once a year. Intraday prices are not shown."
 msgid ""
 "The demo shows end-of-day closing prices, refreshed each weekday evening; the "
 "provider is named under Data sources. The fundamentals come from the companies' "

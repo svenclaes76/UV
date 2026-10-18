@@ -3927,11 +3927,7 @@ msgstr "Conditions →"
 #. Demo notice under the top bar. {prices_date} is the date of the newest end-of-day
 #. prices, {fundamentals_date} the balance-sheet date of the annual reports used.
 #: uvalu/shell.py:530
-#, fuzzy, python-brace-format
-#| msgid ""
-#| "9 European stocks · end-of-day prices from EODHD to {prices_date} · fundamentals"
-#| " from the companies' annual reports, as of {fundamentals_date} · a sample "
-#| "portfolio you can change in this session · not investment advice"
+#, python-brace-format
 msgid ""
 "9 European stocks · end-of-day prices to {prices_date} · fundamentals from the "
 "companies' annual reports, as of {fundamentals_date} · a sample portfolio you "
@@ -3948,12 +3944,10 @@ msgstr "Donner un avis →"
 
 #. Link-styled button at the end of the demo notice; puts the sample portfolio back.
 #: uvalu/shell.py:547
-#, fuzzy
 msgid "Reset sample"
 msgstr "Réinitialiser l'exemple"
 
 #: uvalu/shell.py:548
-#, fuzzy
 msgid "Put the sample portfolio and watchlist back"
 msgstr "Rétablir le portefeuille d'exemple et la liste de suivi"
 
@@ -4076,7 +4070,6 @@ msgid "ECB reference rates via frankfurter.dev"
 msgstr "Taux de référence de la BCE via frankfurter.dev"
 
 #: uvalu/compliance/disclosures.py:78
-#, fuzzy
 msgid "EODHD · end-of-day closes, refreshed each weekday evening"
 msgstr "EODHD · cours de clôture, mis à jour chaque soir du lundi au vendredi"
 
@@ -5358,11 +5351,6 @@ msgid "Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana."
 msgstr "Euronext Amsterdam/Bruxelles/Paris, XETRA, SIX Swiss et Borsa Italiana."
 
 #: uvalu/pages_/help.py:145
-#, fuzzy
-#| msgid ""
-#| "The demo shows end-of-day closing prices from EODHD, refreshed each weekday "
-#| "evening. The fundamentals come from the companies' annual reports and are "
-#| "updated once a year. Intraday prices are not shown."
 msgid ""
 "The demo shows end-of-day closing prices, refreshed each weekday evening; the "
 "provider is named under Data sources. The fundamentals come from the companies' "

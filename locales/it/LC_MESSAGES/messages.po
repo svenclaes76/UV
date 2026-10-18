@@ -3927,11 +3927,7 @@ msgstr "Termini →"
 #. Demo notice under the top bar. {prices_date} is the date of the newest end-of-day
 #. prices, {fundamentals_date} the balance-sheet date of the annual reports used.
 #: uvalu/shell.py:530
-#, fuzzy, python-brace-format
-#| msgid ""
-#| "9 European stocks · end-of-day prices from EODHD to {prices_date} · fundamentals"
-#| " from the companies' annual reports, as of {fundamentals_date} · a sample "
-#| "portfolio you can change in this session · not investment advice"
+#, python-brace-format
 msgid ""
 "9 European stocks · end-of-day prices to {prices_date} · fundamentals from the "
 "companies' annual reports, as of {fundamentals_date} · a sample portfolio you "
@@ -3943,7 +3939,6 @@ msgstr ""
 "investimenti"
 
 #: uvalu/shell.py:539
-#, fuzzy
 msgid "Give feedback →"
 msgstr "Invia un feedback →"
 
@@ -3953,7 +3948,6 @@ msgid "Reset sample"
 msgstr "Ripristina l'esempio"
 
 #: uvalu/shell.py:548
-#, fuzzy
 msgid "Put the sample portfolio and watchlist back"
 msgstr "Ripristina il portafoglio di esempio e la watchlist"
 
@@ -4076,7 +4070,6 @@ msgid "ECB reference rates via frankfurter.dev"
 msgstr "Tassi di riferimento BCE tramite frankfurter.dev"
 
 #: uvalu/compliance/disclosures.py:78
-#, fuzzy
 msgid "EODHD · end-of-day closes, refreshed each weekday evening"
 msgstr "EODHD · prezzi di chiusura, aggiornati ogni sera dal lunedì al venerdì"
 
@@ -4085,7 +4078,6 @@ msgid "The companies' annual reports and results releases · entered by hand, ea
 msgstr "Bilanci annuali e comunicati sui risultati delle società · inseriti a mano, ogni cifra con fonte e pagina"
 
 #: uvalu/compliance/disclosures.py:81
-#, fuzzy
 msgid "EODHD payment history"
 msgstr "Storico dei pagamenti di EODHD"
 
@@ -5359,11 +5351,6 @@ msgid "Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana."
 msgstr "Euronext Amsterdam/Bruxelles/Parigi, XETRA, SIX Swiss e Borsa Italiana."
 
 #: uvalu/pages_/help.py:145
-#, fuzzy
-#| msgid ""
-#| "The demo shows end-of-day closing prices from EODHD, refreshed each weekday "
-#| "evening. The fundamentals come from the companies' annual reports and are "
-#| "updated once a year. Intraday prices are not shown."
 msgid ""
 "The demo shows end-of-day closing prices, refreshed each weekday evening; the "
 "provider is named under Data sources. The fundamentals come from the companies' "
