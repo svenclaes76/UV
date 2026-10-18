@@ -129,6 +129,28 @@ Building can start now on a branch `feature/demo-mode`; only the **merge** waits
 
 **What you do yourself** (I can't create accounts): sign up for the EODHD free plan and put the key in a GitHub Actions secret (`EODHD_API_KEY`); create the Streamlit Community Cloud account and give it access to the repo.
 
+### API budget during development (18 Oct 2026)
+
+Calls come from **one place only**: `tools/demo_refresh.py` with an explicit `--live` flag. The app (locally and on Community Cloud), the tests and CI never call EODHD. They read `demo-data/` or recorded fixtures.
+
+| Stage | Live calls | How |
+| --- | --- | --- |
+| Building the client and parser | **0** | EODHD's public `demo` token (works for a few US tickers such as AAPL.US) for the request/response shape, then recorded JSON fixtures in `tests/fixtures/eodhd/`. |
+| First live check | **1** | One ticker (ABI.BR), 1-year backfill: proves the key, the code format and the parser on a European stock. |
+| Setup for the rest | **9** | Backfill of the other 9 tickers. A wrong code fails on its own call, so no separate symbol-list calls (saves ~7). Their responses become fixtures too. |
+| Daily | **10** | GitHub Action, weekdays. |
+| Weekly | **10** | Dividends, on Sunday (a day with no EOD run). |
+
+The setup total is about 10 calls out of the 500 welcome calls, and every run after that replays recorded data. Guards:
+
+- **Default is dry run.** Without `--live` the script uses fixtures and says so.
+- **Hard cap per run** (`--max-calls`, default 10) on top of the daily counter (stop at 18, N-01).
+- **The limit is per key, not per machine.** A local live run and the Action share the same 20 calls. The counter in `demo-data/budget.json` only knows about runs that commit it, so don't do live runs locally on a day the Action runs. Otherwise the Action stops early, and it logs why.
+- **Retries:** at most one per ticker, and none on 401/403/404 (those won't succeed on a retry).
+- **One account, one key.** Don't create extra free accounts to get more calls; that breaks EODHD's terms.
+
+A one-stock *demo* would save almost nothing: the backfill is one call per ticker. It also wouldn't test what the 10 are there for: four currencies, GBX, five sectors, diversification and the peer reference. One stock is useful in two places: the **first live call**, and the **first hand-entered fundamentals file** (ABI.BR), which checks the template and the validator before you enter the other eight.
+
 ## 5. Later: commercial mode
 
 Same profile mechanism, a live `EodhdProvider` (paid plan, fundamentals included), the daily build (S4), sign-in and subscriptions on, Hetzner hosting, launch texts in the legal pages. Gated on the EODHD contract (L20) and the paywall work in the roadmap. The demo's snapshot format becomes the test fixture for that provider.
