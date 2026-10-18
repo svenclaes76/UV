@@ -60,7 +60,7 @@ import pandas as pd
 import yfinance as yf
 
 import marketdata
-from uvalu import logkit
+from uvalu import datamode, logkit
 from uvalu.i18n import N_, Fmt, lazy_
 from scoring import (  # re-exported for existing `from screener import …` call sites
     _clamp, _get_num, _finite,
@@ -1408,6 +1408,9 @@ def fetch_fundamentals_nowait(stocks: list[dict], fetcher: "_Fetcher | None" = N
     fresh_count = len(stocks) - len(stale)
 
     _lane = "screener" if f is SCREENER_FETCH else "portfolio"
+    if stale and not datamode.current().live_fetch:
+        # Demo mode reads a fixed snapshot (uvalu/demo/workspace.py): no fetch.
+        stale = []
     if stale and (not f.bg_thread or not f.bg_thread.is_alive()):
         _log.info("background fundamentals fetch queued",
                   extra={"event": "job.queued", "job": "fundamentals_fetch",
@@ -2548,7 +2551,8 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    user_selected: bool = False,
                    founder_holdings: "set | frozenset | None" = None,
                    computed_at: "datetime | None" = None,
-                   previous_signals: "dict | None" = None) -> pd.DataFrame:
+                   previous_signals: "dict | None" = None,
+                   sector_multiples: "tuple[dict, dict] | None" = None) -> pd.DataFrame:
     # ``reference``: score `df` against another universe's sector medians and
     # rank distributions instead of its own (the portfolio lane passes the
     # scored universe's). ``reference_out``: a dict that receives this pass's
@@ -2627,6 +2631,12 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     _no_peer_basis = reference is None and (user_selected or not _peers.any())
     if reference is not None:
         sector_pe, sector_pb = reference.sector_pe, reference.sector_pb
+    elif sector_multiples is not None:
+        # ``sector_multiples``: ({sector: P/E}, {sector: P/B}) from a published
+        # reference instead of the peers' medians. The demo's 9 stocks are too
+        # few for medians (MIN_SECTOR_SAMPLE), so it passes Damodaran's
+        # European industry multiples (demo-mode plan DM-D13).
+        sector_pe, sector_pb = sector_multiples
     elif _no_peer_basis:
         # PER-1: no public peer group to take sector multiples from. Medians of
         # a user-selected set would make the P/E and P/B fair values depend on
@@ -2877,18 +2887,20 @@ def run_screener_from_df(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                          peer_mask: "pd.Series | None" = None,
                          user_selected: bool = False,
                          founder_holdings: "set | frozenset | None" = None,
-                         previous_signals: "dict | None" = None) -> pd.DataFrame:
+                         previous_signals: "dict | None" = None,
+                         sector_multiples: "tuple[dict, dict] | None" = None) -> pd.DataFrame:
     """Score and clean a DataFrame that was already fetched (avoids re-fetching).
     ``reference`` / ``reference_out`` / ``peer_mask`` / ``user_selected`` /
-    ``founder_holdings`` / ``previous_signals``: see compute_scores and
-    _apply_signal_hysteresis."""
+    ``founder_holdings`` / ``previous_signals`` / ``sector_multiples``: see
+    compute_scores and _apply_signal_hysteresis."""
     return _score_and_clean(df.copy(), max_debt_equity=max_debt_equity,
                             max_payout=max_payout, min_mos=min_mos,
                             buy_threshold=buy_threshold, weights=weights,
                             reference=reference, reference_out=reference_out,
                             peer_mask=peer_mask, user_selected=user_selected,
                             founder_holdings=founder_holdings,
-                            previous_signals=previous_signals)
+                            previous_signals=previous_signals,
+                            sector_multiples=sector_multiples)
 
 
 def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
@@ -2900,7 +2912,8 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                      peer_mask: "pd.Series | None" = None,
                      user_selected: bool = False,
                      founder_holdings: "set | frozenset | None" = None,
-                     previous_signals: "dict | None" = None) -> pd.DataFrame:
+                     previous_signals: "dict | None" = None,
+                     sector_multiples: "tuple[dict, dict] | None" = None) -> pd.DataFrame:
     if "Price" not in df.columns:
         df["Price"] = None
     before  = len(df)
@@ -2922,7 +2935,8 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                           reference=reference, reference_out=reference_out,
                           peer_mask=peer_mask, user_selected=user_selected,
                           founder_holdings=founder_holdings,
-                          previous_signals=previous_signals)
+                          previous_signals=previous_signals,
+                          sector_multiples=sector_multiples)
 
 
 def _fair_value_doubts(df: pd.DataFrame) -> "tuple[pd.Series, pd.Series]":

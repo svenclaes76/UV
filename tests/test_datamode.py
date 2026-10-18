@@ -55,7 +55,7 @@ def test_demo_universe_shape():
     assert len(universe.DEMO_UNIVERSE) == 10
     assert len(universe.STOCKS) == 9
     assert universe.BENCHMARK == "VWCE.DE"
-    assert universe.currencies() == ["CHF", "DKK", "GBP"]
+    assert universe.currencies() == ["CHF", "DKK", "GBP", "USD"]
     assert len({t.sector for t in universe.DEMO_UNIVERSE if not t.benchmark}) == 6
 
 

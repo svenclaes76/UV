@@ -20,7 +20,7 @@ from screener import (SCREENER_FETCH, PORTFOLIO_FETCH, CACHE_TTL_HOURS, _load_ca
                       cancel_background_fetch, clear_live_cache, get_fetch_progress,
                       peer_mask_for, load_founder_holdings, prune_cache)
 from settings import ALL_EXCHANGES, get_veto_thresholds, get_score_weights
-from uvalu import logkit, universe
+from uvalu import datamode, logkit, universe
 from uvalu.store import get_scored_universe, clear_scored_universe
 
 
@@ -207,17 +207,24 @@ def _build_all_screener_data(enabled: tuple,
     _cached_country = {t: r.get("country") for t, r in _load_cache().items()}
     stock_lists: dict[str, list[dict]] = {}
     _all_listed: set[str] = set()      # every listed ticker, foreign or not: kept by prune_cache
-    for key in FETCHERS:
-        if key in enabled_set:
-            # The exchange's list, filtered and with share classes marked (EX-W3).
-            _raw = fetch_exchange_tickers(key, FETCHERS)
-            _all_listed.update(s["ticker"] for s in _raw)
-            stock_lists[key] = [s for s in _raw
-                                if not universe.known_foreign(s["ticker"], _cached_country.get(s["ticker"]))]
+    _demo = not datamode.current().live_fetch
+    if _demo:
+        # Demo mode: the fixed demo universe instead of the exchanges' lists
+        # (demo-mode plan DM-5), whatever the enabled exchanges say.
+        stock_lists = _demo_stock_lists()
+        _all_listed = {s["ticker"] for stocks in stock_lists.values() for s in stocks}
+    else:
+        for key in FETCHERS:
+            if key in enabled_set:
+                # The exchange's list, filtered and with share classes marked (EX-W3).
+                _raw = fetch_exchange_tickers(key, FETCHERS)
+                _all_listed.update(s["ticker"] for s in _raw)
+                stock_lists[key] = [s for s in _raw
+                                    if not universe.known_foreign(s["ticker"], _cached_country.get(s["ticker"]))]
+        # Lineage (EX-W1a): which cached list, of which date, this build used.
+        logkit.get_logger("uvalu.data").info(
+            "ticker lists used by this build", extra={"event": "universe.ticker_lists", "lists": list_status()})
     _listed = [s for stocks in stock_lists.values() for s in stocks]
-    # Lineage (EX-W1a): which cached list, of which date, this build used.
-    logkit.get_logger("uvalu.data").info(
-        "ticker lists used by this build", extra={"event": "universe.ticker_lists", "lists": list_status()})
     _listed_tickers = {s["ticker"] for s in _listed}
     _fetch_extra = [
         {"ticker": t, "name": n, "isin": ""}
@@ -232,7 +239,7 @@ def _build_all_screener_data(enabled: tuple,
     # EX-22: drop rows of lines that left every list (and no user holds) a
     # month ago. Only when every exchange is enabled, so switching one off in
     # Admin doesn't throw away its rows.
-    if enabled_set >= set(ALL_EXCHANGES):
+    if enabled_set >= set(ALL_EXCHANGES) and not _demo:
         prune_cache(_all_listed | set(extra_tickers))
 
     if all_fund.empty:
@@ -242,8 +249,9 @@ def _build_all_screener_data(enabled: tuple,
                 if "country" in all_fund.columns else {})
     _volume = (dict(zip(all_fund["Ticker"], all_fund["averageVolume"]))
                if "averageVolume" in all_fund.columns else {})
-    stock_lists = {key: universe.home_listings(stocks, _country, _volume)
-                   for key, stocks in stock_lists.items()}
+    if not _demo:   # the demo list is hand-picked home listings, on planned exchanges too
+        stock_lists = {key: universe.home_listings(stocks, _country, _volume)
+                       for key, stocks in stock_lists.items()}
     all_stocks: list[dict] = [s for stocks in stock_lists.values() for s in stocks]
     _exchange_ticker_set = {s["ticker"] for s in all_stocks}
     # A user's holding that isn't a home listing is scored as an extra ticker,
@@ -276,7 +284,8 @@ def _build_all_screener_data(enabled: tuple,
                                   weights=score_weights, reference_out=_ref_out,
                                   peer_mask=peer_mask_for(_universe_fund, _exchange_ticker_set),
                                   founder_holdings=_founder_holdings(),
-                                  previous_signals=_previous_signals())
+                                  previous_signals=_previous_signals(),
+                                  sector_multiples=_demo_sector_multiples() if _demo else None)
     if _ref_out.get("ref") is not None:
         _UNIVERSE_REFS[(tuple(enabled), tuple(extra_tickers), tuple(extra_names), tuple(thresholds),
                         tuple(score_weights))] = _ref_out["ref"]
@@ -299,6 +308,25 @@ def _build_all_screener_data(enabled: tuple,
         universe_df = universe_df.assign(exchange_key=universe_df["Ticker"].map(_key_of))
     _extra_df = _subset(_extra_stocks) if _extra_stocks else empty
     return (universe_df, _extra_df)
+
+
+def _demo_stock_lists() -> dict[str, list[dict]]:
+    """The demo's 9 stocks (not the ETF), grouped by exchange key like the
+    exchanges' own lists."""
+    from uvalu import exchanges
+    from uvalu.demo import universe as demo_universe
+    lists: dict[str, list[dict]] = {}
+    for t in demo_universe.STOCKS:
+        ex = exchanges.for_ticker(t)
+        lists.setdefault(ex.key if ex else "", []).append(
+            {"ticker": t, "name": demo_universe.BY_TICKER[t].name, "isin": ""})
+    return lists
+
+
+def _demo_sector_multiples():
+    from uvalu.demo import workspace
+    ws = workspace.current()
+    return ws.sector_multiples if ws else None
 
 
 def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, changes: int) -> None:

@@ -42,6 +42,29 @@ BENCHMARK: str = next(t.ticker for t in DEMO_UNIVERSE if t.benchmark)
 BY_TICKER: dict[str, DemoTicker] = {t.ticker: t for t in DEMO_UNIVERSE}
 
 
+# Index series the demo needs besides the tickers: the risk benchmark the app
+# uses (risk.BENCHMARK_TICKER, DM-D16). Stored under the app's own key; the
+# EODHD code is fixed here because indices have no exchange in the registry.
+INDEX_SERIES: dict[str, str] = {"^STOXX50E": "STOXX50E.INDX"}
+
+SERIES: tuple[str, ...] = TICKERS + tuple(INDEX_SERIES)
+
+
+def eodhd_code(key: str) -> str:
+    """The EODHD code of a demo series: an index from INDEX_SERIES, otherwise
+    the registry's conversion of a stored ticker."""
+    if key in INDEX_SERIES:
+        return INDEX_SERIES[key]
+    from uvalu import exchanges
+    return exchanges.eodhd_ticker(key)
+
+
+# Currencies the companies report or declare dividends in besides their quote
+# currency (AB InBev, TotalEnergies and Shell report in USD).
+_EXTRA_FX = frozenset({"USD"})
+
+
 def currencies() -> list[str]:
-    """The non-euro currencies the demo needs FX for, sorted."""
-    return sorted({t.currency for t in DEMO_UNIVERSE} - {"EUR"})
+    """The non-euro currencies the demo needs FX for, sorted: every quote
+    currency plus the reporting and dividend currencies (USD)."""
+    return sorted(({t.currency for t in DEMO_UNIVERSE} | _EXTRA_FX) - {"EUR"})

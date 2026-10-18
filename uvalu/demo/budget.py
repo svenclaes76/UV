@@ -2,7 +2,7 @@
 
 The free plan allows 20 calls a day per key. The counter stops at 18 so a
 retry or a hand-run check never hits the hard limit, and each run has its own
-cap on top (default 10). Every call is counted *before* it is made and saved
+cap on top (default 12). Every call is counted *before* it is made and saved
 straight away, so a crash mid-run still leaves the right count on disk.
 
 The counter lives in ``demo-data/budget.json`` and only knows about runs that
@@ -20,7 +20,7 @@ from pathlib import Path
 
 DAILY_LIMIT = 20
 STOP_AT = 18
-RUN_CAP = 10
+RUN_CAP = 12          # a weekday run is 11 calls (10 tickers + the benchmark index)
 
 
 class BudgetExhausted(Exception):

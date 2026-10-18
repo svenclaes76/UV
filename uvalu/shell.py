@@ -11,7 +11,7 @@ import html
 import streamlit as st
 
 from settings import load_settings
-from uvalu import a11y
+from uvalu import a11y, datamode
 from uvalu import nav as nav_registry
 from uvalu.i18n import N_, _, fmt_time, h_, pgettext, tr
 from uvalu.market_hours import is_market_hours, market_now
@@ -415,18 +415,22 @@ def render_topbar(nav) -> None:
                         set_theme_script("Dark" if _light else "Light")
 
                 with st.container(key="uv_avatar_pop"):
-                    a11y.label("uv_avatar_pop", _("Account menu for {name}", name=_display_name(user.email)))
-                    with st.popover(_initials(user.email)):
+                    _demo = not datamode.current().sign_in
+                    _menu_name = _("Demo visitor") if _demo else _display_name(user.email)
+                    a11y.label("uv_avatar_pop", _("Account menu for {name}", name=_menu_name))
+                    with st.popover("D" if _demo else _initials(user.email)):
                         # Name, then the email as plain text (st.caption auto-linked it
                         # as a mailto link) and the plan as a chip (G27: "Free beta";
                         # the role is shown in the Admin portal).
+                        _who = ("" if _demo else
+                                f'<div style="font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--uv-mono);">'
+                                f'{html.escape(user.email).replace("@", "&#64;")}</div>')
                         st.markdown(
-                            f'<div><div style="font-size:13px;font-weight:500;">{html.escape(_display_name(user.email))}</div>'
-                            f'<div style="font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--uv-mono);">'
-                            f'{html.escape(user.email).replace("@", "&#64;")}</div>'
+                            f'<div><div style="font-size:13px;font-weight:500;">{html.escape(_menu_name)}</div>'
+                            f'{_who}'
                             f'<span style="display:inline-block;margin-top:8px;font-size:10px;font-weight:500;'
                             f'color:var(--up-txt);background:var(--soft);border-radius:6px;padding:2px 8px;">'
-                            f'{html.escape(_("Free beta"))}</span></div>',
+                            f'{html.escape(_("Demo") if _demo else _("Free beta"))}</span></div>',
                             unsafe_allow_html=True)
                         st.divider()
                         with st.container(key="uv_avatar_menu"):
@@ -443,15 +447,16 @@ def render_topbar(nav) -> None:
                                 st.page_link(_about_page, label=_("About Uvalu"), icon=":material/layers:")
                             if user.is_admin and _admin_page is not None:
                                 st.page_link(_admin_page, label=_("Admin portal"), icon=":material/shield:")
-                        st.divider()
-                        # A menu item like the links above (icon + label), not a small
-                        # underlined link.
-                        from uvalu.components import material_icon_html
-                        st.markdown(
-                            f'<a href="/?logout=1" target="_self" class="uv-menu-signout">'
-                            f'{material_icon_html("logout", 16)}{html.escape(_("Sign out"))}</a>',
-                            unsafe_allow_html=True,
-                        )
+                        if not _demo:
+                            st.divider()
+                            # A menu item like the links above (icon + label), not a small
+                            # underlined link.
+                            from uvalu.components import material_icon_html
+                            st.markdown(
+                                f'<a href="/?logout=1" target="_self" class="uv-menu-signout">'
+                                f'{material_icon_html("logout", 16)}{html.escape(_("Sign out"))}</a>',
+                                unsafe_allow_html=True,
+                            )
 
 
 # ── Beta banner (decision B7) and legal footer (DIS-1, REC-1, BIZ-3) ──────────
@@ -493,6 +498,36 @@ def render_beta_banner() -> None:
         f'<a href="/legal?doc=terms" target="_self" style="white-space:nowrap;color:var(--link);'
         f'text-decoration:none;">{html.escape(_("Terms →"))}</a></div>',
         unsafe_allow_html=True)
+
+
+def render_demo_banner() -> None:
+    """The demo notice (demo spec F-01, demo-mode plan DM-5): what the data is
+    and how fresh, with a button that puts the sample portfolio back."""
+    from uvalu.demo import workspace
+    from uvalu.i18n import fmt_date
+    last = workspace.last_refresh()
+    fund = workspace.fundamentals_as_of()
+    # Translators: Demo notice under the top bar. {prices_date} is the date of the newest end-of-day prices, {fundamentals_date} the balance-sheet date of the annual reports used.
+    text = _("9 European stocks · end-of-day prices from EODHD to {prices_date} · fundamentals from the "
+             "companies' annual reports, as of {fundamentals_date} · a sample portfolio you can change in "
+             "this session · not investment advice",
+             prices_date=fmt_date(last) if last else "—",
+             fundamentals_date=fmt_date(fund) if fund else "—")
+    st.markdown(
+        '<div class="uv-beta-box uv-demo-box" role="note" style="display:flex;align-items:center;justify-content:center;'
+        'flex-wrap:wrap;gap:4px 10px;font-size:11.5px;color:var(--muted);background:var(--soft);'
+        'border:0.5px solid var(--line);border-radius:8px;padding:7px 14px;margin:-6px 0 4px;text-align:center;">'
+        f'<span style="font-weight:600;color:var(--up-txt);">{html.escape(_("Demo"))}</span>'
+        f'<span style="min-width:0;">{html.escape(text)}</span>'
+        f'<a href="/legal?doc=terms" target="_self" style="white-space:nowrap;color:var(--link);'
+        f'text-decoration:none;">{html.escape(_("Terms →"))}</a></div>',
+        unsafe_allow_html=True)
+    with st.container(key="uv_demo_reset"):
+        if st.button(_("Reset sample portfolio"), key="uv_demo_reset_btn", type="tertiary",
+                     icon=":material/restart_alt:"):
+            workspace.reset_session(current_user().email)
+            st.cache_data.clear()
+            st.rerun()
 
 
 def render_peer_rebuild_strip() -> None:

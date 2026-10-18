@@ -6,7 +6,7 @@ the script prints the calls it would make and the budget left.
 
     python tools/demo_refresh.py                          # dry run (default)
     python tools/demo_refresh.py --live --tickers ABI.BR  # first live check, 1 call
-    python tools/demo_refresh.py --live                   # prices + FX, 10 calls
+    python tools/demo_refresh.py --live                   # prices + FX, 11 calls
     python tools/demo_refresh.py --live --dividends       # dividends only, 10 calls
 
 Each price request asks for the whole last year: one call either way, and the
@@ -27,7 +27,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from uvalu import exchanges, logkit  # noqa: E402
+from uvalu import logkit  # noqa: E402
 from uvalu.demo import store, universe  # noqa: E402
 from uvalu.demo.budget import RUN_CAP, Budget, BudgetExhausted  # noqa: E402
 from uvalu.demo.eodhd import AuthError, Client, EodhdError, NotFound, Transient  # noqa: E402
@@ -57,16 +57,17 @@ def run(*, root: Path, tickers: list[str], prices: bool, dividends: bool, fx: bo
     today = today or datetime.now(timezone.utc).date()
     start, end = (today - timedelta(days=HISTORY_DAYS)).isoformat(), today.isoformat()
     budget = Budget(Path(root) / "budget.json", run_cap=max_calls)
-    plan = [(t, exchanges.eodhd_ticker(t)) for t in tickers]
-    per_ticker = int(prices) + int(dividends)
+    plan = [(t, universe.eodhd_code(t)) for t in tickers]
+    n_calls = sum(int(prices) + int(dividends and t not in universe.INDEX_SERIES) for t in tickers)
 
     if not live:
         out(f"Dry run, nothing called or written. Window {start} to {end}.")
         for t, code in plan:
-            jobs = [j for j, on in (("eod", prices), ("div", dividends)) if on]
+            jobs = [j for j, on in (("eod", prices),
+                                    ("div", dividends and t not in universe.INDEX_SERIES)) if on]
             out(f"  {t:<10} -> {code:<12} {', '.join(jobs) or '-'}")
         out(f"  FX (ECB, no EODHD call): {', '.join(universe.currencies()) if fx else '-'}")
-        out(f"Would use {per_ticker * len(plan)} calls; {budget.calls_today} used today, "
+        out(f"Would use {n_calls} calls; {budget.calls_today} used today, "
             f"{budget.remaining} left (stop at {budget.stop_at}, run cap {budget.run_cap}).")
         return 0
 
@@ -88,7 +89,7 @@ def run(*, root: Path, tickers: list[str], prices: bool, dividends: bool, fx: bo
                 if new:
                     updated.append(t)
                 out(f"  {t:<10} {code:<12} prices: {new} new bar(s), last {last or '-'}")
-            if dividends:
+            if dividends and t not in universe.INDEX_SERIES:
                 since = (today - timedelta(days=DIVIDEND_DAYS)).isoformat()
                 new = store.write_dividends(root, t, _call(client.dividends, code, since))
                 out(f"  {t:<10} {code:<12} dividends: {new} new")
@@ -131,7 +132,8 @@ def run(*, root: Path, tickers: list[str], prices: bool, dividends: bool, fx: bo
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--live", action="store_true", help="really call EODHD and write files")
-    ap.add_argument("--tickers", help="comma-separated stored tickers (default: all 10)")
+    ap.add_argument("--tickers", help="comma-separated stored tickers or index keys "
+                                      "(default: the 10 tickers and the benchmark index)")
     ap.add_argument("--prices", action="store_true", help="end-of-day prices")
     ap.add_argument("--dividends", action="store_true", help="dividends")
     ap.add_argument("--fx", action="store_true", help="ECB FX rates (no EODHD call)")
@@ -139,8 +141,8 @@ def main(argv=None) -> int:
     ap.add_argument("--out", type=Path, default=ROOT / "demo-data", help="snapshot folder")
     a = ap.parse_args(argv)
 
-    tickers = [t.strip() for t in a.tickers.split(",")] if a.tickers else list(universe.TICKERS)
-    unknown = [t for t in tickers if t not in universe.BY_TICKER]
+    tickers = [t.strip() for t in a.tickers.split(",")] if a.tickers else list(universe.SERIES)
+    unknown = [t for t in tickers if t not in universe.SERIES]
     if unknown:
         ap.error(f"not in the demo universe: {', '.join(unknown)}")
     prices, dividends, fx = a.prices, a.dividends, a.fx
