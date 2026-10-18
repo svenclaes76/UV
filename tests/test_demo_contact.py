@@ -39,3 +39,16 @@ def test_legal_pages_shown_in_demo_name_no_domain(demo, key, _title, file_name):
     assert path is not None, key
     text = legal.public_text(path)
     assert not DOMAIN.search(text), (key, DOMAIN.findall(text)[:3])
+
+
+def test_top_bar_keeps_clear_of_community_cloud_buttons(demo):
+    """Community Cloud draws its own buttons over the frame's top-right corner;
+    the demo's top bar leaves that room free (personal mode doesn't)."""
+    from uvalu import shell
+    assert f"{shell.CLOUD_TOOLBAR_GAP_PX}px" in shell._cloud_toolbar_gap_css()
+
+
+def test_top_bar_has_no_gap_in_personal_mode(monkeypatch):
+    monkeypatch.delenv(datamode.ENV_VAR, raising=False)
+    from uvalu import shell
+    assert shell._cloud_toolbar_gap_css() == ""

@@ -58,12 +58,13 @@ _NAV_ITEMS = (
 # labels ("Portefeuille", "Beobachtungsliste") take room from the gap on the
 # right instead of running into the status pill.
 _LOGO_PX, _RIGHT_PX = 190, 330
+_DEMO_RIGHT_PX = 140
 _NAV_CHAR_PX, _NAV_LINK_PX = 7.4, 54
 
 
-def _topbar_widths(labels: list[str]) -> list[float]:
+def _topbar_widths(labels: list[str], right_px: float = _RIGHT_PX) -> list[float]:
     nav_px = sum(len(label) * _NAV_CHAR_PX + _NAV_LINK_PX for label in labels)
-    return [_LOGO_PX, max(nav_px, 420), _RIGHT_PX]
+    return [_LOGO_PX, max(nav_px, 420), right_px]
 
 
 def _initials(email: str) -> str:
@@ -214,6 +215,22 @@ def _apply_density_script(density: str) -> None:
 """, height=1)
 
 
+# Streamlit Community Cloud draws its own buttons (Share, star, account, ...)
+# over the top-right corner of the app frame; no setting or app CSS removes
+# them. The demo (the only mode hosted there, DM-6) keeps its top bar's right
+# side clear of them.
+CLOUD_TOOLBAR_GAP_PX = 300
+
+
+def _cloud_toolbar_gap_css() -> str:
+    if not datamode.is_demo():
+        return ""
+    # Narrower than ~1110px the full gap would push the account menu onto a
+    # second row, so the gap shrinks there (the phone layout is backlog).
+    return (f".st-key-uv_topbar {{ padding-right: clamp(120px, calc(100vw - 810px), "
+            f"{CLOUD_TOOLBAR_GAP_PX}px) !important; }}")
+
+
 def _topbar_css(active_path: str) -> str:
     return f"""
 .st-key-uv_topbar {{
@@ -224,6 +241,7 @@ def _topbar_css(active_path: str) -> str:
   flex: none !important; min-height: 61px !important; box-sizing: border-box !important;
 }}
 [data-theme="light"] .st-key-uv_topbar {{ background: var(--panel); }}
+{_cloud_toolbar_gap_css()}
 /* Streamlit's stMarkdownContainer carries a built-in -16px bottom margin
    (compensating for default <p> spacing in rendered markdown) that doesn't
    apply to our raw <div> HTML — left alone, it shrinks the box the outer
@@ -336,12 +354,17 @@ a.uv-menu-signout:hover {{ background: var(--down-bg); }}
    the "Reset sample" button sits in the box like the "Terms →" link. */
 .st-key-uv_demo_banner {{
   background: var(--soft); border: 0.5px solid var(--line); border-radius: 8px;
-  padding: 7px 14px !important; margin: -6px 0 4px; flex-wrap: wrap; row-gap: 2px !important;
+  padding: 7px 14px !important; margin: -6px 0 4px; flex-wrap: wrap; row-gap: 4px !important;
+  column-gap: 16px !important;
 }}
 .st-key-uv_demo_banner [data-testid="stMarkdownContainer"] {{ margin: 0 !important; }}
-.uv-demo-text {{ display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px;
-  font-size: 11.5px; color: var(--muted); text-align: center; }}
-.uv-demo-label {{ font-weight: 600; color: var(--up-txt); }}
+/* The text takes the room and wraps; the links and the reset stay together
+   on one line at the right (on a narrow screen they move under the text). */
+.st-key-uv_demo_banner > [data-testid="stElementContainer"]:first-child {{ flex: 1 1 360px !important; min-width: 0 !important; }}
+.st-key-uv_demo_actions {{ flex-wrap: nowrap !important; margin-left: auto; width: auto !important; flex: none !important; }}
+.uv-demo-text {{ font-size: 11.5px; color: var(--muted); line-height: 1.5; }}
+.uv-demo-label {{ font-weight: 600; color: var(--up-txt); margin-right: 8px; }}
+.uv-demo-links {{ display: flex; gap: 12px; font-size: 11.5px; }}
 .uv-demo-link {{ color: var(--link) !important; text-decoration: none !important; white-space: nowrap; }}
 .uv-demo-link:hover {{ color: var(--text) !important; }}
 .st-key-uv_demo_banner button {{ min-height: 0 !important; padding: 0 !important; gap: 3px !important; }}
@@ -373,7 +396,12 @@ def render_topbar(nav) -> None:
 
     with st.container(key="uv_topbar"):
         _nav_labels = [tr(label) for _key, label in _NAV_ITEMS]
-        col_logo, col_nav, col_right = st.columns(_topbar_widths(_nav_labels), vertical_alignment="center")
+        # The demo has no live price feed (its prices date sits in the demo
+        # notice), so no market-status pill: the right side is just the theme
+        # toggle and the account menu, clear of Community Cloud's buttons.
+        _live_pill = not datamode.is_demo()
+        col_logo, col_nav, col_right = st.columns(
+            _topbar_widths(_nav_labels, _RIGHT_PX if _live_pill else _DEMO_RIGHT_PX), vertical_alignment="center")
 
         with col_logo:
             # The Consensus lockup, 26px mark height, colours from the theme
@@ -402,24 +430,25 @@ def render_topbar(nav) -> None:
                 # meaningful here, unlike the app's naive-local timestamps
                 # elsewhere), and the label/colour tell live vs delayed vs
                 # market-closed instead of always claiming "Live".
-                _pi_text, _pi_color = _price_indicator()
-                # Only the genuinely-live state pulses (uvRing, uvalu/styles.py)
-                # — an animated dot next to "Delayed"/"Feed stale"/"Market
-                # closed" would read as "still updating" when it isn't.
-                _pi_anim = "animation:uvRing 1.6s ease-out infinite;" if _pi_color == "#1DD6A4" else ""
-                # One word for widths where the full text doesn't fit next to
-                # the nav (below 1200px the dot used to stand alone).
-                _pi_short = {"#8A8A8A": pgettext("market", "Closed"),
-                             "#1DD6A4": pgettext("market", "Live")}.get(_pi_color, pgettext("market", "Delayed"))
-                st.markdown(
-                    f'<div title="{html.escape(_pi_text)}" style="display:flex;align-items:center;gap:7px;'
-                    f'font-size:11px;color:var(--muted);font-family:var(--uv-mono);min-width:0;">'
-                    f'<span style="width:6px;height:6px;border-radius:50%;background:{_pi_color};flex:none;'
-                    f'box-shadow:0 0 0 3px {_pi_color}2E;{_pi_anim}"></span>'
-                    f'<span class="uv-pi-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_pi_text}</span>'
-                    f'<span class="uv-pi-short" style="white-space:nowrap;">{html.escape(_pi_short)}</span></div>',
-                    unsafe_allow_html=True,
-                )
+                if _live_pill:
+                    _pi_text, _pi_color = _price_indicator()
+                    # Only the genuinely-live state pulses (uvRing, uvalu/styles.py)
+                    # — an animated dot next to "Delayed"/"Feed stale"/"Market
+                    # closed" would read as "still updating" when it isn't.
+                    _pi_anim = "animation:uvRing 1.6s ease-out infinite;" if _pi_color == "#1DD6A4" else ""
+                    # One word for widths where the full text doesn't fit next to
+                    # the nav (below 1200px the dot used to stand alone).
+                    _pi_short = {"#8A8A8A": pgettext("market", "Closed"),
+                                 "#1DD6A4": pgettext("market", "Live")}.get(_pi_color, pgettext("market", "Delayed"))
+                    st.markdown(
+                        f'<div title="{html.escape(_pi_text)}" style="display:flex;align-items:center;gap:7px;'
+                        f'font-size:11px;color:var(--muted);font-family:var(--uv-mono);min-width:0;">'
+                        f'<span style="width:6px;height:6px;border-radius:50%;background:{_pi_color};flex:none;'
+                        f'box-shadow:0 0 0 3px {_pi_color}2E;{_pi_anim}"></span>'
+                        f'<span class="uv-pi-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_pi_text}</span>'
+                        f'<span class="uv-pi-short" style="white-space:nowrap;">{html.escape(_pi_short)}</span></div>',
+                        unsafe_allow_html=True,
+                    )
 
                 with st.container(key="uv_theme_toggle"):
                     _toggle_icon = ":material/dark_mode:" if _light else ":material/light_mode:"
@@ -518,9 +547,10 @@ def render_beta_banner() -> None:
 
 def render_demo_banner() -> None:
     """The demo notice (demo spec F-01, demo-mode plan DM-5): what the data is
-    and how fresh, ending in "Terms →" and "Reset sample" (design A, 18 Oct
-    2026). One box like the beta notice; the reset is a link-styled button so
-    it runs without a page reload (a reload starts a new session anyway)."""
+    and how fresh, with "Terms →" and "Reset sample" together at the right
+    (design A, 18 Oct 2026). One box like the beta notice; the reset is a
+    link-styled button so it runs without a page reload (a reload starts a new
+    session anyway)."""
     from uvalu.demo import workspace
     from uvalu.i18n import fmt_date
     last = workspace.last_refresh()
@@ -537,18 +567,25 @@ def render_demo_banner() -> None:
     if feedback:
         links += (f'<a href="{html.escape(feedback)}" target="_blank" rel="noopener" class="uv-demo-link">'
                   f'{html.escape(_("Give feedback →"))}</a>')
-    with st.container(key="uv_demo_banner", horizontal=True, horizontal_alignment="center",
-                      vertical_alignment="center", gap="small"):
+    with st.container(key="uv_demo_banner", horizontal=True, vertical_alignment="center"):
         st.markdown(
             f'<div class="uv-demo-text" role="note"><span class="uv-demo-label">{html.escape(_("Demo"))}</span>'
-            f'<span>{html.escape(text)}</span>{links}</div>',
-            unsafe_allow_html=True, width="content")
-        # Translators: Link-styled button at the end of the demo notice; puts the sample portfolio back.
-        if st.button(_("Reset sample"), key="uv_demo_reset_btn", type="tertiary",
-                     icon=":material/restart_alt:", help=_("Put the sample portfolio and watchlist back")):
-            workspace.reset_session(current_user().email)
-            st.cache_data.clear()
-            st.rerun()
+            f'<span>{html.escape(text)}</span></div>',
+            unsafe_allow_html=True)
+        with st.container(key="uv_demo_actions", horizontal=True, vertical_alignment="center",
+                          gap="small", width="content"):
+            st.markdown(f'<div class="uv-demo-links">{links}</div>', unsafe_allow_html=True, width="content")
+            _demo_reset_button()
+
+
+def _demo_reset_button() -> None:
+    from uvalu.demo import workspace
+    # Translators: Link-styled button at the end of the demo notice; puts the sample portfolio back.
+    if st.button(_("Reset sample"), key="uv_demo_reset_btn", type="tertiary",
+                 icon=":material/restart_alt:", help=_("Put the sample portfolio and watchlist back")):
+        workspace.reset_session(current_user().email)
+        st.cache_data.clear()
+        st.rerun()
 
 
 def feedback_url() -> "str | None":
