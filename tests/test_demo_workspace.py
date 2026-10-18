@@ -317,3 +317,19 @@ def test_snapshot_still_being_written_waits(ws):
     os.utime(ws.src / "fx.csv", (now, now))                     # a file written just now
     assert workspace.refresh_if_newer(now=1e9) is False
     assert workspace.last_refresh() == LAST.date()
+
+
+def test_first_demo_build_raises_no_data_quality_alert(monkeypatch, caplog):
+    """A demo process starts with an empty signal history: its first build
+    logs every signal as new, which isn't a flicker alert (Cloud log 18 Oct)."""
+    import logging
+    from uvalu import data, data_quality
+    monkeypatch.setattr(data_quality, "build_summary", lambda *a, **k: {"rows": 9, "signal_changes": 9})
+    monkeypatch.setattr(data_quality, "alerts", lambda s: ["9 signal changes in one build"])
+    empty = pd.DataFrame({"Ticker": []})
+    with caplog.at_level(logging.INFO, logger="uvalu.data"):
+        data._log_data_quality(empty, empty, set(), 9, first_build=True)
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+    with caplog.at_level(logging.INFO, logger="uvalu.data"):
+        data._log_data_quality(empty, empty, set(), 9)
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING]
