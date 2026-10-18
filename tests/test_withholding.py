@@ -52,7 +52,9 @@ def test_every_default_has_an_iso_code():
 
 class TestMigration:
     @pytest.fixture
-    def ctx(self, tmp_path):
+    def ctx(self, tmp_path, monkeypatch):
+        # Hermetic like the rest of the suite: CI has no .env (tests.yml).
+        monkeypatch.setenv("ENCRYPTION_KEY", "unit-test-key-123")
         c = runner.MigrationContext(tmp_path / "data", tmp_path / "cache")
         (c.data_dir / "settings").mkdir(parents=True)
         return c
