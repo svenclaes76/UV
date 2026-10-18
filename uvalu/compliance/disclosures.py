@@ -32,8 +32,10 @@ BETA_BANNER = N_("Free beta: a test version. Features and data can change, "
 PRODUCER_NAME = "Sven Claes"
 PRODUCER_TRADING_AS = "Uvalu"
 PRODUCER_ADDRESS = "Pol Heynsstraat 7, 2200 Herentals, Belgium"
-PRODUCER_CONTACT = "support@uvalu.app"
-PRODUCER_PRIVACY_CONTACT = "privacy@uvalu.app"
+# One mailbox for every contact while the uvalu.app domain isn't held
+# (18 Oct 2026; open item L5: Gmail, Google LLC).
+PRODUCER_CONTACT = "uvalu.app@gmail.com"
+PRODUCER_PRIVACY_CONTACT = "uvalu.app@gmail.com"
 PRODUCER_ENTERPRISE_NUMBER = None   # None until the KBO/BCE registration
 ENTERPRISE_NUMBER_PENDING = N_("enterprise number: registration pending")
 NOT_SUPERVISED = N_("Not authorised or supervised by the FSMA as an investment firm.")
