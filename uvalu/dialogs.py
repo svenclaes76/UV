@@ -32,6 +32,7 @@ import yfinance as yf
 
 from portfolio import add_dividend, add_closed_trade, record_buy, record_sell
 from uvalu.components import text_width_px
+from uvalu.demo.messages import not_in_demo, outside_demo
 from uvalu.i18n import N_, _, date_input_format, frozen, fmt_date, fmt_int, fmt_money, fmt_num, fmt_pct, lowercase_noun, ngettext, tr
 from uvalu.locale_ui import number_field
 from uvalu.ui import enter_dialog
@@ -460,6 +461,9 @@ def add_position_dialog(preset_ticker: str = "", preset_name: str = "", preset_p
         return
     if not ticker_raw:
         st.error(_("Enter a ticker symbol."))
+        return
+    if outside_demo(ticker_raw):
+        st.error(not_in_demo(ticker_raw))      # F-10: fixed demo universe
         return
     _looked_up = _lookup_ticker(ticker_raw)
     if _looked_up is None:

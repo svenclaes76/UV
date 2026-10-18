@@ -41,7 +41,7 @@ from backup import backup_filename
 from portfolio import load_portfolio, load_targets, save_targets
 from settings import (load_shared_settings, save_shared_settings, load_settings, save_settings,
                       get_score_weights, _SCORE_STYLES)
-from uvalu import locale_ui, nav as nav_registry, oauth
+from uvalu import datamode, locale_ui, nav as nav_registry, oauth
 from uvalu.compliance import disclosures
 from uvalu.components import support_page
 from uvalu.dialogs import _dialog, _dialog_width_css
@@ -565,10 +565,16 @@ def render() -> None:
 
     # The shared supporting-page frame (components.support_page): back link,
     # title, and the section list as the sticky rail beside the cards.
+    # Demo mode (DM-D6): language and region only. There is no account to
+    # secure, export or delete, and the other settings would change a
+    # throwaway session.
+    _demo = not datamode.current().sign_in
+    _sections = [(a, l) for a, l in _SECTIONS if a == "set-language"] if _demo else _SECTIONS
     _content = support_page(_("Settings"), back_key="settings",
-                            subtitle=h_("Language, account security, display, portfolio targets, dividend withholding, "
-                                        "import and export, model settings."),
-                            rail=[(tr(label), f"#{anchor}") for anchor, label in _SECTIONS])
+                            subtitle=(h_("Language and region.") if _demo else
+                                      h_("Language, account security, display, portfolio targets, dividend withholding, "
+                                         "import and export, model settings.")),
+                            rail=[(tr(label), f"#{anchor}") for anchor, label in _sections])
     with _content:
         with st.container(key="set_main"):
             # ── Language & region (docs/i18n-spec.md §7) ────────────────────────────────
@@ -576,6 +582,8 @@ def render() -> None:
             # (avatar → Settings) for someone who picked a language they can't read
             # (S-06).
             locale_ui.render_card(_email, anchor="set-language")
+            if _demo:
+                return
 
             # ── Security ─────────────────────────────────────────────────────────────────
             _has_pw = has_password(_email)

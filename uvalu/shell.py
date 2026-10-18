@@ -332,6 +332,22 @@ a.uv-menu-signout:hover {{ background: var(--down-bg); }}
    gap below them (title 6px under the box instead of 22px). */
 [data-testid="stMarkdownContainer"]:has(> .uv-beta-box),
 [data-testid="stMarkdownContainer"]:has(> .uv-peer-strip) {{ margin-bottom: 0 !important; }}
+/* Demo notice (design A): the beta box's look on a horizontal container, so
+   the "Reset sample" button sits in the box like the "Terms →" link. */
+.st-key-uv_demo_banner {{
+  background: var(--soft); border: 0.5px solid var(--line); border-radius: 8px;
+  padding: 7px 14px !important; margin: -6px 0 4px; flex-wrap: wrap; row-gap: 2px !important;
+}}
+.st-key-uv_demo_banner [data-testid="stMarkdownContainer"] {{ margin: 0 !important; }}
+.uv-demo-text {{ display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px;
+  font-size: 11.5px; color: var(--muted); text-align: center; }}
+.uv-demo-label {{ font-weight: 600; color: var(--up-txt); }}
+.uv-demo-link {{ color: var(--link) !important; text-decoration: none !important; white-space: nowrap; }}
+.uv-demo-link:hover {{ color: var(--text) !important; }}
+.st-key-uv_demo_banner button {{ min-height: 0 !important; padding: 0 !important; gap: 3px !important; }}
+.st-key-uv_demo_banner button p {{ font-size: 11.5px !important; color: var(--link) !important; white-space: nowrap; }}
+.st-key-uv_demo_banner button [data-testid="stIconMaterial"] {{ font-size: 14px !important; color: var(--link) !important; }}
+.st-key-uv_demo_banner button:hover p {{ color: var(--text) !important; }}
 .uv-reload-link {{ font-size: 12.5px; color: var(--link) !important; text-decoration: none; white-space: nowrap; }}
 .uv-reload-link:hover {{ color: var(--text) !important; }}
 """
@@ -502,7 +518,9 @@ def render_beta_banner() -> None:
 
 def render_demo_banner() -> None:
     """The demo notice (demo spec F-01, demo-mode plan DM-5): what the data is
-    and how fresh, with a button that puts the sample portfolio back."""
+    and how fresh, ending in "Terms →" and "Reset sample" (design A, 18 Oct
+    2026). One box like the beta notice; the reset is a link-styled button so
+    it runs without a page reload (a reload starts a new session anyway)."""
     from uvalu.demo import workspace
     from uvalu.i18n import fmt_date
     last = workspace.last_refresh()
@@ -513,21 +531,31 @@ def render_demo_banner() -> None:
              "this session · not investment advice",
              prices_date=fmt_date(last) if last else "—",
              fundamentals_date=fmt_date(fund) if fund else "—")
-    st.markdown(
-        '<div class="uv-beta-box uv-demo-box" role="note" style="display:flex;align-items:center;justify-content:center;'
-        'flex-wrap:wrap;gap:4px 10px;font-size:11.5px;color:var(--muted);background:var(--soft);'
-        'border:0.5px solid var(--line);border-radius:8px;padding:7px 14px;margin:-6px 0 4px;text-align:center;">'
-        f'<span style="font-weight:600;color:var(--up-txt);">{html.escape(_("Demo"))}</span>'
-        f'<span style="min-width:0;">{html.escape(text)}</span>'
-        f'<a href="/legal?doc=terms" target="_self" style="white-space:nowrap;color:var(--link);'
-        f'text-decoration:none;">{html.escape(_("Terms →"))}</a></div>',
-        unsafe_allow_html=True)
-    with st.container(key="uv_demo_reset"):
-        if st.button(_("Reset sample portfolio"), key="uv_demo_reset_btn", type="tertiary",
-                     icon=":material/restart_alt:"):
+    links = (f'<a href="/legal?doc=terms" target="_self" class="uv-demo-link">{html.escape(_("Terms →"))}</a>')
+    feedback = feedback_url()
+    if feedback:
+        links += (f'<a href="{html.escape(feedback)}" target="_blank" rel="noopener" class="uv-demo-link">'
+                  f'{html.escape(_("Give feedback →"))}</a>')
+    with st.container(key="uv_demo_banner", horizontal=True, horizontal_alignment="center",
+                      vertical_alignment="center", gap="small"):
+        st.markdown(
+            f'<div class="uv-demo-text" role="note"><span class="uv-demo-label">{html.escape(_("Demo"))}</span>'
+            f'<span>{html.escape(text)}</span>{links}</div>',
+            unsafe_allow_html=True, width="content")
+        # Translators: Link-styled button at the end of the demo notice; puts the sample portfolio back.
+        if st.button(_("Reset sample"), key="uv_demo_reset_btn", type="tertiary",
+                     icon=":material/restart_alt:", help=_("Put the sample portfolio and watchlist back")):
             workspace.reset_session(current_user().email)
             st.cache_data.clear()
             st.rerun()
+
+
+def feedback_url() -> "str | None":
+    """The demo's feedback form (DM-D10), from UVALU_FEEDBACK_URL (an env var
+    or a Streamlit secret); no link while it isn't set."""
+    import os
+    url = (os.environ.get("UVALU_FEEDBACK_URL") or "").strip()
+    return url if url.startswith("https://") else None
 
 
 def render_peer_rebuild_strip() -> None:

@@ -35,9 +35,13 @@ def resolve_doc_path(file_name: str, lang: str, *, beta: bool | None = None,
                      root: Path | None = None) -> tuple[Path | None, bool]:
     """(path, translated) for a policy file: the most specific existing
     version, and whether it is in ``lang`` (False = English fallback)."""
+    from uvalu import datamode
     root = root or POLICIES_DIR
     beta = d.BETA if beta is None else beta
     dirs = ([root / "beta" / lang, root / "beta"] if beta else []) + [root / lang, root]
+    if datamode.is_demo():
+        # Demo mode (DM-5): a demo/ text, where there is one, describes the demo.
+        dirs = [root / "demo" / lang, root / "demo"] + dirs
     for folder in dirs:
         path = folder / file_name
         if path.exists():

@@ -190,7 +190,7 @@ def _render_sources_and_producer(row, ticker: str) -> None:
     _d_col, _p_col = st.columns(2)
     with _d_col, st.container(key="an_card_sources", border=True):
         st.markdown(_PANEL_TITLE.format(title=h_("Data sources")), unsafe_allow_html=True)
-        st.markdown("".join(_KV_ROW.format(k=h_(k), v=h_(v)) for k, v in d.DATA_SOURCE_ROWS),
+        st.markdown("".join(_KV_ROW.format(k=h_(k), v=h_(v)) for k, v in d.data_source_rows()),
                     unsafe_allow_html=True)
         _flags = row.get("data_flags")
         _flags = [f for f in (_flags if isinstance(_flags, list) else []) if f in DATA_FLAG_LABELS]

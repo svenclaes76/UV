@@ -6,7 +6,7 @@ import streamlit as st
 
 from portfolio import load_portfolio
 from risk import MARKET_DAILY_VOL, RISK_DISCLOSURES, TRADING_DAYS, band_tone
-from uvalu import a11y
+from uvalu import a11y, datamode
 from uvalu.data import load_portfolio_risk
 from uvalu.drawer import open_drawer
 from uvalu.components import (_esc, score_color, band_tone_color, radial_gauge_svg, page_header, material_icon_html,
@@ -347,6 +347,10 @@ def render() -> None:
             st.caption(_("Fama-French factor loadings{details}. A loading above {high} or below {low} means "
                          "the portfolio leans heavily on that factor; below {small} either way it hardly does.",
                          details=_prov_txt, high=fmt_num(1.5, 1), low=fmt_num(-1.5, 1), small=fmt_num(0.3, 1)))
+        elif datamode.is_demo():
+            # Demo (DM-5): the factor download is switched off; say what the full version adds.
+            st.caption(_("Factor analysis isn't part of the demo: it needs the Fama-French factor data and "
+                         "more than a year of prices. It's available in the full version."))
         else:
             st.caption(_("Factor analysis unavailable.") + " " + (tr(r.factor.flags[0]) if r.factor.flags else ""))
 

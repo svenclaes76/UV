@@ -72,6 +72,23 @@ DATA_SOURCE_ROWS = (
     (N_("FX"), N_("ECB reference rates via frankfurter.dev")),
 )
 
+# The demo's sources (demo-mode plan DM-5): a committed snapshot, never fetched
+# while the app runs.
+DEMO_DATA_SOURCE_ROWS = (
+    (N_("Prices"), N_("EODHD · end-of-day closes, refreshed each weekday evening")),
+    (N_("Fundamentals"), N_("The companies' annual reports and results releases · entered by hand, "
+                            "each figure with its source and page")),
+    (N_("Dividends"), N_("EODHD payment history")),
+    (N_("Sector multiples"), N_("Aswath Damodaran, NYU Stern · European industry P/E and P/B, January 2026")),
+    (N_("FX"), N_("ECB reference rates via frankfurter.dev")),
+)
+
+
+def data_source_rows() -> tuple:
+    """The data-source rows for the active data mode."""
+    from uvalu import datamode
+    return DEMO_DATA_SOURCE_ROWS if datamode.is_demo() else DATA_SOURCE_ROWS
+
 # ── Tax estimates (TAX-1, TAX-2, TAX-5, TAX-6) ───────────────────────────────
 TAX_RULES_REVIEWED = "2026-10-04"   # TAX-5: date the rates and rules below were last checked
 TAX_TITLE = N_("Tax figures are estimates")

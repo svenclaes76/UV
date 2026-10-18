@@ -139,6 +139,24 @@ _FAQ = [
      N_("Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana.")),
 ]
 
+# Demo mode (DM-5): the two answers that differ for the fixed demo snapshot.
+_FAQ_DEMO = {
+    N_("How often do prices update?"):
+        N_("The demo shows end-of-day closing prices from EODHD, refreshed each weekday evening. The "
+           "fundamentals come from the companies' annual reports and are updated once a year. "
+           "Intraday prices are not shown."),
+    N_("Which exchanges are covered?"):
+        N_("The demo covers 9 stocks on Euronext Amsterdam, Brussels and Paris, Xetra, SIX Swiss Exchange, "
+           "Nasdaq Copenhagen and the London Stock Exchange, plus one ETF."),
+}
+
+
+def _faq() -> list:
+    from uvalu import datamode
+    if not datamode.is_demo():
+        return _FAQ
+    return [(q, _FAQ_DEMO.get(q, a)) for q, a in _FAQ]
+
 # Card header: sentence case, 15px/500 (styles.py .uv-card-head, brand §5),
 # with the anchor the rail links to. One outer <div> so Markdown keeps it a
 # raw HTML block (a leading <span> would make it a paragraph).
@@ -268,7 +286,7 @@ def _render_cards() -> None:
     with st.container(key="help_card_faqs", border=True):
         st.markdown(_HEADER_HTML.format(anchor="help-faq", label=h_("Frequently asked"))
                    + '<div style="padding-bottom:6px;">'
-                   + "".join(_faq_row_html(q, a) for q, a in _FAQ)
+                   + "".join(_faq_row_html(q, a) for q, a in _faq())
                    + "</div>",
                    unsafe_allow_html=True)
 
@@ -279,7 +297,7 @@ def _render_cards() -> None:
             + "".join(f'<div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;'
                       f'padding:10px 20px;border-bottom:0.5px solid var(--line-2);font-size:12.5px;">'
                       f'<span style="color:var(--muted);">{_t(k)}</span><span>{_t(v)}</span></div>'
-                      for k, v in disclosures.DATA_SOURCE_ROWS)
+                      for k, v in disclosures.data_source_rows())
             + f'<div style="padding:12px 20px;font-size:12px;color:var(--muted);line-height:1.55;">'
               f'{h_("Stale or missing inputs are flagged on the stock page. No analyst estimates or ratings are shown.")}</div>',
             unsafe_allow_html=True)

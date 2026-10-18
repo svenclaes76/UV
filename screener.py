@@ -285,6 +285,11 @@ MIN_MOS_FLOOR = 0.10
 # licensed provider's name and required attribution wording once DATA-2 is
 # signed (M2).
 DATA_SOURCE = "Yahoo Finance (delayed quotes, via yfinance)"
+DEMO_DATA_SOURCE = "EODHD end-of-day closes; fundamentals from company reports (demo snapshot)"
+
+
+def _data_source() -> str:
+    return DEMO_DATA_SOURCE if datamode.is_demo() else DATA_SOURCE
 
 # DATA-6: analyst price targets (targetMeanPrice/High/Low, numberOfAnalystOpinions)
 # and the consensus recommendation mean are sell-side content licensed separately
@@ -2836,7 +2841,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         if t is not None else None
         for t in _fetched
     ]
-    df["data_source"]       = DATA_SOURCE
+    df["data_source"]       = _data_source()
     # Whether the row belongs to the shared public universe. Only these rows go
     # into the shared signal history (signal_history.record_changes): a user's
     # own tickers, or a user-selected pass without a peer mask, never do.
@@ -3174,7 +3179,7 @@ def methodology(*, max_debt_equity: float = 500.0, max_payout: float = 0.90,
         "model_version": MODEL_VERSION,
         "model_settings_id": model_settings_id(max_debt_equity=max_debt_equity, max_payout=max_payout,
                                                min_mos=min_mos, buy_threshold=buy_threshold, weights=w),
-        "data_source": DATA_SOURCE,
+        "data_source": _data_source(),
         "update_frequency_hours": {"fundamentals": CACHE_TTL_HOURS,
                                    "fundamentals_jitter": CACHE_TTL_JITTER},
         "fair_value": {
