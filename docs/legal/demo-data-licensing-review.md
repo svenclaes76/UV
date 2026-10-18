@@ -37,6 +37,13 @@ Reviewed: the demo data flow on `feature/demo-mode` (`01612a6`): `tools/demo_ref
 
 **g. No Yahoo or stockanalysis.com in the demo (checked).** Demo mode replaces `yfinance` with the snapshot stand-in, the universe is a fixed list (no ticker-list scraping), and the factor download is off. A test fails if demo mode reaches the network. This keeps L2 and L29 out of the demo. **No change.**
 
+**h. Naming EODHD in user-facing texts (contract and objective presentation; added 18 Oct 2026 after Sven's question).** EODHD is named in four places the user sees: the demo notice ("end-of-day prices from EODHD"), a Methodology answer, and the data-source rows (Prices, Dividends) on the stock page and Methodology page; plus the demo data-sources legal page.
+- *Settled:* the sources of a recommendation's inputs must be identifiable (art. 3 Delegated Regulation 2016/958, REC-3). The data-sources page and the stock page's data-source panel are where that belongs; the notice and the FAQ are not needed for it.
+- *Contract, unclear until EODHD answers:* data vendors usually require attribution where their data is displayed, often with set wording or placement, and many restrict use of their name in marketing or anything that suggests a partnership. EODHD's rules are question 11 of the L20 list.
+- *Practical:* naming the vendor prominently in a demo meant to promote Uvalu draws attention to the free-plan question (L38) before it's answered.
+
+**First-pass recommendation:** name EODHD only where attribution and REC-3 need it (the data-sources page and the stock page's data-source rows); in the demo notice and the Methodology answer, say "end-of-day closing prices" and link to Data sources. Final wording after EODHD's answer to question 11 and the specialist's view (briefing 03, D-5). **Not changed yet** (L41): the translations of the two texts under review would change with it.
+
 ## 3. Recommended changes
 
 | # | Change | Where | Before |
@@ -46,8 +53,11 @@ Reviewed: the demo data flow on `feature/demo-mode` (`01612a6`): `tools/demo_ref
 | 3 | Damodaran permission email (L40) | Email | Paid use; nice to have for the demo |
 | 4 | Data-sources draft: add "for the demo only; not a licence to reuse the data" under Permitted use | `policies/demo/data-sources.md` | Testers |
 
+| 5 | EODHD named only in attribution places; neutral wording in the notice and Methodology answer, after question 11 (L41) | `uvalu/shell.py`, `uvalu/pages_/help.py` | Backers |
+
 ## 4. Open items added
 
 - **L38** EODHD free plan in the demo: display and storage, in writing (part of L20; DM-D2).
 - **L39** EURO STOXX 50 benchmark line in the demo (L21, L20 question 7).
 - **L40** Damodaran: commercial use of the industry averages.
+- **L41** Where to name EODHD in user-facing texts (§2h).

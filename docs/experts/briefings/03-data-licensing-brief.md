@@ -84,6 +84,8 @@ Uvalu now also runs as a **demo**: the same app on a fixed set of **9 European s
 - **D-3. Benchmark line.** The demo shows a benchmark line derived from EURO STOXX 50 index levels (the value of the same euros invested in the index). Is that "display" of index data under STOXX's or EODHD's terms (see question 7 of our EODHD list)? Is an ETF price (VWCE) a safer basis?
 - **D-4. Third-party averages.** May a product, free now and paid later, use Aswath Damodaran's published industry multiples with attribution, given that he builds them from commercial vendors' data?
 
+- **D-5. Naming the vendor.** Where must or may we name EODHD: only on the data-sources page and next to the data (attribution), or also in general UI text such as a notice ("end-of-day prices from EODHD") and help answers? Are there rules against using the vendor's name in a demo that promotes Uvalu?
+
 | Fact | Answer |
 |---|---|
 | EODHD plan and its terms as of the demo's start (saved as PDF with the date) | [Sven] |
