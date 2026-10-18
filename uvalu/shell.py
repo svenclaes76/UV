@@ -215,17 +215,17 @@ def _apply_density_script(density: str) -> None:
 """, height=1)
 
 
-# Streamlit Community Cloud draws its own buttons (Share, star, account, ...)
-# over the top-right corner of the app frame; no setting or app CSS removes
-# them. The demo (the only mode hosted there, DM-6) keeps its top bar's right
-# side clear of them.
-CLOUD_TOOLBAR_GAP_PX = 300
+# Streamlit Community Cloud puts its own buttons (Share, star, edit, GitHub,
+# menu: about 200px for the owner, fewer for viewers) in Streamlit's header
+# over the top-right corner; no setting removes them. The demo (the only mode
+# hosted there, DM-6) keeps its top bar's right side clear of them.
+CLOUD_TOOLBAR_GAP_PX = 220
 
 
 def _cloud_toolbar_gap_css() -> str:
     if not datamode.is_demo():
         return ""
-    # Narrower than ~1110px the full gap would push the account menu onto a
+    # Narrower than ~1030px the full gap would push the account menu onto a
     # second row, so the gap shrinks there (the phone layout is backlog).
     return (f".st-key-uv_topbar {{ padding-right: clamp(120px, calc(100vw - 810px), "
             f"{CLOUD_TOOLBAR_GAP_PX}px) !important; }}")
@@ -629,10 +629,10 @@ def env_marker_html(info=None) -> str:
     """A 3px stripe across the top of the window plus a small label in the
     bottom-left corner (clear of the top bar's nav), so a non-production build
     can't be mistaken for production — not even on a screenshot. Empty for
-    production."""
+    production, and in the demo, whose own notice already says what it is."""
     from uvalu import buildinfo
     info = info or buildinfo.current()
-    if info.is_production:
+    if info.is_production or datamode.is_demo():
         return ""
     color = ENV_COLORS.get(info.environment, _ENV_FALLBACK_COLOR)
     label = html.escape(info.environment_label)

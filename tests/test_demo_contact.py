@@ -52,3 +52,12 @@ def test_top_bar_has_no_gap_in_personal_mode(monkeypatch):
     monkeypatch.delenv(datamode.ENV_VAR, raising=False)
     from uvalu import shell
     assert shell._cloud_toolbar_gap_css() == ""
+
+
+def test_no_environment_marker_in_the_demo(demo):
+    """The demo runs without UVALU_ENV on Community Cloud; its notice says what
+    it is, so no development stripe or DEV badge."""
+    from uvalu import buildinfo, shell
+    info = buildinfo.current()
+    assert not info.is_production
+    assert shell.env_marker_html(info) == ""
