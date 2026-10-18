@@ -15,6 +15,8 @@
 
 **Legal first pass (18 Oct 2026, part of DM-7):** three persona reviews, [financial regulation](legal/demo-financial-regulation-review.md), [privacy and consumer law](legal/demo-privacy-consumer-review.md) and [data licensing](legal/demo-data-licensing-review.md): low risk for testers you know; medium to medium–high for crowdfunding backers until L3, L4 and the EODHD answer (L38) are in; the crowdfunding type (L33) decides the most. Open items L32–L40; demo questions added to briefing packs 01–03. Dev fixes before testers: L32, L34, L35 done and L37 terms drafted (18 Oct 2026).
 
+**DM-6 prep (18 Oct 2026):** `.streamlit/config.toml` no longer sets a certificate (a test guards it); `run_app.py` passes the localhost certificate itself, behind Caddy nothing changes; checked by starting the demo with the committed config and no SSL flags. `requirements.txt` resolves for Linux / Python 3.12 from binary wheels. Community Cloud setup written in [deployment.md](deployment.md) ("The demo on Streamlit Community Cloud"). Found on the way: CI on `master` has failed since 17 Oct (migration tests needed a local `ENCRYPTION_KEY`); fixed on `fix/ci-withholding-key`.
+
 **Still open before testers:** Poedit review of the drafts; feedback form chosen and its URL set; dividends for Nestlé, Novo and Shell (next refresh); terms of use: the beta text still applies to the demo (check in the DM-7 legal review).
 
 Source: *Uvalu Demo – Requirements Spec* (18 Oct 2026). This plan turns that spec into work packages for this repo. It also adds the things the spec doesn't cover yet: data modes, Streamlit Community Cloud, licensing and privacy.

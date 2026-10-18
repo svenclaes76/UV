@@ -1,6 +1,8 @@
 [server]
-sslCertFile = ".ssl/cert.pem"
-sslKeyFile  = ".ssl/key.pem"
+# No TLS settings here: the committed config must also start on Streamlit
+# Community Cloud, which serves HTTPS itself and has no .ssl/ folder. A local
+# launch through run_app.py passes the self-signed localhost certificate on
+# the command line; behind Caddy (Hetzner) TLS is Caddy's job (DM-6).
 # Serves ./static/ at /app/static/ — only static/version.json lives there
 # (written by tools/stamp_build.py): the machine-readable version for
 # monitoring and support (VD-07). Everything in static/ is public, no sign-in.

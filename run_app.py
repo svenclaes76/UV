@@ -134,15 +134,17 @@ def _stamp_build(schema_version: "int | None") -> None:
 def _streamlit_args(port: str, behind_proxy: bool) -> list[str]:
     """Streamlit command line. Behind the reverse proxy (UVALU_BEHIND_PROXY=1,
     docs/deployment.md) the app listens on localhost only, over plain HTTP:
-    Caddy terminates TLS with a real certificate, so the self-signed cert in
-    .streamlit/config.toml is switched off."""
+    Caddy terminates TLS with a real certificate. A local launch serves HTTPS
+    with the self-signed localhost certificate, passed here rather than in
+    .streamlit/config.toml, which must also start on Community Cloud (DM-6)."""
     args = [sys.executable, "-m", "streamlit", "run", str(ROOT / "app.py"), "--server.port", port]
     if behind_proxy:
         args += ["--server.address", "127.0.0.1",
-                 "--server.sslCertFile", "", "--server.sslKeyFile", "",
                  "--server.headless", "true",
                  "--server.enableXsrfProtection", "true",
                  "--browser.gatherUsageStats", "false"]
+    else:
+        args += ["--server.sslCertFile", str(CERT_FILE), "--server.sslKeyFile", str(KEY_FILE)]
     return args
 
 

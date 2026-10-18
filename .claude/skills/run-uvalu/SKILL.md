@@ -21,8 +21,10 @@ headless in two layers:
 
 Two project-specific hurdles, both already handled by the scripts here:
 
-1. `.streamlit/config.toml` forces a **self-signed TLS cert** the preview
-   browser rejects — every launch passes `--server.sslCertFile "" --server.sslKeyFile ""` to fall back to plain HTTP.
+1. TLS: since DM-6 (Oct 2026) `.streamlit/config.toml` no longer sets a
+   certificate; only `run_app.py` serves the self-signed localhost cert. The
+   launches here still pass `--server.sslCertFile "" --server.sslKeyFile ""`,
+   which is now a harmless no-op (plain HTTP either way).
 2. Every screen except the login wall is **behind auth**, and an agent can't
    type a password. `_dev_entry.py` runs `app.py` unmodified but first signs a
    2-hour session token for the already-registered account.
