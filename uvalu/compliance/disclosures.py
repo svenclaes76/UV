@@ -34,6 +34,19 @@ PRODUCER_TRADING_AS = "Uvalu"
 PRODUCER_ADDRESS = "Pol Heynsstraat 7, 2200 Herentals, Belgium"
 PRODUCER_CONTACT = "support@uvalu.app"
 PRODUCER_PRIVACY_CONTACT = "privacy@uvalu.app"
+# The demo doesn't use the uvalu.app domain (not held yet, 18 Oct 2026): one
+# mailbox for every contact, in the footer and on the legal pages.
+DEMO_CONTACT = "uvalu.app@gmail.com"
+
+
+def producer_contact() -> str:
+    from uvalu import datamode
+    return DEMO_CONTACT if datamode.is_demo() else PRODUCER_CONTACT
+
+
+def producer_privacy_contact() -> str:
+    from uvalu import datamode
+    return DEMO_CONTACT if datamode.is_demo() else PRODUCER_PRIVACY_CONTACT
 PRODUCER_ENTERPRISE_NUMBER = None   # None until the KBO/BCE registration
 ENTERPRISE_NUMBER_PENDING = N_("enterprise number: registration pending")
 NOT_SUPERVISED = N_("Not authorised or supervised by the FSMA as an investment firm.")

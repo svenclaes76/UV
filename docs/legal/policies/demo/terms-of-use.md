@@ -19,7 +19,7 @@ These terms apply to the Uvalu demo. By using the demo you agree to them. If you
 
 Uvalu is operated by **Sven Claes**, trading under the name Uvalu, Pol Heynsstraat 7, 2200 Herentals, Belgium. Registration with the Crossroads Bank for Enterprises: pending.
 
-Contact: support@uvalu.app
+Contact: uvalu.app@gmail.com
 
 ## 2. What the demo is
 
@@ -62,7 +62,7 @@ We may change these terms when the demo changes. The version and date at the top
 
 ## 9. Complaints and disputes
 
-Contact us first at complaints@uvalu.app; see the Complaints page for the procedure and for the Consumer Mediation Service.
+Contact us first at uvalu.app@gmail.com; see the Complaints page for the procedure and for the Consumer Mediation Service.
 
 These terms are governed by Belgian law. If you are a consumer living in another country of the European Economic Area, you keep the protection of the mandatory rules of your country of residence. Otherwise the courts of the judicial district of Antwerp, Belgium, are competent.
 

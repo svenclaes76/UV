@@ -55,6 +55,17 @@ def _strip_header(md: str) -> str:
     return re.sub(r"\A\s*<!--.*?-->\s*", "", md, count=1, flags=re.S)
 
 
+def public_text(path: Path) -> str:
+    """A policy file as shown: without its drafting comment and, in demo mode,
+    with every …@uvalu.app address replaced by the demo's mailbox (the demo
+    doesn't use the uvalu.app domain; the beta texts it shows stay as they are)."""
+    md = _strip_header(path.read_text(encoding="utf-8"))
+    from uvalu import datamode
+    if datamode.is_demo():
+        md = re.sub(r"\b[\w.+-]+@uvalu\.app\b", d.DEMO_CONTACT, md)
+    return md
+
+
 def split_document(md: str) -> tuple[str, list[tuple[str, str]], str]:
     """(title, [(label, value), …], body) of a policy file: the ``# Title``
     line, the ``**Version:** … · **Last updated:** …`` line under it as chip
@@ -86,7 +97,7 @@ def doc_version(doc: str) -> tuple[str, str]:
     if path is None:
         return "", ""
     try:
-        _title, meta, _body = split_document(_strip_header(path.read_text(encoding="utf-8")))
+        _title, meta, _body = split_document(public_text(path))
     except OSError:
         return "", ""
     meta = dict(meta)
@@ -183,7 +194,7 @@ def render(*, public: bool = False) -> None:
         doc = "terms"
     file_name = next(f for k, _t, f in d.LEGAL_DOCS if k == doc)
     path, translated = resolve_doc_path(file_name, current().lang)
-    title, meta, body = split_document(_strip_header(path.read_text(encoding="utf-8"))) if path else ("", [], "")
+    title, meta, body = split_document(public_text(path)) if path else ("", [], "")
     body, toc = anchor_sections(body)
 
     # The footer's link to this document reads as "you are here". In a

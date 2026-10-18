@@ -1124,7 +1124,7 @@ def render() -> None:
                                    h_("Questions about your data, or a complaint to the Belgian Data Protection "
                                       "Authority (GBA / APD)."))
                     with _c2:
-                        _pc = html.escape(disclosures.PRODUCER_PRIVACY_CONTACT)
+                        _pc = html.escape(disclosures.producer_privacy_contact())
                         st.markdown(f'<div class="uv-set-privacy-mail"><a href="mailto:{_pc}">'
                                     f'{_pc.replace("@", "&#64;")}</a></div>', unsafe_allow_html=True)
 

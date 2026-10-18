@@ -41,7 +41,7 @@ The risk-free interest rate and the equity risk premium are fixed model assumpti
 - The fundamentals are annual figures, so between annual reports they are up to a year old.
 - Where an input is missing, the models that depend on it are skipped; the stock page shows which models were used.
 
-Found an error? Tell us at support@uvalu.app with the ticker and the figure concerned.
+Found an error? Tell us at uvalu.app@gmail.com with the ticker and the figure concerned.
 
 ## 4. What Uvalu calculates itself
 

@@ -17,6 +17,8 @@
 
 **DM-6 prep (18 Oct 2026):** `.streamlit/config.toml` no longer sets a certificate (a test guards it); `run_app.py` passes the localhost certificate itself, behind Caddy nothing changes; checked by starting the demo with the committed config and no SSL flags. `requirements.txt` resolves for Linux / Python 3.12 from binary wheels. Community Cloud setup written in [deployment.md](deployment.md) ("The demo on Streamlit Community Cloud"). Found on the way: CI on `master` has failed since 17 Oct (migration tests needed a local `ENCRYPTION_KEY`); fixed on `fix/ci-withholding-key`.
 
+**Contact in the demo (18 Oct 2026, Sven):** the uvalu.app domain isn't held yet, so the demo names no uvalu.app address: the footer and every legal page it shows use `uvalu.app@gmail.com` (beta texts are rewritten on display in demo mode; a test guards it). Personal mode and the beta texts are unchanged.
+
 **Still open before testers:** Poedit review of the drafts; feedback form chosen and its URL set; dividends for Nestlé, Novo and Shell (next refresh); terms of use: the beta text still applies to the demo (check in the DM-7 legal review).
 
 Source: *Uvalu Demo – Requirements Spec* (18 Oct 2026). This plan turns that spec into work packages for this repo. It also adds the things the spec doesn't cover yet: data modes, Streamlit Community Cloud, licensing and privacy.

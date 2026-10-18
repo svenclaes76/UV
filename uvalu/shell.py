@@ -495,7 +495,7 @@ def producer_line() -> str:
     Methodology page (REC-1, BIZ-3): name and trading name, address,
     enterprise number (or "registration pending") and contact."""
     from uvalu.compliance import disclosures as d
-    return f"{producer_name()} · {d.PRODUCER_ADDRESS} · {enterprise_number()} · {d.PRODUCER_CONTACT}"
+    return f"{producer_name()} · {d.PRODUCER_ADDRESS} · {enterprise_number()} · {d.producer_contact()}"
 
 
 def render_beta_banner() -> None:
