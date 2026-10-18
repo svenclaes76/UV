@@ -52,12 +52,12 @@ msgid "Analysis"
 msgstr ""
 
 #. Context: Page name; also the user menu link and the Settings page title
-#: app.py:128 uvalu/pages_/settings.py:573 uvalu/shell.py:458
+#: app.py:128 uvalu/pages_/settings.py:573 uvalu/shell.py:487
 msgid "Settings"
 msgstr ""
 
-#: app.py:129 uvalu/compliance/disclosures.py:111 uvalu/pages_/help.py:215
-#: uvalu/shell.py:460
+#: app.py:129 uvalu/compliance/disclosures.py:126 uvalu/pages_/help.py:215
+#: uvalu/shell.py:489
 msgid "Methodology"
 msgstr ""
 
@@ -66,7 +66,7 @@ msgid "Legal"
 msgstr ""
 
 #: app.py:132 uvalu/pages_/about.py:203 uvalu/pages_/help.py:179
-#: uvalu/pages_/help.py:319 uvalu/shell.py:463
+#: uvalu/pages_/help.py:319 uvalu/shell.py:492
 msgid "About Uvalu"
 msgstr ""
 
@@ -627,7 +627,7 @@ msgstr ""
 
 #. Context: Password strength level. Also the 'Strong' score label on the
 #. Analysis page and a Sharpe ratio rating on the Risk page.
-#: risk.py:749 uvalu/shell.py:109
+#: risk.py:749 uvalu/shell.py:110
 msgid "Strong"
 msgstr ""
 
@@ -1468,7 +1468,7 @@ msgstr ""
 msgid "Concentration ceiling (HHI)"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:71 uvalu/compliance/disclosures.py:81
+#: uvalu/compliance/disclosures.py:86 uvalu/compliance/disclosures.py:96
 #: workbook.py:283
 msgid "Dividends"
 msgstr ""
@@ -1716,7 +1716,7 @@ msgstr ""
 
 #. Context: Small uppercase tagline next to the uvalu logo (top bar and sign-in
 #. panel). Keep short and lowercase.
-#: uvalu/authgate.py:332 uvalu/shell.py:385
+#: uvalu/authgate.py:332 uvalu/shell.py:413
 msgid "value engine"
 msgstr ""
 
@@ -3756,7 +3756,7 @@ msgid "Privacy policy"
 msgstr ""
 
 #. Context: Planned (spec, not in code yet) › Link text
-#: uvalu/compliance/disclosures.py:109 uvalu/i18n_planned.py:15
+#: uvalu/compliance/disclosures.py:124 uvalu/i18n_planned.py:15
 msgid "Terms of use"
 msgstr ""
 
@@ -3977,71 +3977,71 @@ msgstr ""
 
 #. Context: Password strength level shown in the meter. Also used as the 'Weak'
 #. conviction/score label on the Analysis page.
-#: uvalu/shell.py:106
+#: uvalu/shell.py:107
 msgid "Weak"
 msgstr ""
 
 #. Context: Password strength level (middle of Weak / Fair / Strong). Means
 #. 'acceptable', not 'fair value'.
-#: uvalu/shell.py:108
+#: uvalu/shell.py:109
 msgid "Fair"
 msgstr ""
 
-#: uvalu/shell.py:412
+#: uvalu/shell.py:441
 msgctxt "market"
 msgid "Closed"
 msgstr ""
 
-#: uvalu/shell.py:413
+#: uvalu/shell.py:442
 msgctxt "market"
 msgid "Live"
 msgstr ""
 
-#: uvalu/shell.py:413
+#: uvalu/shell.py:442
 msgctxt "market"
 msgid "Delayed"
 msgstr ""
 
 #. Context: Top bar › tooltip on the theme toggle button
-#: uvalu/shell.py:428 uvalu/shell.py:430
+#: uvalu/shell.py:457 uvalu/shell.py:459
 msgid "Switch to dark theme"
 msgstr ""
 
 #. Context: Top bar › tooltip on the theme toggle button
-#: uvalu/shell.py:428 uvalu/shell.py:430
+#: uvalu/shell.py:457 uvalu/shell.py:459
 msgid "Switch to light theme"
 msgstr ""
 
-#: uvalu/shell.py:435
+#: uvalu/shell.py:464
 msgid "Demo visitor"
 msgstr ""
 
-#: uvalu/shell.py:436
+#: uvalu/shell.py:465
 #, python-brace-format
 msgid "Account menu for {name}"
 msgstr ""
 
-#: uvalu/shell.py:449 uvalu/shell.py:543
+#: uvalu/shell.py:478 uvalu/shell.py:572
 msgid "Demo"
 msgstr ""
 
-#: uvalu/pages_/settings.py:1198 uvalu/shell.py:449
+#: uvalu/pages_/settings.py:1198 uvalu/shell.py:478
 msgid "Free beta"
 msgstr ""
 
 #. Context: User menu (top right) › link to the admin portal, only shown to
 #. admins
-#: uvalu/shell.py:465
+#: uvalu/shell.py:494
 msgid "Admin portal"
 msgstr ""
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:746 uvalu/pages_/settings.py:1199 uvalu/shell.py:473
+#: uvalu/pages_/settings.py:746 uvalu/pages_/settings.py:1199 uvalu/shell.py:502
 msgid "Sign out"
 msgstr ""
 
-#: uvalu/shell.py:483
+#: uvalu/shell.py:512
 #, python-brace-format
 msgid "{name}, trading as {trading_as}"
 msgstr ""
@@ -4049,17 +4049,19 @@ msgstr ""
 #. Context: Risk metric label: Dashboard risk snapshot and Risk page (shown
 #. uppercase)
 #: uvalu/pages_/dashboard.py:506 uvalu/pages_/risk.py:34 uvalu/pages_/risk.py:291
-#: uvalu/shell.py:512
+#: uvalu/shell.py:541
 msgid "Beta"
 msgstr ""
 
-#: uvalu/shell.py:515 uvalu/shell.py:535
+#: uvalu/shell.py:544 uvalu/shell.py:565
 msgid "Terms →"
 msgstr ""
 
 #. Demo notice under the top bar. {prices_date} is the date of the newest end-of-day
 #. prices, {fundamentals_date} the balance-sheet date of the annual reports used.
-#: uvalu/shell.py:530
+#. Demo notice under the top bar. {prices_date} is the date of the newest end-of-day
+#. prices, {fundamentals_date} the balance-sheet date of the annual reports used.
+#: uvalu/shell.py:560
 #, python-brace-format
 msgid ""
 "9 European stocks · end-of-day prices to {prices_date} · fundamentals from the "
@@ -4067,16 +4069,16 @@ msgid ""
 "can change in this session · not investment advice"
 msgstr ""
 
-#: uvalu/shell.py:539
+#: uvalu/shell.py:569
 msgid "Give feedback →"
 msgstr ""
 
 #. Link-styled button at the end of the demo notice; puts the sample portfolio back.
-#: uvalu/shell.py:547
+#: uvalu/shell.py:584
 msgid "Reset sample"
 msgstr ""
 
-#: uvalu/shell.py:548
+#: uvalu/shell.py:585
 msgid "Put the sample portfolio and watchlist back"
 msgstr ""
 
@@ -4084,13 +4086,13 @@ msgstr ""
 #. restart. “No signal” is the badge label.
 #. Strip under the beta notice while the app rebuilds its peer reference after a
 #. restart. “No signal” is the badge label.
-#: uvalu/shell.py:573
+#: uvalu/shell.py:610
 msgid ""
 "Rebuilding the peer reference after a restart. Signals show “No signal” until it"
 " finishes, usually within a few minutes."
 msgstr ""
 
-#: uvalu/shell.py:635
+#: uvalu/shell.py:672
 msgid "Couldn’t load this page. Try again in a moment."
 msgstr ""
 
@@ -4098,7 +4100,7 @@ msgstr ""
 #. to quote to support.
 #. Shown under an error message; {ref} is a technical reference (id, version, commit)
 #. to quote to support.
-#: uvalu/shell.py:638
+#: uvalu/shell.py:675
 #, python-brace-format
 msgid "Something went wrong. Reference for support: {ref}"
 msgstr ""
@@ -4107,18 +4109,18 @@ msgstr ""
 #. update.
 #. Maintenance screen › title, shown instead of the app while stored data waits for an
 #. update.
-#: uvalu/shell.py:651
+#: uvalu/shell.py:688
 msgid "Uvalu is being updated"
 msgstr ""
 
 #. Maintenance screen › body text under "Uvalu is being updated".
-#: uvalu/shell.py:653
+#: uvalu/shell.py:690
 msgid ""
 "The app is waiting for a data update to finish. Please try again in a few "
 "minutes."
 msgstr ""
 
-#: uvalu/shell.py:728
+#: uvalu/shell.py:765
 msgid "About this version and what's new"
 msgstr ""
 
@@ -4149,21 +4151,21 @@ msgid ""
 " any time."
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:38
+#: uvalu/compliance/disclosures.py:53
 msgid "enterprise number: registration pending"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:39
+#: uvalu/compliance/disclosures.py:54
 msgid "Not authorised or supervised by the FSMA as an investment firm."
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:42
+#: uvalu/compliance/disclosures.py:57
 msgid ""
 "Not directed at residents of the United Kingdom, the United States or "
 "Switzerland."
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:46
+#: uvalu/compliance/disclosures.py:61
 msgid ""
 "Uvalu is an analysis tool. Scores, fair values and signals are model outputs "
 "based on public data and are the same for every user. They are not personal "
@@ -4171,7 +4173,7 @@ msgid ""
 "involves risk, including loss of capital. Decisions are your own."
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:51
+#: uvalu/compliance/disclosures.py:66
 #, python-brace-format
 msgid ""
 "Uvalu ({producer}) is not an investment firm, bank or broker and is not "
@@ -4186,71 +4188,71 @@ msgid ""
 "policy."
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:61
+#: uvalu/compliance/disclosures.py:76
 msgid ""
 "Support explains how Uvalu works; we can't comment on whether you should buy, "
 "hold or sell any stock."
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:65
+#: uvalu/compliance/disclosures.py:80
 msgid "Your records · nothing is executed"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:69 uvalu/compliance/disclosures.py:78
+#: uvalu/compliance/disclosures.py:84 uvalu/compliance/disclosures.py:93
 msgid "Prices"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:69
+#: uvalu/compliance/disclosures.py:84
 msgid "Yahoo Finance · delayed quotes, with the time they were fetched"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:70 uvalu/compliance/disclosures.py:79
+#: uvalu/compliance/disclosures.py:85 uvalu/compliance/disclosures.py:94
 msgid "Fundamentals"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:70
+#: uvalu/compliance/disclosures.py:85
 msgid "Yahoo Finance · refreshed about every 24 hours"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:71
+#: uvalu/compliance/disclosures.py:86
 msgid "Yahoo Finance payment history · your own entries are your records"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:72 uvalu/compliance/disclosures.py:83
+#: uvalu/compliance/disclosures.py:87 uvalu/compliance/disclosures.py:98
 msgid "FX"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:72 uvalu/compliance/disclosures.py:83
+#: uvalu/compliance/disclosures.py:87 uvalu/compliance/disclosures.py:98
 msgid "ECB reference rates via frankfurter.dev"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:78
+#: uvalu/compliance/disclosures.py:93
 msgid "EODHD · end-of-day closes, refreshed each weekday evening"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:79
+#: uvalu/compliance/disclosures.py:94
 msgid ""
 "The companies' annual reports and results releases · entered by hand, each "
 "figure with its source and page"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:81
+#: uvalu/compliance/disclosures.py:96
 msgid "EODHD payment history"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:82
+#: uvalu/compliance/disclosures.py:97
 msgid "Sector multiples"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:82
+#: uvalu/compliance/disclosures.py:97
 msgid "Aswath Damodaran, NYU Stern · European industry P/E and P/B, January 2026"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:94
+#: uvalu/compliance/disclosures.py:109
 msgid "Tax figures are estimates"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:95
+#: uvalu/compliance/disclosures.py:110
 #, python-brace-format
 msgid ""
 "Rules applied: Belgium. Foreign withholding at the rate for the company's "
@@ -4259,55 +4261,55 @@ msgid ""
 "applied to stock (scrip) dividends. Rates last reviewed {date}."
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:99
+#: uvalu/compliance/disclosures.py:114
 msgid ""
 "Not handled: the dividend exemption and its carry-forward, substantial holdings,"
 " funds with a bond component, non-Belgian residents, split ownership, "
 "professional or speculative trading."
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:102
+#: uvalu/compliance/disclosures.py:117
 msgid ""
 "You remain responsible for your tax return. Check these figures against your "
 "bank statements or with a tax professional."
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:110
+#: uvalu/compliance/disclosures.py:125
 msgid "Privacy notice"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:112 uvalu/pages_/analysis.py:192
+#: uvalu/compliance/disclosures.py:127 uvalu/pages_/analysis.py:192
 #: uvalu/pages_/help.py:176 uvalu/pages_/help.py:296
 msgid "Data sources"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:113 uvalu/pages_/help.py:306
+#: uvalu/compliance/disclosures.py:128 uvalu/pages_/help.py:306
 msgid "Conflicts of interest"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:114
+#: uvalu/compliance/disclosures.py:129
 msgid "Complaints & Consumer Mediation Service"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:115
+#: uvalu/compliance/disclosures.py:130
 msgid "Accessibility statement"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:119
+#: uvalu/compliance/disclosures.py:134
 msgid "Complaints"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:119
+#: uvalu/compliance/disclosures.py:134
 msgid "Accessibility"
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:120
+#: uvalu/compliance/disclosures.py:135
 msgid ""
 "Reference language: English. You may rely on the version shown to you in your "
 "own language."
 msgstr ""
 
-#: uvalu/compliance/disclosures.py:122
+#: uvalu/compliance/disclosures.py:137
 msgid ""
 "This page is not yet available in your language; the English reference version "
 "is shown."
@@ -4406,7 +4408,7 @@ msgstr ""
 msgid "No release notes yet."
 msgstr ""
 
-#: uvalu/pages_/about.py:206 uvalu/pages_/legal.py:201 uvalu/pages_/legal.py:219
+#: uvalu/pages_/about.py:206 uvalu/pages_/legal.py:212 uvalu/pages_/legal.py:230
 msgid "Legal & policies"
 msgstr ""
 
@@ -5791,19 +5793,19 @@ msgid ""
 "decided until 2 trading days after it is live."
 msgstr ""
 
-#: uvalu/pages_/legal.py:166
+#: uvalu/pages_/legal.py:177
 msgid "Print or save as PDF"
 msgstr ""
 
-#: uvalu/pages_/legal.py:204
+#: uvalu/pages_/legal.py:215
 msgid "During the free beta these pages are available in English only."
 msgstr ""
 
-#: uvalu/pages_/legal.py:223
+#: uvalu/pages_/legal.py:234
 msgid "This document is not available yet."
 msgstr ""
 
-#: uvalu/pages_/legal.py:228
+#: uvalu/pages_/legal.py:239
 msgid "Uvalu · Legal"
 msgstr ""
 
