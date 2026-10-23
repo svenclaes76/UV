@@ -9,11 +9,13 @@ Beta-readiness review 5 October 2026: history wording made true from day one (re
 14 October 2026 (beta 1.2): model M2 — coverage, currency conversion, stability rule, incomplete updates.
 15 October 2026 (beta 1.5): stress tests on the EURO STOXX 50's own falls and dates (Q3). Signals unchanged,
 so the model version stays M4.
+Exchange expansion R2 (beta 1.6): model M5 — risk-free rate per currency (OECD 10-year yields, EUR = Germany),
+EPV tax floor for 0% registrations, liquidity on traded value in euro. Date set at release.
 -->
 
 # Methodology — free beta
 
-**Version:** beta 1.5 · **Last updated:** 15 October 2026 · **Model version:** M4
+**Version:** beta 1.6 · **Last updated:** [release date] · **Model version:** M5
 
 This page explains how Uvalu calculates fair values, scores, model signals and risk figures. Everything described here is a model output: an estimate based on public data and assumptions. It is not a fact and not personal advice.
 
@@ -39,13 +41,13 @@ Facts come from third parties and can still contain errors. See the Data sources
 
 Each model produces a fair value per share. A model is skipped when its required inputs are missing or when it does not suit the company; the stock page shows which models were used and why the others were not.
 
-**Discount rate.** Models that discount future income use a cost of equity of 3% (risk-free rate) + beta × 5% (equity risk premium). Beta is taken from the data provider, adjusted two-thirds of the way towards the market average of 1.0, and replaced by 1.0 when it is missing or outside 0.1–5.0.
+**Discount rate.** Models that discount future income use a cost of equity of the risk-free rate + beta × 5% (equity risk premium). The risk-free rate is the 10-year government bond yield of the currency the share is quoted in (OECD long-term interest rates; for the euro, Germany's), updated each quarter with its date, not daily. A currency without a published yield is discounted at the euro rate and its stocks get no Undervalued signal. Beta is taken from the data provider, adjusted two-thirds of the way towards the market average of 1.0, and replaced by 1.0 when it is missing or outside 0.1–5.0.
 
 | Model | What it does | Main inputs | Default assumptions | Not used when |
 | --- | --- | --- | --- | --- |
 | Graham Number | Conservative value from earnings and book value: square root of 22.5 × earnings per share × book value per share | Earnings per share, book value per share | Multiplier 22.5 | Earnings or book value zero or negative; real estate and financial companies |
 | Price/earnings value | Earnings per share × the median price/earnings ratio of the company's sector, adjusted for earnings growth | Earnings per share, sector P/E, earnings growth | Sector multiple limited to 6–30×; 15× when the sector has fewer than 5 priced peers; growth adjustment limited to 0.7–1.5×, using the yearly growth of net income over the last 3–4 years (without that history, the latest growth figure is used only when it is between −50% and +50%) | Earnings zero or negative; real estate companies |
-| Earnings power value (EPV) | Values current normalised operating earnings with no growth: earnings after tax divided by the cost of capital, minus net debt | Operating earnings (EBIT) of the last 3–4 years, tax rate, cost of capital, net debt, shares outstanding | Normalised EBIT = median (3 years) or trimmed mean (4 or more years); statutory tax rate of the company's country, 25% if unknown | Normalised value negative; real estate and financial companies |
+| Earnings power value (EPV) | Values current normalised operating earnings with no growth: earnings after tax divided by the cost of capital, minus net debt | Operating earnings (EBIT) of the last 3–4 years, tax rate, cost of capital, net debt, shares outstanding | Normalised EBIT = median (3 years) or trimmed mean (4 or more years); statutory tax rate of the company's country; 25% if unknown or if the country's rate is near 0% (the company is taxed where it earns); Estonia and Latvia use their rate on distributed profits | Normalised value negative; real estate and financial companies |
 | Dividend model, single stage | Present value of dividends growing at a constant rate | Dividend per share, dividend growth, cost of equity | Growth = historical dividend growth, limited to 0–5% and to at least 3 points below the discount rate | No dividend; payout ratio at or below 5% or at or above 95% |
 | Dividend model, multi-stage | Five years of higher dividend growth, then a constant terminal growth | Dividend per share, dividend growth, cost of equity | Growth in years 1–5 limited to 15%; terminal growth 2% | As above |
 | Book value (fallback) | Book value per share × the median price/book ratio of the sector | Book value per share, sector P/B | Sector multiple limited to 0.5–4×; 1.5× when the sector has fewer than 5 peers | Only used when none of Graham, P/E and EPV could be calculated; main anchor for banks, insurers and real estate |
@@ -73,7 +75,7 @@ The composite score runs from 0 to 100. Each component is first turned into a su
 | Component | Weight | What it measures |
 | --- | --- | --- |
 | Margin of safety | 24% | Distance between price and model fair value |
-| Risk | 22% | Financial health, earnings quality, market risk (beta), dividend risk and trading liquidity; lower risk scores higher |
+| Risk | 22% | Financial health, earnings quality, market risk (beta), dividend risk and trading liquidity (average daily traded value in euro); lower risk scores higher |
 | Quality | 24% | Return on equity and assets, operating margin, free-cash-flow yield, current ratio |
 | Momentum | 15% | Earnings growth and revenue growth |
 | Dividend | 15% | Yield against its 5-year average, payout and cash payout ratios, dividend cover, dividend growth; non-payers get a neutral value |
@@ -134,7 +136,7 @@ Known limits:
 - Past cash flows and earnings may not continue.
 - The models suit some businesses poorly, such as banks, insurers, early-stage and cyclical companies.
 - The models ignore information outside the financial statements, such as litigation, management changes or new competitors.
-- The risk-free rate and equity risk premium are fixed assumptions and do not follow market rates.
+- The equity risk premium is a fixed assumption. The risk-free rate follows government bond yields only at each quarterly update, not day by day.
 - Currency effects: fair values are calculated in the currency in which the share is quoted. When a company reports its financial figures in another currency, those figures are first converted with European Central Bank reference rates. If no rate is available, the stock gets no Undervalued signal and its page says why. Portfolio figures are converted to euro with European Central Bank reference rates.
 
 ## 9. Portfolio risk analytics
@@ -186,3 +188,4 @@ Signals and valuations are produced by Sven Claes, trading as Uvalu, Pol Heynsst
 | 14 October 2026 | M3 | Graham and P/E models use normalised earnings per share (3–4 years of net income) instead of the latest year; the P/E growth adjustment uses multi-year growth. A one-off gain no longer inflates fair values. Signals of some stocks change. |
 | 14 October 2026 | M4 | No Undervalued signal when the models disagree by more than a factor 3 (the range is shown) or when the margin of safety is above 50% (a likely data error). Signals of some stocks change. |
 | 15 October 2026 | M4 | Stress tests use the EURO STOXX 50's own falls and dates (they were the S&P 500's). Signals are unchanged; a portfolio's risk score can change slightly. |
+| [release date] | M5 | The risk-free rate is the 10-year government bond yield of the share's currency, updated each quarter (for the euro, Germany's: 3.47% for September 2026, was a fixed 3%). Companies registered where the tax rate is near 0% are valued at the 25% default tax rate. Trading liquidity counts the value traded in euro instead of the number of shares. Fair values of euro stocks fall by about 2%; those of Swiss stocks rise by about a fifth (Swiss yield 0.59%). The signals of about 2 in 100 stocks change. |

@@ -128,13 +128,13 @@ def _render_history_and_sensitivity(row, ticker: str, enabled: tuple, manual: di
         st.caption(_("Full log with inputs and model version is kept for every badge change."))
 
     with _s_col, st.container(key="an_card_sensitivity", border=True):
-        from screener import MODEL_VERSION
+        from screener import model_version
         # Title with the shared-settings note on the same row (design reference).
         st.markdown(
             '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px;">'
             f'<span role="heading" aria-level="2" style="font-size:15px;font-weight:500;">{h_("Assumptions & sensitivity")}</span>'
             # Translators: Analysis › Assumptions & sensitivity, note beside the card title: the settings are the same for every user; {model} is the model version, e.g. "M1".
-            f'<span style="font-size:11px;color:var(--muted);white-space:nowrap;">{h_("Shared settings · model {model}", model=MODEL_VERSION)}</span></div>',
+            f'<span style="font-size:11px;color:var(--muted);white-space:nowrap;">{h_("Shared settings · model {model}", model=model_version())}</span></div>',
             unsafe_allow_html=True)
         _thr = get_veto_thresholds()
         _ref_key = (tuple(enabled), tuple(manual.keys()), tuple(manual.values()),

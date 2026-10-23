@@ -1,0 +1,42 @@
+{
+  "_note": "10-year government bond yield per quote currency; EUR = Germany. Drafted by tools/refresh_risk_free.py, refreshed each quarter (EX10). Never fetched at run time.",
+  "source": "OECD, Long-term interest rates (IRLT, 10-year government bonds, monthly)",
+  "as_of": "2026-10-23",
+  "rates": {
+    "EUR": {
+      "rate": 0.0347,
+      "country": "DEU",
+      "period": "2026-09"
+    },
+    "CHF": {
+      "rate": 0.0059,
+      "country": "CHE",
+      "period": "2026-09"
+    },
+    "GBP": {
+      "rate": 0.05242,
+      "country": "GBR",
+      "period": "2026-09"
+    },
+    "SEK": {
+      "rate": 0.03192,
+      "country": "SWE",
+      "period": "2026-09"
+    },
+    "DKK": {
+      "rate": 0.0301,
+      "country": "DNK",
+      "period": "2026-08"
+    },
+    "NOK": {
+      "rate": 0.04406,
+      "country": "NOR",
+      "period": "2026-09"
+    },
+    "PLN": {
+      "rate": 0.0623,
+      "country": "POL",
+      "period": "2026-09"
+    }
+  }
+}

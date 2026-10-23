@@ -56,7 +56,7 @@ def test_model_settings_in_force_list_for_every_user(isolated_data, monkeypatch)
     assert "Model settings in force" in html and f"Same for every user · model {MODEL_VERSION}" in html
     assert "&gt; 500%" in html          # quality screen: debt / equity
     assert "≥ 70" in html and "≥ 10%" in html
-    assert "3% + β × 5%" in html and "Terminal dividend growth" in html
+    assert "3.0% + β × 5%" in html and "Terminal dividend growth" in html
     assert "Margin of safety 24 · Risk 22 · Quality 24 · Momentum 15 · Dividend 15." in html
     assert "Changes are logged." in html and "announced" not in html
 

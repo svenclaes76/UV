@@ -122,7 +122,7 @@ document.getElementById("b").onclick = async (e) => {{
 def _build_card(info: "buildinfo.BuildInfo") -> None:
     try:
         import screener
-        model = screener.MODEL_VERSION
+        model = screener.model_version()
     except Exception:
         model = "?"
     built = _parse_iso(info.built_at)

@@ -2716,7 +2716,7 @@ class TestMonteCarloBootstrap:
         boot = _stage6_stress(pf, {"A": {}}, 1.0, 1000.0, pr, self._conc(pf)).mc_1y
 
         # matched-moment Normal MC over the same horizon / path count / seed
-        drift = (risk.RISK_FREE_RATE + 1.0 * risk.EQUITY_RISK_PREMIUM) / risk.TRADING_DAYS
+        drift = (risk.portfolio_risk_free() + 1.0 * risk.EQUITY_RISK_PREMIUM) / risk.TRADING_DAYS
         r = pr.to_numpy()
         r = r - r.mean() + drift
         rng = np.random.default_rng(risk.MONTE_CARLO_SEED)

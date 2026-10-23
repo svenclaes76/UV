@@ -974,13 +974,15 @@ def render() -> None:
             # other user's screening results.
             _is_admin = _u.is_admin
             with st.container(key="set_card_screening", border=True):
-                from screener import DDM_STABLE_GROWTH, EQUITY_RISK_PREMIUM, MODEL_VERSION, RISK_FREE_RATE
+                from screener import (DDM_STABLE_GROWTH, EQUITY_RISK_PREMIUM, model_version,
+                                      portfolio_risk_free, refresh_model_switches)
+                _m5_on = refresh_model_switches(_shared)
                 st.markdown(
                     '<div><span id="set-model" class="uv-anchor"></span>'
                     '<div class="uv-card-head uv-set-head" style="align-items:baseline;">'
                     f'<span>{h_("Model settings in force")}</span>'
                     f'<span style="font-size:11px;font-weight:400;color:var(--muted);">'
-                    f'{h_("Same for every user · model {version}", version=MODEL_VERSION)}</span></div></div>',
+                    f'{h_("Same for every user · model {version}", version=model_version())}</span></div></div>',
                     unsafe_allow_html=True)
                 _w = get_score_weights()
                 _model_rows = [
@@ -988,8 +990,12 @@ def render() -> None:
                      f"≥ {fmt_num(_shared.get('buy_threshold', 70), 0)}"),
                     (h_("Undervalued: margin of safety"), h_("Discount of price to model fair value."),
                      f"≥ {fmt_pct(max(10, float(_shared.get('min_mos', 10))), 0)}"),
-                    (h_("Cost of equity"), h_("Risk-free rate plus beta times equity risk premium."),
-                     f"{fmt_pct(RISK_FREE_RATE * 100, 0)} + β × {fmt_pct(EQUITY_RISK_PREMIUM * 100, 0)}"),
+                    (h_("Cost of equity"),
+                     (h_("10-year government bond yield of the share's currency (shown: euro, Germany) "
+                         "plus beta times equity risk premium.")
+                      if _m5_on.get("m5_rate_per_currency", True)
+                      else h_("Risk-free rate plus beta times equity risk premium.")),
+                     f"{fmt_pct(portfolio_risk_free() * 100, 1)} + β × {fmt_pct(EQUITY_RISK_PREMIUM * 100, 0)}"),
                     (h_("Terminal dividend growth"), h_("Multi-stage dividend model, after year 5."),
                      fmt_pct(DDM_STABLE_GROWTH * 100, 0)),
                     (h_("Quality screen: debt / equity"), h_("Not applied to financials, real estate and utilities."),

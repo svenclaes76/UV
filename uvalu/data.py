@@ -361,14 +361,14 @@ def _record_signals(scored: pd.DataFrame) -> int:
         return 0
     changes = 0
     try:
-        from screener import MODEL_VERSION, signal_records
+        from screener import model_version, signal_records
         from uvalu.compliance import settings_audit, signal_history
         recs = signal_records(scored)
         changes = signal_history.record_changes(recs)
         signal_history.write_daily_snapshot(recs)
         _ids = scored["model_settings_id"].dropna().unique() if "model_settings_id" in scored.columns else []
         if len(_ids):
-            settings_audit.record_model_version(MODEL_VERSION, str(_ids[0]))
+            settings_audit.record_model_version(model_version(), str(_ids[0]))
     except Exception:
         logkit.get_logger("uvalu.data").error("signal log write failed", exc_info=True,
                                               extra={"event": "compliance.signal_log_failed"})

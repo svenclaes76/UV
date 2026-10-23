@@ -21,6 +21,43 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+**Model M5: signals change.** Fair values are discounted at the 10-year
+government bond yield of the share's currency instead of a fixed 3%, EPV no
+longer uses a 0% tax rate, and liquidity counts traded value in euro. In a
+dry run on the 23 October cache (1,738 home listings) 29 signals change,
+Undervalued goes from 33 to 29, euro fair values fall about 2% and Swiss
+fair values rise about 20%. **Do:** plan a signal blackout for the switch;
+each part can be switched back to M4 in the shared settings.
+
+### Added
+
+- `uvalu/risk_free_rates.json`, a dated snapshot of the OECD long-term
+  interest rates (10-year government bonds, monthly) for EUR (Germany), CHF,
+  GBP, SEK, DKK, NOK and PLN, drafted by `tools/refresh_risk_free.py` and
+  refreshed each quarter (EX10); read by `uvalu/riskfree.py`, never fetched
+  at run time. Iceland has no OECD series: ISK has no rate yet.
+- Shared settings `m5_rate_per_currency`, `m5_epv_tax_floor` and
+  `m5_liquidity_eur` (default on, plan P8): switching one off returns that
+  part to M4; `screener.model_version()` gives "M5", "M5*" (mixed) or "M4",
+  and the switches are part of `model_settings_id`.
+
+### Changed
+
+- Model M5 (EX-W5b, D33–D35):
+  - The cost of equity is the share's currency's 10-year yield + beta × 5%
+    (was 3% + beta × 5% for every currency). A currency without a yield is
+    discounted at the EUR rate and gets no Undervalued signal (new data flag
+    `risk_free_rate_missing`, with its reason on the stock page). Portfolio
+    Sharpe, Sortino and Monte-Carlo drift use the EUR rate.
+  - EPV: a registration with a tax rate under 5% uses the 25% default;
+    Estonia and Latvia use their rate on distributed profits; Lithuania and
+    Iceland added.
+  - Liquidity bands on average daily traded value in EUR (EUR 0.5M / 2M /
+    15M), calibrated so each band holds the same share of stocks as the old
+    share-count bands.
+  - Methodology (beta 1.6) and Settings › Model settings in force describe
+    the rate per currency.
+
 ### Fixed
 
 - Frankfurt: a symbol the ticker pattern rejects and one Yahoo probe called

@@ -665,7 +665,7 @@ def system_rows() -> dict:
     build = [("App version", info.display_version), ("Release build", "yes" if info.is_release else "no"),
              ("Commit", info.commit_full), ("Built", info.built_at), ("Environment", info.environment),
              ("Build metadata", "stamped at start" if info.source == "stamp" else "computed (no stamp)"),
-             ("Scoring model", screener.MODEL_VERSION)]
+             ("Scoring model", screener.model_version())]
     try:
         state = migrations.read_state() or {}
         on_disk = str(state.get("schema_version", "not recorded"))

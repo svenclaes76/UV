@@ -39,6 +39,11 @@ _SHARED_DEFAULTS: dict = {
     "buy_threshold":   70.0,    # composite score required for the Undervalued signal
     "screen_style":    "balanced",  # composite sub-score weighting — see _SCORE_STYLES
     "benchmark_stoxx": False,   # default state of the Dashboard's Euro Stoxx 50 overlay checkbox
+    # Model M5 (exchange expansion EX-W5b, plan P8): each part can be switched
+    # back to M4 without a code revert; screener.refresh_model_switches().
+    "m5_rate_per_currency": True,   # D33: 10-year government yield per quote currency
+    "m5_epv_tax_floor":     True,   # D34: 0% registrations use the 25% default in EPV
+    "m5_liquidity_eur":     True,   # D35: liquidity on traded value in EUR
     "us_listed_enabled": False,  # not yet wired — no US ticker universe exists
     # Login rate limiting — read by auth.py's login() on every attempt. Surfaced
     # as sliders on the Admin -> Security page (uvalu/pages_/admin.py).

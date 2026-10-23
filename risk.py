@@ -44,7 +44,7 @@ import pandas as pd
 import marketdata
 from uvalu.i18n import N_, Fmt, lazy_
 from screener import (
-    RISK_FREE_RATE,          # single euro-area risk-free source (screener.py)
+    portfolio_risk_free,     # the EUR risk-free rate in force (screener.py; M5: the Bund)
     EQUITY_RISK_PREMIUM,     # ...and the ERP, for the Monte-Carlo drift assumption
 )
 from scoring import (
@@ -821,7 +821,7 @@ def _stage3_quant(pf: pd.DataFrame, cache: dict, total_value: float,
     mdd_3y = _mdd(s.iloc[-756:])
     mdd_5y = _mdd(s)
 
-    rf_d          = RISK_FREE_RATE / TRADING_DAYS
+    rf_d          = portfolio_risk_free() / TRADING_DAYS
     excess        = port_rets - rf_d
     mean_excess_a = float(np.mean(excess)) * TRADING_DAYS
     sharpe        = mean_excess_a / vol_ann if vol_ann > 0 else None
@@ -1291,7 +1291,7 @@ def _stage6_stress(pf: pd.DataFrame, cache: dict, portfolio_beta: float,
     # (keeps the realised fat tails and volatility clustering that an iid-Normal
     # draw throws away), re-centred on a CAPM drift so the forward mean is an
     # explicit assumption rather than an extrapolation of the trailing period.
-    mc_drift = (RISK_FREE_RATE + portfolio_beta * EQUITY_RISK_PREMIUM) / TRADING_DAYS
+    mc_drift = (portfolio_risk_free() + portfolio_beta * EQUITY_RISK_PREMIUM) / TRADING_DAYS
 
     def _mc(years: int) -> MonteCarloResult:
         rng  = np.random.default_rng(MONTE_CARLO_SEED)

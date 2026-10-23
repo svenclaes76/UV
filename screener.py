@@ -60,7 +60,7 @@ import pandas as pd
 import yfinance as yf
 
 import marketdata
-from uvalu import datamode, logkit
+from uvalu import datamode, logkit, riskfree
 from uvalu.i18n import N_, Fmt, lazy_
 from scoring import (  # re-exported for existing `from screener import …` call sites
     _clamp, _get_num, _finite,
@@ -72,7 +72,7 @@ from scoring import (  # re-exported for existing `from screener import …` cal
 _log = logkit.get_logger("uvalu.screener")
 _fetch_log = logkit.get_logger("uvalu.screener.fetch")  # per-ticker; sampled (see logging.config.json)
 
-RISK_FREE_RATE      = 0.03    # Euro area approximation
+RISK_FREE_RATE      = 0.03    # Euro area approximation; M4 and earlier (M5: riskfree, per currency)
 EQUITY_RISK_PREMIUM = 0.05
 DEFAULT_TAX_RATE    = 0.25    # EPV fallback when `country` is missing or unmapped below
 DEFAULT_BETA        = 1.0
@@ -252,6 +252,34 @@ BLEND_PCT = 0.5
 
 # Absolute-band breakpoints, (x, y) with x ascending; _abs_band interpolates
 # linearly and clamps outside the range. y is always 0–100, higher = better.
+# ── Model M5 (exchange expansion EX-W5b, decisions D33–D35) ─────────────────
+# Each change sits behind a shared setting, on by default (plan P8): switching
+# one off returns that part to M4 without a code revert, and model_version()
+# follows. Read from settings.load_shared_settings() by refresh_model_switches()
+# at the start of every scoring pass.
+M5_SWITCHES = ("m5_rate_per_currency", "m5_epv_tax_floor", "m5_liquidity_eur")
+_m5_state: dict = dict.fromkeys(M5_SWITCHES, True)
+
+# D34: EPV taxes a company at its registration's headline rate. A 0% or
+# near-0% registration (Jersey, Guernsey, Bermuda, ...) is taxed where it
+# earns, not where it is registered, so below this floor EPV uses
+# DEFAULT_TAX_RATE. Estonia and Latvia tax distributed profits only: their
+# distribution rate stands in. Headline rates for the expansion's other new
+# registrations; all to be checked by the tax advisor with COUNTRY_TAX_RATES.
+EPV_TAX_FLOOR = 0.05
+M5_COUNTRY_TAX_RATES = {
+    "Estonia":   0.22,   # on distributed profits
+    "Latvia":    0.20,   # on distributed profits
+    "Lithuania": 0.16,
+    "Iceland":   0.20,
+}
+
+# D35: liquidity bands on average daily traded value in EUR (average volume x
+# price x ECB rate) instead of shares. Calibrated on the 23 October 2026 cache
+# so each band holds the same share of stocks as the 25k / 100k / 500k share
+# bands did (77% / 9% / 8% / 6%).
+LIQUIDITY_EUR_BANDS = ((15_000_000, 10.0), (2_000_000, 7.5), (500_000, 5.0))
+
 _BAND_MOS   = [(0.0, 0.0), (0.10, 40.0), (0.25, 70.0), (0.50, 100.0)]  # margin of safety
 _BAND_0_10  = [(0.0, 0.0), (10.0, 100.0)]                              # raw 0–10 score, ×10
 _BAND_RISK  = [(0.0, 100.0), (10.0, 0.0)]                              # risk raw (higher = riskier)
@@ -272,7 +300,34 @@ MIN_UNIVERSE_SIZE = 20
 
 # REC-11: bump on any change that can move a fair value, score or signal, so a
 # logged signal can be reproduced against the code that produced it.
-MODEL_VERSION = "M4"   # D12: independent of the app version; shown in the UI and the methodology change log
+MODEL_VERSION = "M5"   # D12: independent of the app version; shown in the UI and the methodology change log
+MODEL_VERSION_BEFORE_M5 = "M4"
+
+
+def refresh_model_switches(shared: "dict | None" = None) -> dict:
+    """Read the M5 switches from the shared settings (all on when unreadable)."""
+    if shared is None:
+        try:
+            import settings as _settings
+            shared = _settings.load_shared_settings()
+        except Exception:
+            shared = {}
+    for key in M5_SWITCHES:
+        _m5_state[key] = bool(shared.get(key, True))
+    return dict(_m5_state)
+
+
+def _m5(key: str) -> bool:
+    return bool(_m5_state.get(key, True))
+
+
+def model_version() -> str:
+    """REC-11: "M5" with every M5 switch on, "M4" with all off, "M5*" in between
+    (the switches are also part of model_settings_id)."""
+    on = [_m5(k) for k in M5_SWITCHES]
+    if all(on):
+        return MODEL_VERSION
+    return MODEL_VERSION_BEFORE_M5 if not any(on) else MODEL_VERSION + "*"
 
 # D1: "Undervalued" needs at least this margin of safety, whatever the shared
 # `min_mos` setting says. At 0% a price 0.5% below the model fair value would
@@ -1451,9 +1506,39 @@ def _adjust_beta(beta) -> float | None:
     return BLUME_WEIGHT * b + (1.0 - BLUME_WEIGHT) * DEFAULT_BETA
 
 
-def _approx_wacc(beta) -> float:
+def _risk_free(currency=None) -> "tuple[float, bool]":
+    """(risk-free rate, known) for a quote currency. M5 (D33): the currency's
+    10-year government yield from the riskfree snapshot. A currency without
+    one is discounted at the EUR rate and comes back known=False, which keeps
+    the row out of Undervalued. No currency: the EUR rate. M4: RISK_FREE_RATE."""
+    if not _m5("m5_rate_per_currency"):
+        return RISK_FREE_RATE, True
+    eur = riskfree.eur_rate()
+    eur = eur if eur is not None else RISK_FREE_RATE
+    if not isinstance(currency, str) or not currency.strip():
+        return eur, True
+    r = riskfree.rate(currency)
+    return (r, True) if r is not None else (eur, False)
+
+
+def portfolio_risk_free() -> float:
+    """The rate for EUR portfolio figures (Sharpe, Sortino, Monte-Carlo drift)."""
+    return _risk_free("EUR")[0]
+
+
+def _approx_wacc(beta, currency=None) -> float:
     b = _adjust_beta(beta)
-    return RISK_FREE_RATE + (b if b is not None else DEFAULT_BETA) * EQUITY_RISK_PREMIUM
+    return _risk_free(currency)[0] + (b if b is not None else DEFAULT_BETA) * EQUITY_RISK_PREMIUM
+
+
+def _epv_tax_rate(country) -> float:
+    """EPV's t: the registration's statutory rate, else DEFAULT_TAX_RATE. M5
+    (D34): the expansion's new registrations added, and a rate under
+    EPV_TAX_FLOOR replaced by DEFAULT_TAX_RATE."""
+    if not _m5("m5_epv_tax_floor"):
+        return COUNTRY_TAX_RATES.get(country, DEFAULT_TAX_RATE)
+    rate = COUNTRY_TAX_RATES.get(country, M5_COUNTRY_TAX_RATES.get(country, DEFAULT_TAX_RATE))
+    return DEFAULT_TAX_RATE if rate < EPV_TAX_FLOOR else rate
 
 
 def _ddm_single(div_rate, wacc, g) -> float | None:
@@ -1838,11 +1923,11 @@ def _fair_value_models(row: pd.Series, sector_pe: "dict | None" = None,
     # sector-median buckets and this agree (review).
     sector   = sector_for(row.get("Ticker"), row.get("sector"))
     shares   = row.get("sharesOutstanding")
-    tax_rate = COUNTRY_TAX_RATES.get(country, DEFAULT_TAX_RATE)
+    tax_rate = _epv_tax_rate(country)
 
     # discount_shift: added to the discount rate for the sensitivity table
     # (fair_value_sensitivity, REC-6); 0 for every scored row.
-    wacc = _approx_wacc(beta) + discount_shift
+    wacc = _approx_wacc(beta, row.get("Currency")) + discount_shift
 
     # FV-8: for a NAV-driven sector the earnings-anchored models are skipped
     # (see _GRAHAM_EPV_SKIP_SECTORS / _PE_SKIP_SECTORS) — the row is valued off
@@ -2182,6 +2267,8 @@ def signal_reason(row: "pd.Series", *, buy_threshold: float = SCORE_STRONG_BUY,
         gates.append(_("the fair value rests on fewer than two independent models"))
     if bool(row.get("currency_unverified")):
         gates.append(_("the company's figures couldn't be converted to the share's currency"))
+    if bool(row.get("rate_missing")):
+        gates.append(_("there is no government bond yield for the share's currency yet"))
     if bool(row.get("eps_one_off_suspect")):
         gates.append(_("the earnings may include a one-off gain"))
     if bool(row.get("fv_models_disagree")):
@@ -2290,10 +2377,44 @@ def _liquidity_score(row: pd.Series) -> float:
         return 5.0
     if vol == 0:
         return 0.0
+    if _m5("m5_liquidity_eur"):
+        value = _get_num(row, "traded_value_eur")   # D35; set in compute_scores
+        if value is not None and value >= 0:
+            for floor, score in LIQUIDITY_EUR_BANDS:
+                if value >= floor:
+                    return score
+            return 2.5
     if vol >= 500_000: return 10.0
     if vol >= 100_000: return 7.5
     if vol >= 25_000:  return 5.0
     return 2.5
+
+
+def _traded_value_eur(df: pd.DataFrame, rate_fn=None) -> list:
+    """D35: average daily traded value in EUR (averageVolume x Price x the
+    ECB rate of the quote currency) per row; None where a leg is missing."""
+    if "averageVolume" not in df.columns or "Price" not in df.columns:
+        return [None] * len(df)
+    rate_fn = rate_fn or _fx_rate
+    rates: dict = {"EUR": 1.0}
+    ccys = df["Currency"] if "Currency" in df.columns else ["EUR"] * len(df)
+    out = []
+    for vol, price, ccy in zip(df["averageVolume"], df["Price"], ccys):
+        vol, price = _finite(vol), _finite(price)
+        if vol is None or price is None or vol < 0 or price <= 0:
+            out.append(None)
+            continue
+        ccy = ccy.strip() if isinstance(ccy, str) and ccy.strip() else "EUR"
+        if ccy in ("GBp", "GBX"):          # pence quotes, should they still occur
+            ccy, price = "GBP", price / 100
+        ccy = ccy.upper()
+        if ccy not in rates:
+            try:
+                rates[ccy] = rate_fn(ccy, "EUR")
+            except Exception:
+                rates[ccy] = None
+        out.append(vol * price * rates[ccy] if rates[ccy] else None)
+    return out
 
 
 def _composite_risk_raw(row: pd.Series) -> float:
@@ -2627,6 +2748,13 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # FV-8 / sector-median buckets key off the resolved sector (SECTOR_OVERRIDES
     # fills provider gaps) — resolve it once here so Stage 2 and the downstream
     # UI never disagree about a ticker's sector (review).
+    # Model M5 (D33, D35): the switches in force, the rows whose currency has
+    # no risk-free rate, and each row's average daily traded value in EUR.
+    refresh_model_switches()
+    _ccys = df["Currency"] if "Currency" in df.columns else [None] * len(df)
+    df["rate_missing"] = [not _risk_free(c)[1] for c in _ccys]
+    df["traded_value_eur"] = _traded_value_eur(df)
+
     if "Ticker" in df.columns:
         df["sector"] = [sector_for(t, s) for t, s in zip(df["Ticker"], df["sector"])]
     if peer_mask is not None:
@@ -2795,6 +2923,8 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     # V1: a fair value whose currency couldn't be reconciled isn't confirmed.
     _dec_ccy   = (df["currency_unverified"].fillna(False).astype(bool)
                   if "currency_unverified" in df.columns else pd.Series(False, index=df.index))
+    # M5 (D33): no risk-free rate for the share's currency (Iceland today).
+    _dec_rate  = df["rate_missing"].fillna(False).astype(bool)
     # V3: a fair value on trailing EPS with a trailing P/E under EPS_ONE_OFF_PE
     # most likely rests on a one-off gain; it isn't confirmed either.
     df["eps_one_off_suspect"] = _eps_one_off_suspect(df)
@@ -2806,7 +2936,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         [
             _dec_veto,
             (~_dec_veto) & (_dec_score >= buy_threshold) & _dec_mos.notna()
-                & (_dec_mos >= min_mos) & ~_dec_thin & ~_dec_ccy & ~_dec_oneoff & ~_dec_doubt,
+                & (_dec_mos >= min_mos) & ~_dec_thin & ~_dec_ccy & ~_dec_rate & ~_dec_oneoff & ~_dec_doubt,
             (~_dec_veto) & (_dec_score >= SCORE_AVOID),
         ],
         [SIGNAL_FAILS, SIGNAL_UNDERVALUED, SIGNAL_NEUTRAL],
@@ -2850,7 +2980,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     _founder = {str(t) for t in (founder_holdings or ())}
     df["founder_holds"] = (df["Ticker"].astype(str).isin(_founder) if "Ticker" in df.columns
                            else pd.Series(False, index=df.index))
-    df["model_version"]     = MODEL_VERSION
+    df["model_version"]     = model_version()
     df["model_settings_id"] = model_settings_id(
         max_debt_equity=max_debt_equity, max_payout=max_payout, min_mos=min_mos,
         buy_threshold=buy_threshold,
@@ -2866,6 +2996,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         "eps_derived_from_pe": df["trailingEps_derived"].fillna(False).astype(bool).tolist(),
         "small_peer_group": df["small_universe"].astype(bool).tolist(),
         "currency_unverified": _dec_ccy.tolist(),
+        "risk_free_rate_missing": _dec_rate.tolist(),
         "eps_one_off_suspect": _dec_oneoff.tolist(),
         "fair_value_models_disagree": df["fv_models_disagree"].tolist(),
         "margin_implausible": df["mos_implausible"].tolist(),
@@ -2995,11 +3126,13 @@ def _apply_signal_hysteresis(df: pd.DataFrame, previous: dict, *,
                if "currency_unverified" in df.columns else pd.Series(False, index=df.index))
         oneoff = (df["eps_one_off_suspect"].fillna(False).astype(bool)
                   if "eps_one_off_suspect" in df.columns else pd.Series(False, index=df.index))
+        rate = (df["rate_missing"].fillna(False).astype(bool)
+                if "rate_missing" in df.columns else pd.Series(False, index=df.index))
         doubt = pd.Series(False, index=df.index)
         for _col in ("fv_models_disagree", "mos_implausible"):
             if _col in df.columns:
                 doubt |= df[_col].fillna(False).astype(bool)
-        keep_u &= mos.notna() & (mos >= min_mos) & ~thin & ~ccy & ~oneoff & ~doubt
+        keep_u &= mos.notna() & (mos >= min_mos) & ~thin & ~ccy & ~rate & ~oneoff & ~doubt
     keep_n = ((prev == SIGNAL_NEUTRAL) & (codes == SIGNAL_LOW_SCORE)
               & (score >= SCORE_AVOID - SIGNAL_HYSTERESIS))
     codes[keep_u] = SIGNAL_UNDERVALUED
@@ -3159,6 +3292,7 @@ def model_settings_id(*, max_debt_equity: float, max_payout: float, min_mos: flo
         "buy_threshold": round(float(buy_threshold), 6),
         "weights": [round(float(w), 6) for w in weights],
         "analyst_inputs": ANALYST_INPUTS_ENABLED,
+        "m5": {k: _m5(k) for k in M5_SWITCHES},
     }, sort_keys=True)
     return hashlib.sha256(payload.encode()).hexdigest()[:12]
 
@@ -3180,7 +3314,7 @@ def methodology(*, max_debt_equity: float = 500.0, max_payout: float = 0.90,
     if ANALYST_INPUTS_ENABLED:
         models["analyst_target"] = W_ANALYST
     return {
-        "model_version": MODEL_VERSION,
+        "model_version": model_version(),
         "model_settings_id": model_settings_id(max_debt_equity=max_debt_equity, max_payout=max_payout,
                                                min_mos=min_mos, buy_threshold=buy_threshold, weights=w),
         "data_source": _data_source(),
@@ -3189,7 +3323,14 @@ def methodology(*, max_debt_equity: float = 500.0, max_payout: float = 0.90,
         "fair_value": {
             "model_base_weights": models,
             "min_independent_models": MIN_FV_MODELS,
-            "risk_free_rate": RISK_FREE_RATE,
+            "risk_free_rate": portfolio_risk_free(),
+            "risk_free_by_currency": (riskfree.rates() if _m5("m5_rate_per_currency") else {}),
+            "risk_free_as_of": (riskfree.as_of() if _m5("m5_rate_per_currency") else None),
+            "risk_free_source": ("OECD long-term interest rates (10-year government bonds); EUR = Germany"
+                                 if _m5("m5_rate_per_currency") else "euro-area approximation"),
+            "epv_tax_floor": (EPV_TAX_FLOOR if _m5("m5_epv_tax_floor") else None),
+            "liquidity_basis": ("traded value in EUR" if _m5("m5_liquidity_eur") else "shares"),
+            "model_switches": {k: _m5(k) for k in M5_SWITCHES},
             "equity_risk_premium": EQUITY_RISK_PREMIUM,
             "ddm_stable_growth": DDM_STABLE_GROWTH,
             "pe_multiple_fallback": PE_MULTIPLE_FALLBACK,
@@ -3271,7 +3412,7 @@ def fair_value_sensitivity(row: "pd.Series | dict", reference: "ScoreReference |
     row = pd.Series(row) if isinstance(row, dict) else row
     sector_pe = reference.sector_pe if reference is not None else {}
     sector_pb = reference.sector_pb if reference is not None else {}
-    base_rate = _approx_wacc(row.get("beta"))
+    base_rate = _approx_wacc(row.get("beta"), row.get("Currency"))
     price = _finite(row.get("Price"))
     out = []
     for shift in shifts:

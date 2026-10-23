@@ -119,6 +119,26 @@ def _quote_units_isolated(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _risk_free_fixed(tmp_path, monkeypatch):
+    """A fixed risk-free snapshot (EX-W5b), so tests don't move with the
+    quarterly refresh: EUR at M4's 3%, a few other currencies, no ISK. The M5
+    switches start on for every test."""
+    import json
+    import screener
+    from uvalu import riskfree
+    snap = tmp_path / "risk_free_rates.json"
+    snap.write_text(json.dumps({"as_of": "2026-10-01", "rates": {
+        c: {"rate": r, "period": "2026-09"} for c, r in
+        {"EUR": 0.03, "CHF": 0.01, "GBP": 0.045, "SEK": 0.025, "DKK": 0.025,
+         "NOK": 0.04, "PLN": 0.055}.items()}}), encoding="utf-8")
+    monkeypatch.setattr(riskfree, "SNAPSHOT", snap)
+    riskfree._data.cache_clear()
+    monkeypatch.setattr(screener, "_m5_state", dict.fromkeys(screener.M5_SWITCHES, True))
+    yield
+    riskfree._data.cache_clear()
+
+
+@pytest.fixture(autouse=True)
 def _ticker_lists_isolated(tmp_path, monkeypatch):
     """Never read or write the developer's real .cache/ticker_lists/, and
     refresh a stale list synchronously so no test leaves a thread behind."""

@@ -20,6 +20,18 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+**Fair values in step with each currency's interest rates.** Some signals
+change.
+
+### Improved
+
+- **Discount rate per currency**: fair values use the 10-year government
+  bond yield of the currency a share trades in, so Swiss stocks are no
+  longer valued at euro interest rates.
+- **Liquidity in euro**: a stock's trading liquidity counts the money
+  traded, not the number of shares, so an expensive share is no longer
+  marked as hard to trade.
+
 ### Fixed
 
 - **Missing German stocks**: GEA, Scout24, Traton and 1&1 are back in the
