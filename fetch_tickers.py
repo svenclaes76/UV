@@ -19,7 +19,7 @@ good list is rejected rather than shrinking the universe.
 import json
 import os
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -33,6 +33,11 @@ _log = logkit.get_logger("uvalu.tickers")
 
 _EXCEPTIONS_FILE  = Path(__file__).parent / ".cache" / "frankfurt_exceptions.json"
 _VALIDATE_BATCH   = 30   # rejected symbols to probe per fetch run
+_REPROBE_DAYS     = 30   # a "not an equity" answer is checked again after this many days (EX9)
+
+# Real equities the pattern rejects, always kept: Porsche AG, Covestro, Traton,
+# 1&1. DAX members from the index snapshot are kept the same way (EX9).
+_KNOWN_EQUITIES   = ("P911", "1COV", "8TRA", "1U1")
 
 _LIST_CACHE_DIR      = Path(__file__).parent / ".cache" / "ticker_lists"
 LIST_TTL_HOURS       = 24     # a list younger than this is used as-is
@@ -301,50 +306,111 @@ def fetch_milan_tickers() -> list[dict]:
     )
 
 
-def _load_exceptions() -> dict[str, bool]:
-    """Load {symbol: is_equity} cache from disk."""
+def _read_exceptions_file() -> "dict | None":
     if _EXCEPTIONS_FILE.exists():
         try:
-            return json.loads(_EXCEPTIONS_FILE.read_text(encoding="utf-8"))
+            data = json.loads(_EXCEPTIONS_FILE.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else None
         except Exception:
             pass
-    return {"P911": True, "1COV": True}  # seed with known exceptions
+    return None
 
 
-def _save_exceptions(data: dict[str, bool]) -> None:
+def _load_exceptions() -> dict[str, bool]:
+    """Load {symbol: is_equity} cache from disk.
+
+    The file is {"equity": {symbol: bool}, "checked": {symbol: date}}; an older
+    file is the bare {symbol: bool} map, without check dates."""
+    data = _read_exceptions_file()
+    if data is None:
+        return {sym: True for sym in _KNOWN_EQUITIES[:2]}  # seed with known exceptions
+    if isinstance(data.get("equity"), dict):
+        return dict(data["equity"])
+    return {k: v for k, v in data.items() if isinstance(v, bool)}
+
+
+def _load_checked() -> dict[str, str]:
+    """{symbol: ISO date of the last Yahoo probe}. Empty for an older file:
+    its answers count as due for a new probe."""
+    data = _read_exceptions_file() or {}
+    checked = data.get("checked")
+    return dict(checked) if isinstance(checked, dict) else {}
+
+
+def _save_exceptions(data: dict[str, bool], checked: "dict[str, str] | None" = None) -> None:
     _EXCEPTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _EXCEPTIONS_FILE.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    if checked is None:
+        checked = _load_checked()
+    checked = {k: v for k, v in checked.items() if k in data}
+    _EXCEPTIONS_FILE.write_text(
+        json.dumps({"equity": data, "checked": checked}, indent=2, sort_keys=True),
+        encoding="utf-8")
 
 
-def _is_valid_on_yahoo(symbol: str) -> bool:
-    """Quick probe: True if Yahoo Finance knows this ticker as an equity."""
+def _is_valid_on_yahoo(symbol: str) -> "bool | None":
+    """Quick probe: True if Yahoo Finance knows this ticker as an equity,
+    False if it has no price for it, None if the probe itself failed (a
+    network error or rate limit is not an answer and is not recorded)."""
     try:
         info = yf.Ticker(f"{symbol}.DE").fast_info
         return getattr(info, "last_price", None) is not None
     except Exception:
+        return None
+
+
+def _due(symbol: str, exceptions: dict[str, bool], checked: dict[str, str], today: date) -> bool:
+    """A recorded "no" older than _REPROBE_DAYS (or without a date) is due again."""
+    if exceptions.get(symbol) is not False:
         return False
+    try:
+        return (today - date.fromisoformat(checked[symbol])).days >= _REPROBE_DAYS
+    except (KeyError, TypeError, ValueError):
+        return True
 
 
-def _auto_validate(rejected: list[str], exceptions: dict[str, bool]) -> dict[str, bool]:
+def _auto_validate(rejected: list[str], exceptions: dict[str, bool],
+                   checked: "dict[str, str] | None" = None) -> dict[str, bool]:
     """
-    Check up to _VALIDATE_BATCH symbols not yet in the exceptions cache.
-    Updates and returns the cache dict; caller is responsible for saving.
+    Probe up to _VALIDATE_BATCH rejected symbols: first those not in the cache
+    yet, then recorded "no"s that are due again, oldest first (EX9). Updates
+    and returns the cache dict (and ``checked`` in place); caller saves.
     """
-    unchecked = [s for s in rejected if s not in exceptions][:_VALIDATE_BATCH]
+    checked = {} if checked is None else checked
+    today = datetime.now(timezone.utc).date()
+    new = [s for s in rejected if s not in exceptions]
+    due = sorted((s for s in rejected if _due(s, exceptions, checked, today)),
+                 key=lambda s: checked.get(s) or "")
+    unchecked = (new + due)[:_VALIDATE_BATCH]
     if not unchecked:
         return exceptions
-    _log.debug("validating %d new Frankfurt symbols against Yahoo", len(unchecked),
+    _log.debug("validating %d Frankfurt symbols against Yahoo (%d new)", len(unchecked),
+               min(len(new), len(unchecked)),
                extra={"event": "tickers.validate", "count": len(unchecked)})
     found = []
     for sym in unchecked:
         valid = _is_valid_on_yahoo(sym)
+        if valid is None:
+            continue
         exceptions[sym] = valid
+        checked[sym] = today.isoformat()
         if valid:
             found.append(sym)
     if found:
         _log.info("auto-added Frankfurt equity exceptions: %s", found,
                   extra={"event": "tickers.validate", "added": found})
     return exceptions
+
+
+def _always_equities() -> set[str]:
+    """Frankfurt symbols kept whatever the pattern or a probe says: the fixed
+    list plus the DAX members of the index snapshot."""
+    keep = set(_KNOWN_EQUITIES)
+    try:
+        from uvalu import indices
+        keep |= {t.removesuffix(".DE") for t in indices.tickers("dax") if t.endswith(".DE")}
+    except Exception:
+        pass
+    return keep
 
 
 def _is_equity_symbol(symbol: str, exceptions: dict[str, bool] | None = None) -> bool:
@@ -384,11 +450,14 @@ def fetch_frankfurt_tickers() -> list[dict]:
         label="Frankfurt", fallback_fn=_hardcoded_dax40,
     )
     exceptions = _load_exceptions()
+    checked    = _load_checked()
+    for sym in _always_equities():
+        exceptions[sym] = True
     symbols     = [s["ticker"].removesuffix(".DE") for s in all_tickers]
     rejected    = [sym for sym in symbols if not _is_equity_symbol(sym, exceptions)]
 
-    exceptions  = _auto_validate(rejected, exceptions)
-    _save_exceptions(exceptions)
+    exceptions  = _auto_validate(rejected, exceptions, checked)
+    _save_exceptions(exceptions, checked)
 
     filtered = [s for s in all_tickers if _is_equity_symbol(s["ticker"].removesuffix(".DE"), exceptions)]
     _log.debug("Frankfurt: kept %d/%d after equity filter", len(filtered), len(all_tickers),

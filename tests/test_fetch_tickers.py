@@ -9,6 +9,7 @@ is redirected into tmp_path so nothing touches the real .cache/ directory.
 """
 
 import json
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import pytest
@@ -209,6 +210,17 @@ class TestExceptionsCache:
         fetch_tickers._save_exceptions({"FOO": True, "BAR": False})
         assert fetch_tickers._load_exceptions() == {"FOO": True, "BAR": False}
 
+    def test_reads_the_older_bare_map(self):
+        # Files written before EX9 hold {symbol: bool} without check dates.
+        fetch_tickers._EXCEPTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        fetch_tickers._EXCEPTIONS_FILE.write_text('{"FOO": true, "BAR": false}', encoding="utf-8")
+        assert fetch_tickers._load_exceptions() == {"FOO": True, "BAR": False}
+        assert fetch_tickers._load_checked() == {}
+
+    def test_check_dates_roundtrip(self):
+        fetch_tickers._save_exceptions({"FOO": False}, {"FOO": "2026-10-01", "GONE": "2026-10-01"})
+        assert fetch_tickers._load_checked() == {"FOO": "2026-10-01"}
+
     def test_save_creates_parent_directory(self, tmp_path, monkeypatch):
         nested = tmp_path / "nested_cache_dir" / "frankfurt_exceptions.json"
         monkeypatch.setattr(fetch_tickers, "_EXCEPTIONS_FILE", nested)
@@ -233,11 +245,12 @@ class TestIsValidOnYahoo:
         monkeypatch.setattr(yf, "Ticker", lambda t: type("T", (), {"fast_info": FakeFastInfo(None)})())
         assert fetch_tickers._is_valid_on_yahoo("FOO") is False
 
-    def test_false_on_exception(self, monkeypatch):
+    def test_none_on_exception(self, monkeypatch):
+        # A failed probe (network, rate limit) is not an answer (EX9).
         def boom(t):
-            raise RuntimeError("no such ticker")
+            raise RuntimeError("rate limited")
         monkeypatch.setattr(yf, "Ticker", boom)
-        assert fetch_tickers._is_valid_on_yahoo("FOO") is False
+        assert fetch_tickers._is_valid_on_yahoo("FOO") is None
 
 
 class TestAutoValidate:
@@ -246,11 +259,35 @@ class TestAutoValidate:
         result = fetch_tickers._auto_validate(["GOOD", "BAD"], {})
         assert result == {"GOOD": True, "BAD": False}
 
-    def test_skips_symbols_already_in_cache(self, monkeypatch):
+    def test_skips_a_recent_no(self, monkeypatch):
         calls = []
         monkeypatch.setattr(fetch_tickers, "_is_valid_on_yahoo", lambda s: calls.append(s) or True)
-        fetch_tickers._auto_validate(["ALREADY"], {"ALREADY": False})
+        today = datetime.now(timezone.utc).date().isoformat()
+        fetch_tickers._auto_validate(["ALREADY"], {"ALREADY": False}, {"ALREADY": today})
         assert calls == []
+
+    def test_reprobes_a_no_after_30_days_and_without_a_date(self, monkeypatch):
+        # EX9: GEA, Scout24, Traton and 1&1 were kept out for good by one
+        # failed probe. An old or undated "no" is asked again.
+        monkeypatch.setattr(fetch_tickers, "_is_valid_on_yahoo", lambda s: True)
+        old = (datetime.now(timezone.utc).date() - timedelta(days=31)).isoformat()
+        checked = {"OLD": old}
+        result = fetch_tickers._auto_validate(["OLD", "UNDATED"], {"OLD": False, "UNDATED": False}, checked)
+        assert result == {"OLD": True, "UNDATED": True}
+        assert checked["OLD"] == checked["UNDATED"] == datetime.now(timezone.utc).date().isoformat()
+
+    def test_new_symbols_go_before_due_ones(self, monkeypatch):
+        monkeypatch.setattr(fetch_tickers, "_VALIDATE_BATCH", 1)
+        calls = []
+        monkeypatch.setattr(fetch_tickers, "_is_valid_on_yahoo", lambda s: calls.append(s) or False)
+        fetch_tickers._auto_validate(["DUE", "NEW"], {"DUE": False}, {})
+        assert calls == ["NEW"]
+
+    def test_failed_probe_is_not_recorded(self, monkeypatch):
+        monkeypatch.setattr(fetch_tickers, "_is_valid_on_yahoo", lambda s: None)
+        checked = {}
+        assert fetch_tickers._auto_validate(["X"], {}, checked) == {}
+        assert checked == {}
 
     def test_respects_validate_batch_limit(self, monkeypatch):
         monkeypatch.setattr(fetch_tickers, "_VALIDATE_BATCH", 2)
@@ -308,16 +345,28 @@ class TestFetchFrankfurtTickers:
         assert saved["1COV"] is True
 
     def test_drops_symbols_that_fail_both_heuristic_and_yahoo_probe(self, monkeypatch):
-        monkeypatch.setattr(requests, "get", lambda *a, **k: (_ for _ in ()).throw(ConnectionError()))
+        listed = [{"ticker": t, "name": t, "isin": "", "mic": "XETR"}
+                  for t in ("SAP.DE", "4AB0.DE", "1YD0.DE")]
+        monkeypatch.setattr(fetch_tickers, "_cached_list", lambda *a, **k: list(listed))
         monkeypatch.setattr(fetch_tickers, "_is_valid_on_yahoo", lambda s: False)
-        # Pre-seed the cache so P911/1COV are explicitly rejected instead of
-        # relying on the built-in seed defaults.
-        fetch_tickers._save_exceptions({"P911": False, "1COV": False})
 
-        result = fetch_tickers.fetch_frankfurt_tickers()
-        tickers = {s["ticker"] for s in result}
-        assert "P911.DE" not in tickers
-        assert "1COV.DE" not in tickers
+        tickers = {s["ticker"] for s in fetch_tickers.fetch_frankfurt_tickers()}
+        assert tickers == {"SAP.DE"}
+        assert fetch_tickers._load_checked().keys() == {"4AB0", "1YD0"}
+
+    def test_dax_members_and_known_equities_kept_despite_a_no(self, monkeypatch):
+        # EX9: a recorded "no" for a DAX member (snapshot) or a known equity
+        # no longer keeps it out of the universe.
+        listed = [{"ticker": t, "name": t, "isin": "", "mic": "XETR"}
+                  for t in ("P911.DE", "1COV.DE", "8TRA.DE", "1U1.DE", "4AB0.DE")]
+        monkeypatch.setattr(fetch_tickers, "_cached_list", lambda *a, **k: list(listed))
+        monkeypatch.setattr(fetch_tickers, "_is_valid_on_yahoo", lambda s: False)
+        today = datetime.now(timezone.utc).date().isoformat()
+        fetch_tickers._save_exceptions({s: False for s in ("P911", "1COV", "8TRA", "1U1", "4AB0")},
+                                       {s: today for s in ("P911", "1COV", "8TRA", "1U1", "4AB0")})
+
+        tickers = {s["ticker"] for s in fetch_tickers.fetch_frankfurt_tickers()}
+        assert tickers == {"P911.DE", "1COV.DE", "8TRA.DE", "1U1.DE"}
 
 
 # ── Ticker-list cache (EX-W1a) ────────────────────────────────────────────

@@ -20,6 +20,11 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+### Fixed
+
+- **Missing German stocks**: GEA, Scout24, Traton and 1&1 are back in the
+  Screener.
+
 ## [2026.10.11] — 2026-10-23
 
 **A more accurate value chart.** Signals don't change.

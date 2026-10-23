@@ -21,6 +21,17 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+### Fixed
+
+- Frankfurt: a symbol the ticker pattern rejects and one Yahoo probe called
+  "not an equity" stayed out of the universe for good, which kept GEA,
+  Scout24, Traton and 1&1 out (EX9). DAX members from the index snapshot and
+  a fixed list (Porsche AG, Covestro, Traton, 1&1) are now always kept; a
+  "no" is probed again after 30 days, new symbols first, within the 30
+  probes per run; a failed probe (network error, rate limit) is no longer
+  recorded as "no". `.cache/frankfurt_exceptions.json` now stores the date
+  of each probe; the older file is read as is and its answers count as due.
+
 ## [2026.10.11] — 2026-10-23
 
 **No signal changes.** Adds a demo mode for a public demo on Streamlit

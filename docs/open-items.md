@@ -189,7 +189,6 @@ Plan: [exchange-expansion-plan.md](exchange-expansion-plan.md) (decisions in §0
 | # | Item | Do it before |
 | --- | --- | --- |
 | EX1 | **Release 1 released as v2026.10.9** (17 October 2026): Swiss prices in CHF, official exchange names, ticker-list cache, fetch back-off, exchange registry. Delete this line once release 2 starts. | Done |
-| EX7 | **Holdings converted to EUR** (plan §10 P12): fixed 17 October 2026 on `fix/p12-holdings-in-eur`, not released yet. | Next release |
 | EX2 | **Decided 17 October 2026:** OECD long-term interest rates (10-year government bonds) for all eight currencies, Germany's Bund for EUR, a dated snapshot refreshed each quarter (plan §0). Build the snapshot and its refresh tool in EX-W5b; check the OECD reuse terms with L29. | EX-W5b |
 | EX10 | **Quarterly risk-free refresh:** update the yield snapshot (EX2) with its tool, together with the index refresh (EX6). | Each quarter after release 2 |
 | EX3 | **Shadow build** for a week after 21 October (Q1 done), as a check before release 2: per-market signal mix, data quality, pooled vs. regional medians. | Release 2 |
@@ -197,7 +196,6 @@ Plan: [exchange-expansion-plan.md](exchange-expansion-plan.md) (decisions in §0
 | EX5 | **Model M5** (rate per currency, liquidity in EUR): bump `MODEL_VERSION`, methodology change log, release-note explanation. | Release 2 |
 | EX6 | **Index snapshot refresh** after each quarterly index review (third Friday of March, June, September, December), with `tools/refresh_index_members.py`. | Each quarter after release 2 |
 | EX8 | **Index snapshot to check** (`uvalu/index_members.json`, built 17 October 2026 with `tools/refresh_index_members.py`). 11 indices are clean. 8 are marked "check": BEL 20 (APAM.BR), DAX (G1A, G24: see EX9), FTSE 100 (four investment trusts, left out by D5 anyway), FTSE/Athex Large Cap (Mytilineos → Metlen, OPAP, Terna Energy look stale on Wikipedia), ISEQ 20 (Ryanair as RY4C vs RYA), OBX (Golden Ocean merged), OMX Copenhagen 25 (Nordea's line), OMX Helsinki 25 (Kojamo), PSI (Sonae Capital). WIG20 and OMX Baltic Benchmark have no usable public table and must be filled by hand. Check each against the index provider's list. | Release 2 (Index filter) |
-| EX9 | **Frankfurt exceptions keep DAX members out**: the self-learning Frankfurt filter (`.cache/frankfurt_exceptions.json`) marked G1A (GEA), G24 (Scout24), 8TRA (Traton) and 1U1 (1&1) as "not an equity", permanently, probably after a failed Yahoo probe. Re-probe a "no" after 30 days instead of keeping it forever. Adds stocks to the universe, so it changes signals. | Release 2 |
 
 ## Design and code
 
