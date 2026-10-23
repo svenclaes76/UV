@@ -27,12 +27,12 @@ Requirement IDs: GDPR-1..14, SEC-1..10 of "Uvalu — Legal Requirements for Laun
 15 October 2026 (still beta 1.4, before it takes effect): `uv_jwt` is kept in the cookie only (SR4); the
 browser-storage copy, which nothing read, is no longer written and is removed from browsers that hold one.
 Only removes processing (section 11), so no new notice; the section 7 row was narrowed accordingly.
-18 October 2026 (beta 1.5, draft): the uvalu.app domain isn't held, so every contact is uvalu.app@gmail.com; that makes Google (Gmail, USA) the mailbox provider (open item L5) — section 4 row, section 5 transfer via the EU–US Data Privacy Framework, and the list's location (no uvalu.app/privacy page). Adds a recipient and a transfer, so effective 14 days after users are told (section 11). Check Google's current DPF listing and sign Google's data processing terms for the mailbox.
+18 October 2026 (beta 1.5): the uvalu.app domain isn't held, so every contact is uvalu.app@gmail.com; that makes Google (Gmail, USA) the mailbox provider (open item L5) — section 4 row, section 5 transfer via the EU–US Data Privacy Framework, and the list's location (no uvalu.app/privacy page). Adds a recipient and a transfer; there are no beta users yet, so nobody to tell (section 11) and it takes effect at once, replacing 1.4 before its 28 October date. Check Google's current DPF listing and sign Google's data processing terms for the mailbox.
 -->
 
 # Privacy notice — free beta
 
-**Version:** beta 1.5 · **Effective from:** [14 days after users are told]
+**Version:** beta 1.5 · **Effective from:** 18 October 2026
 
 This notice explains which personal data Uvalu collects, why, how long we keep it and what your rights are.
 

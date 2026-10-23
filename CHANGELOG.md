@@ -21,6 +21,56 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+## [2026.10.11] — 2026-10-23
+
+**No signal changes.** Adds a demo mode for a public demo on Streamlit
+Community Cloud (10 stocks, end-of-day data from a committed snapshot,
+no API calls from the app), fixes the portfolio value history for
+holdings in another currency, and moves contact addresses to
+uvalu.app@gmail.com. **Do:** start the app with `run_app.py` (or
+`run_app.bat`) for HTTPS on localhost: the committed Streamlit config
+no longer names a certificate. No data migration.
+
+### Added
+
+- Demo mode (`UVALU_DATA_MODE=demo`, default `personal`): the app runs
+  from `demo-data/` only. All data paths are redirected to a temporary
+  workspace with a per-session sample portfolio and a reset link; prices,
+  dividends, FX and the EURO STOXX 50 benchmark come from the snapshot
+  through a yfinance stand-in (`uvalu/demo/`); fundamentals are hand-made
+  per fiscal year with source and page and checked by
+  `tools/demo_fundamentals.py`; sector multiples from Damodaran (Europe).
+  A demo notice sits above every page, Settings shows language only, and
+  features that need an account show a not-in-demo message. A newer
+  snapshot loads in place within about five minutes, without a restart.
+- `.github/workflows/demo-data.yml` and `tools/demo_refresh.py`: the
+  daily EODHD refresh (21:00 UTC) that commits the snapshot, with a call
+  budget counter kept in the repo.
+- Demo legal texts: privacy notice, terms of use and data sources for
+  the demo (`docs/legal/policies/demo/`), plus the demo reviews for
+  financial regulation, privacy and data licensing (open items L32–L41).
+- `docs/deployment.md`: running the demo on Streamlit Community Cloud.
+
+### Changed
+
+- Contact addresses in the footer, Settings and the beta legal pages are
+  uvalu.app@gmail.com; beta privacy notice 1.5 names Google (Gmail) as
+  the mailbox provider and the EU–US Data Privacy Framework transfer.
+- `.streamlit/config.toml` sets no TLS certificate, so the committed
+  config starts on Community Cloud; `run_app.py` passes the localhost
+  certificate on the command line. Behind Caddy nothing changes.
+- No usage statistics are sent from the browser to Streamlit
+  (`browser.gatherUsageStats = false`).
+- `requirements.txt` resolves for Linux / Python 3.12 from binary wheels.
+
+### Fixed
+
+- The portfolio value history counted London holdings in pence and
+  CHF/DKK holdings unconverted as euros; closes are now converted at each
+  day's ECB rate, and a holding without a rate is left out. Stored
+  histories are rebuilt on the next backfill.
+- The Risk page's cash note added holdings in another currency as euros.
+
 ## [2026.10.10] — 2026-10-17
 
 **No signal changes.** Positions in another currency than the euro are

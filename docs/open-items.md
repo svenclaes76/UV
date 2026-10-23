@@ -4,7 +4,7 @@ One list of what is still open, so nothing has to be rediscovered. Tick an
 item off by deleting it (git history keeps it) and add new ones under the
 right heading with a date and a trigger: *when* it has to be done.
 
-Last updated: 18 October 2026.
+Last updated: 23 October 2026.
 
 The items whose trigger is "inviting anyone you don't know personally" are put in order in
 [before-strangers-plan.md](before-strangers-plan.md).
@@ -21,7 +21,7 @@ wording.
 | L2 | **Market-data licence.** Prices come from Yahoo Finance, whose terms allow personal, non-commercial use only; showing them to other users is redistribution. Move to the licensed provider (EODHD, display licence) or get written permission. | Medium–high | A wider beta | Founder + provider |
 | L3 | **Formal opinion on MAR classification** of the signals (art. 3(1)(35) MAR, "expert" status and Delegated Regulation 2016/958 art. 4). Then, optionally, an informal approach to the FSMA through its fintech contact point. | Medium | Paid launch | Belgian financial-regulation lawyer |
 | L4 | **KBO / BCE registration** (CEL art. III.49) and a business or domiciliation address instead of the home address on every page. Then set `PRODUCER_ENTERPRISE_NUMBER` in `uvalu/compliance/disclosures.py`. | Medium | First income or public launch; ideally before inviting strangers | Founder + accountant |
-| L5 | **Email-hosting provider: decided 18 October 2026 (Sven):** the uvalu.app domain isn't held, so every contact is uvalu.app@gmail.com (Gmail, Google LLC). App contacts and the beta legal pages changed; beta privacy notice 1.5 (draft): Google in §4, the US transfer under the EU–US Data Privacy Framework in §5. Still to do: tell beta users and set the effective date 14 days later (notice §11); check Google's DPF listing; accept Google's data processing terms for the mailbox. The paid-launch drafts and the deploy files still assume the uvalu.app domain. | Medium | Beta opens to others | Founder |
+| L5 | **Email-hosting provider: decided 18 October 2026 (Sven):** the uvalu.app domain isn't held, so every contact is uvalu.app@gmail.com (Gmail, Google LLC). App contacts and the beta legal pages changed; beta privacy notice 1.5: Google in §4, the US transfer under the EU–US Data Privacy Framework in §5, effective 18 October 2026 (no beta users yet, so no notice period). Still to do: check Google's DPF listing; accept Google's data processing terms for the mailbox. The paid-launch drafts and the deploy files still assume the uvalu.app domain. | Medium | Beta opens to others | Founder |
 | L6 | **Translations of the UI disclaimers** (nl/fr/de/it/es) were drafted, not legally reviewed (INT-1 / INT-4). | Low–medium | Anyone relies on a non-English disclaimer | Fluent legal reviewer |
 | L7 | **Terms: "English version prevails" clause** — check it is there; translate the Terms into at least Dutch and French. | Low (beta) | Paid launch | Founder / lawyer |
 | L8 | **Self-service account deletion** — built on `feature/import-export` (11 October 2026): Settings › Privacy › Delete account, beta privacy notice §8 → beta 1.3. The 30 days now hold by design: `deploy/offsite-backup.sh` prunes offsite archives after 29 days, and the incident procedure and breach register are written (`docs/incident-procedure.md`, 13 October 2026). Still to do: set up the Storage Box with its automatic snapshots off (`docs/deployment.md` step 7). | Low | Server set-up | Founder |
@@ -117,11 +117,12 @@ the 3× limit flags 29% of stocks, worth checking with the valuation expert.
 
 From the quant and data review (13 October 2026,
 [`quant-review.md`](quant-review.md)), on the signal history of 4–13 October. Q2 shipped
-in model M2 (14 October 2026).
+in model M2 (14 October 2026). Q1 is closed (23 October 2026): about 11 signal changes a
+day on 15–18 October against 87 before M2, and the daily build (S4) waits for the EODHD
+switch; numbers in [`quant-review.md`](quant-review.md#re-measure-after-m2-23-october-2026-q1-closed).
 
 | # | Item | Do it before |
 | --- | --- | --- |
-| Q1 | **Re-measure the signal flicker after a week of M2.** Hysteresis (2 points), carried-forward inputs and `changed_inputs` shipped in M2 (merged 14 October 2026); replayed on 4–13 October they halve the changes (842 → 437). How: count `signal_change` records in `data/compliance/signal_history.jsonl` from 14 to 21 October (changes per day, stocks with 3+ changes, the `changed_inputs` that drive them) against the 4–13 October baseline of 805 changes on 242 stocks; check the `data_quality.summary` / `data_quality.alert` log lines. Then decide whether the daily build (S4) is still needed before the EODHD switch. | 21 October 2026 |
 | Q4 | **Risk-band calibration:** run ~8 reference portfolios, adjust sub-score mappings, publish the reference points. | Paid launch |
 | Q5 | **Small-cap betas:** weekly or Dimson-adjusted returns for illiquid holdings. | Paid launch |
 | Q6 | **Methodology wording:** VaR window limits, dividend-adjusted prices, the stability rule, no backtests on restated data. | With Q1–Q4 |
