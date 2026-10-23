@@ -234,3 +234,11 @@ def test_us_primary_companies_registered_in_europe_stay_out():
     c = _choose(stocks, info, suffixes={".DE", ".SW", ".AS"})
     assert not c.kept
     assert set(c.excluded.values()) == {"secondary_listing"}
+
+
+def test_a_planned_exchange_line_is_home_when_enabled():
+    # Shadow build: a small Helsinki company on its own exchange is home,
+    # not a secondary line held to the EUR 1M floor.
+    stocks = [_stock("ASPO.HE", "Aspo Oyj")]
+    c = _choose(stocks, {"ASPO.HE": _info("Finland", 50e3)}, suffixes={".HE"})
+    assert [s["ticker"] for s in c.kept] == ["ASPO.HE"]

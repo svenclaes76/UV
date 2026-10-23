@@ -184,7 +184,10 @@ class Line:
 
     @property
     def home(self) -> bool:
-        return is_home_listing(self.ticker, self.country)
+        # Any registry exchange, covered or planned: the build only passes
+        # lines of enabled exchanges, and the shadow build enables them all.
+        ex = exchanges.for_ticker(self.ticker)
+        return bool(ex) and ex.country == self.country
 
 
 def _suffix(ticker: str) -> str:
