@@ -13,11 +13,23 @@ load_dotenv(Path(__file__).parent / ".env")
 # Logging must come up before anything else can want to log. init_logging() is
 # idempotent (a no-op after the first rerun in this process); begin_run() stamps
 # a fresh correlation id on every rerun (see uvalu/logkit/).
-from uvalu import logkit
-logkit.init_logging()
+from uvalu import datamode, logkit
+_DATA_MODE = datamode.current()
+# Demo mode keeps its log file out of the repo's logs/ folder (open item L35).
+logkit.init_logging(log_dir=None if _DATA_MODE.live_fetch else datamode.demo_log_dir())
 logkit.begin_run()
 
 import streamlit as st
+
+# Demo mode (docs/demo-mode-plan.md): a temporary workspace built from the
+# committed snapshot, set up once per process before anything reads data.
+if not _DATA_MODE.live_fetch:
+    from uvalu.demo import workspace as _demo_ws
+    _demo_ws.activate()
+    # A newer snapshot (the evening's data commit, pulled into the running
+    # app) replaces the one in use; the scores are then computed again.
+    if _demo_ws.refresh_if_newer():
+        st.cache_data.clear()
 
 from auth import bootstrap_admin_from_env
 from portfolio import set_user
@@ -61,12 +73,21 @@ except migrations.SchemaMismatch:
     st.stop()
 
 # ── Authentication gate (see uvalu.authgate) ──────────────────────────────────
-authgate.recover_session_from_cookie()
-authgate.handle_logout()
+if _DATA_MODE.sign_in:
+    authgate.recover_session_from_cookie()
+    authgate.handle_logout()
 
-# No-op once any account exists — the only way to create the very first
-# account now that the sign-in wall is invite-only (see uvalu/authgate.py).
-bootstrap_admin_from_env()
+    # No-op once any account exists — the only way to create the very first
+    # account now that the sign-in wall is invite-only (see uvalu/authgate.py).
+    bootstrap_admin_from_env()
+else:
+    # Demo: no sign-in. Each browser session is its own pseudo-user whose
+    # storage starts as the sample portfolio (DM-D4, DM-D15).
+    import secrets as _secrets
+    if "user_email" not in st.session_state:
+        st.session_state["user_email"] = _demo_ws.session_email(_secrets.token_hex(6))
+        st.session_state["user_role"] = "Analyst"
+    _demo_ws.seed_session(st.session_state["user_email"])
 
 # Resolve the current user and point the data layer at their storage.
 _email = current_user().email
@@ -78,7 +99,8 @@ logkit.bind(email=_email)
 i18n.activate(_email)
 i18n.inject_lang_attr()
 
-authgate.auth_wall()
+if _DATA_MODE.sign_in:
+    authgate.auth_wall()
 
 _notice = i18n.pop_notice()
 if _notice:
@@ -95,9 +117,10 @@ if not st.session_state.get("_pf_prefetched"):
 # Keep the uv_jwt cookie fresh for the next full page load — the
 # cookie is what recover_session_from_cookie() (uvalu/authgate.py) actually
 # reads server-side to survive a reload (e.g. the top bar's theme toggle).
-with st.container(key="uv_hidden_util_jwt"):
-    _tok = st.session_state.get('jwt_token', '')
-    st.iframe(f"<script>{authgate.session_cookie_js(_tok) if _tok else ''}</script>", height=1)
+if _DATA_MODE.sign_in:
+    with st.container(key="uv_hidden_util_jwt"):
+        _tok = st.session_state.get('jwt_token', '')
+        st.iframe(f"<script>{authgate.session_cookie_js(_tok) if _tok else ''}</script>", height=1)
 
 # ── Navigation ────────────────────────────────────────────────────────────────
 _pg_dashboard = st.Page(_page_dashboard.render, title=_("Dashboard"), icon=":material/home:", default=True)
@@ -123,9 +146,13 @@ nav.pages.update({
     "about": _pg_about,
 })
 
+# A data mode can leave pages out (demo: Admin, DM-D6).
+for _hidden in _DATA_MODE.hidden_pages:
+    nav.pages.pop(_hidden, None)
 _nav = st.navigation(
-    [_pg_dashboard, _pg_portfolio, _pg_risk, _pg_screener, _pg_watchlist,
-     _pg_analysis, _pg_settings, _pg_help, _pg_admin, _pg_legal, _pg_about],
+    [p for p in (_pg_dashboard, _pg_portfolio, _pg_risk, _pg_screener, _pg_watchlist,
+                 _pg_analysis, _pg_settings, _pg_help, _pg_admin, _pg_legal, _pg_about)
+     if p.url_path not in _DATA_MODE.hidden_pages],
     position="hidden",
 )
 
@@ -152,7 +179,10 @@ if _nav.url_path != "admin":
 update_notice.remember_session_build()
 update_notice.render_reload_prompt()
 if _nav.url_path != "admin":
-    shell.render_beta_banner()
+    if _DATA_MODE.banner:
+        shell.render_demo_banner()
+    else:
+        shell.render_beta_banner()
     shell.render_peer_rebuild_strip()
 # Outside any dialog context, before the page body runs — opens the Buy/Sell
 # dialog the drawer's own buttons requested (Streamlit forbids nesting one

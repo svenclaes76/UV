@@ -401,6 +401,31 @@ class TestValueHistory:
         assert row3["benchmark_stoxx"] == 1040.0
 
 
+    def test_backfill_converts_pence_and_foreign_currency_to_eur(self, monkeypatch):
+        """A London line is quoted in pence and a Swiss one in CHF; the value
+        line is in EUR like `invested` (demo-mode review, Oct 2026)."""
+        import marketdata
+        import yfinance as yf
+
+        dates = pd.to_datetime(["2024-01-01", "2024-01-02"])
+        close = pd.DataFrame({"SHEL.L": [2500.0, 2600.0], "NESN.SW": [100.0, 100.0],
+                              "^GSPC": [100.0, 100.0], "^STOXX50E": [50.0, 50.0]}, index=dates)
+        monkeypatch.setattr(yf, "download", lambda *a, **k: pd.concat({"Close": close}, axis=1))
+        monkeypatch.setattr(marketdata, "price_divisor", lambda t: 100 if t.endswith(".L") else 1)
+        rates = pd.DataFrame({"GBP": [1.2, 1.2], "CHF": [1.05, 1.05]}, index=dates)
+        monkeypatch.setattr(marketdata, "fx_to_eur_frame", lambda ccys, period="5y": rates[sorted(ccys)])
+
+        open_df = pd.DataFrame([
+            {"ticker": "SHEL.L", "shares": 10, "date_in": "2024-01-01", "purchase_value": 300.0},
+            {"ticker": "NESN.SW", "shares": 2, "date_in": "2024-01-01", "purchase_value": 210.0},
+        ])
+        assert portfolio.backfill_value_history(open_df, None) == 2
+        hist = portfolio.load_value_history().set_index("date")
+        # 10 × 25.00 GBP × 1.2 + 2 × 100 CHF × 1.05 = 300 + 210
+        assert hist.loc["2024-01-01", "value"] == 510.0
+        assert hist.loc["2024-01-02", "value"] == 10 * 26.0 * 1.2 + 210.0
+
+
 # ── watchlist / manual tickers ────────────────────────────────────────────
 
 class TestWatchlist:

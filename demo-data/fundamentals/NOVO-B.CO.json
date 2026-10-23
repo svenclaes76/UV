@@ -1,0 +1,79 @@
+{
+  "ticker": "NOVO-B.CO",
+  "company": "Novo Nordisk A/S",
+  "reporting_currency": "DKK",
+  "dividend_currency": "DKK",
+  "fiscal_year_end": "12-31",
+  "entered_on": "2026-10-18",
+  "sources": {
+    "ar25": {
+      "title": "Novo Nordisk Annual Report 2025 (SEC filing of 4 February 2026); pages as printed in the annual report",
+      "url": "https://www.sec.gov/Archives/edgar/data/353278/000035327826000012/nvo-20251231_d2.htm",
+      "published": "2026-02-04"
+    },
+    "ar24": {
+      "title": "Novo Nordisk Annual Report 2024 (SEC Form 6-K of 5 February 2025); pages as printed in the annual report",
+      "url": "https://www.sec.gov/Archives/edgar/data/353278/000162828025003920/nvo-20241231_d2.htm",
+      "published": "2025-02-05"
+    }
+  },
+  "years": [
+    {
+      "fiscal_year": 2025,
+      "revenue":              {"value": 309064, "source": "ar25", "page": "83", "note": "Net sales"},
+      "ebit":                 {"value": 127658, "source": "ar25", "page": "83", "note": "Operating profit"},
+      "net_income":           {"value": 102434, "source": "ar25", "page": "83"},
+      "eps_basic":            {"value": 23.06, "source": "ar25", "page": "83"},
+      "shares_weighted":      {"value": 4443.0, "source": "ar25", "page": "100", "note": "Average number of shares outstanding"},
+      "cfo":                  {"value": 119102, "source": "ar25", "page": "84"},
+      "capex":                {"value": 90113, "source": "ar25", "page": "8", "note": "Five-year overview: purchase of property, plant and equipment 60,140 + purchase of intangible assets 29,973"},
+      "total_assets":         {"value": 542902, "source": "ar25", "page": "85"},
+      "equity":               {"value": 194047, "source": "ar25", "page": "85", "note": "Total equity"},
+      "retained_earnings":    {"value": 195298, "source": "ar25", "page": "85"},
+      "total_debt":           {"value": 130958, "source": "ar25", "page": "85", "note": "Borrowings, non-current 118,941 + current 12,017"},
+      "cash":                 {"value": 26464, "source": "ar25", "page": "85", "note": "Cash at bank"},
+      "current_assets":       {"value": 172453, "source": "ar25", "page": "85"},
+      "current_liabilities":  {"value": 215661, "source": "ar25", "page": "85"},
+      "interest_expense":     {"value": 6778, "source": "ar25", "page": "83", "note": "Financial expenses (all financial expenses, including currency losses)"},
+      "dps":                  {"value": 11.7, "source": "ar25", "page": "8", "note": "Interim 3.75 paid August 2025 + final 7.95 subject to the AGM of March 2026"}
+    },
+    {
+      "fiscal_year": 2024,
+      "revenue":              {"value": 290403, "source": "ar25", "page": "83", "note": "Net sales"},
+      "ebit":                 {"value": 128339, "source": "ar25", "page": "83", "note": "Operating profit"},
+      "net_income":           {"value": 100988, "source": "ar25", "page": "83"},
+      "eps_basic":            {"value": 22.67, "source": "ar25", "page": "83"},
+      "shares_weighted":      {"value": 4453.9, "source": "ar25", "page": "100", "note": "Average number of shares outstanding"},
+      "cfo":                  {"value": 120968, "source": "ar25", "page": "84"},
+      "capex":                {"value": 51309, "source": "ar25", "page": "8", "note": "Five-year overview: purchase of property, plant and equipment 47,164 + purchase of intangible assets 4,145"},
+      "total_assets":         {"value": 465630, "source": "ar25", "page": "85"},
+      "equity":               {"value": 143486, "source": "ar25", "page": "85", "note": "Total equity"},
+      "retained_earnings":    {"value": 144448, "source": "ar25", "page": "85"},
+      "total_debt":           {"value": 102787, "source": "ar25", "page": "85", "note": "Borrowings, non-current 89,674 + current 13,113"},
+      "cash":                 {"value": 15655, "source": "ar25", "page": "85", "note": "Cash at bank"},
+      "current_assets":       {"value": 161788, "source": "ar25", "page": "85"},
+      "current_liabilities":  {"value": 217614, "source": "ar25", "page": "85"},
+      "interest_expense":     {"value": 7346, "source": "ar25", "page": "83", "note": "Financial expenses (all financial expenses, including currency losses)"},
+      "dps":                  {"value": 11.4, "source": "ar25", "page": "8"}
+    },
+    {
+      "fiscal_year": 2023,
+      "revenue":              {"value": 232261, "source": "ar25", "page": "83", "note": "Net sales"},
+      "ebit":                 {"value": 102574, "source": "ar25", "page": "83", "note": "Operating profit"},
+      "net_income":           {"value": 83683, "source": "ar25", "page": "83"},
+      "eps_basic":            {"value": 18.67, "source": "ar25", "page": "8"},
+      "shares_weighted":      {"value": 4482.8, "source": "ar25", "page": "100", "note": "Average number of shares outstanding"},
+      "cfo":                  {"value": 108908, "source": "ar25", "page": "84"},
+      "capex":                {"value": 38896, "source": "ar25", "page": "8", "note": "Five-year overview: purchase of property, plant and equipment 25,806 + purchase of intangible assets 13,090"},
+      "total_assets":         {"value": 314486, "source": "ar24", "page": "104"},
+      "equity":               {"value": 106561, "source": "ar24", "page": "104", "note": "Total equity"},
+      "retained_earnings":    {"value": 104839, "source": "ar24", "page": "104"},
+      "total_debt":           {"value": 27006, "source": "ar24", "page": "104", "note": "Borrowings, non-current 20,528 + current 6,478"},
+      "cash":                 {"value": 14392, "source": "ar24", "page": "104", "note": "Cash at bank"},
+      "current_assets":       {"value": 139646, "source": "ar24", "page": "104"},
+      "current_liabilities":  {"value": 169655, "source": "ar24", "page": "104"},
+      "interest_expense":     {"value": 845, "source": "ar25", "page": "83", "note": "Financial expenses (all financial expenses, including currency losses)"},
+      "dps":                  {"value": 9.4, "source": "ar25", "page": "8"}
+    }
+  ]
+}

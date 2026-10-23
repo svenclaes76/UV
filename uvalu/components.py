@@ -258,10 +258,20 @@ def signal_provenance_html(row) -> str:
     closes), the model version and the methodology link. Shown under every
     signal badge that has a row behind it (drawer, Analysis page)."""
     from uvalu.i18n import fmt_datetime
+    from uvalu import datamode
     computed, price_at = row.get("signal_computed_at"), row.get("price_as_of")
+    if datamode.is_demo():
+        # Demo (DM-5): the price is a snapshot's end-of-day close.
+        from uvalu.demo import workspace
+        from uvalu.i18n import fmt_date
+        last = workspace.last_refresh()
+        price_item = h_("end-of-day price of {date}", date=_mono(fmt_date(last) if last else "—"))
+    else:
+        price_item = h_("price as of {when}, delayed",
+                        when=_mono(fmt_datetime(price_at, style="medium"), _full_timestamp(price_at)))
     return provenance_bar_html([
         h_("Signal computed {when}", when=_mono(fmt_datetime(computed, style="medium"), _full_timestamp(computed))),
-        h_("price as of {when}, delayed", when=_mono(fmt_datetime(price_at, style="medium"), _full_timestamp(price_at))),
+        price_item,
         h_("model {version}", version=_mono(str(row.get("model_version") or "—"))),
     ], margin="8px 0 12px")
 
@@ -290,7 +300,15 @@ def list_provenance_html(df) -> str:
     if not computed.empty:
         items.append(h_("Signals computed {when}", when=_mono(
             fmt_datetime(computed.max(), style="medium"), _full_timestamp(computed.max()))))
-    if not prices.empty:
+    from uvalu import datamode
+    if datamode.is_demo():
+        # Demo (DM-5): one snapshot of end-of-day closes, not delayed quotes
+        # fetched at a time of day.
+        from uvalu.demo import workspace
+        last = workspace.last_refresh()
+        if last:
+            items.append(h_("end-of-day prices of {date}", date=_mono(fmt_date(last), last.isoformat())))
+    elif not prices.empty:
         oldest, newest = prices.min(), prices.max()
         if oldest.date() == newest.date():
             items.append(h_("prices delayed, as of {when}", when=_mono(

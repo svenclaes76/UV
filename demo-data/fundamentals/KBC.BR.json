@@ -1,0 +1,56 @@
+{
+  "ticker": "KBC.BR",
+  "company": "KBC Group NV",
+  "reporting_currency": "EUR",
+  "dividend_currency": "EUR",
+  "fiscal_year_end": "12-31",
+  "statement_type": "bank",
+  "entered_on": "2026-10-18",
+  "sources": {
+    "q425": {
+      "title": "KBC Group Quarterly Report 4Q 2025 (12 February 2026); pages as printed",
+      "url": "https://www.kbc.com/content/dam/kbccom/doc/investor-relations/Results/4q2025/4q2025-quarterly-report-en.pdf",
+      "published": "2026-02-12"
+    },
+    "q424": {
+      "title": "KBC Group Quarterly Report 4Q 2024 (13 February 2025); pages as printed",
+      "url": "https://www.kbc.com/content/dam/kbccom/doc/investor-relations/Results/4q2024/4q2024-quarterly-report--en.pdf",
+      "published": "2025-02-13"
+    }
+  },
+  "years": [
+    {
+      "fiscal_year": 2025,
+      "revenue":              {"value": 12200, "source": "q425", "page": "15", "note": "Total income (a bank has no revenue line)"},
+      "net_income":           {"value": 3568, "source": "q425", "page": "15", "note": "Attributable to equity holders of the parent"},
+      "eps_basic":            {"value": 8.7, "source": "q425", "page": "15", "note": "EPS is after the coupon on the AT1 instruments, so EPS × shares is below net income"},
+      "shares_weighted":      {"value": 397, "source": "q425", "page": "56", "note": "Average number of ordinary shares less treasury shares"},
+      "total_assets":         {"value": 397372, "source": "q425", "page": "18"},
+      "equity":               {"value": 25404, "source": "q425", "page": "18", "note": "Parent shareholders' equity"},
+      "cash":                 {"value": 34005, "source": "q425", "page": "18", "note": "Cash, cash balances with central banks and other demand deposits with credit institutions"},
+      "dps":                  {"value": 5.1, "source": "q425", "page": "20", "note": "Interim 1.00 paid November 2025 + final 4.10 proposed to the AGM of 7 May 2026"}
+    },
+    {
+      "fiscal_year": 2024,
+      "revenue":              {"value": 11167, "source": "q425", "page": "15", "note": "Total income (a bank has no revenue line)"},
+      "net_income":           {"value": 3415, "source": "q425", "page": "15", "note": "Attributable to equity holders of the parent"},
+      "eps_basic":            {"value": 8.33, "source": "q425", "page": "15", "note": "EPS is after the coupon on the AT1 instruments, so EPS × shares is below net income"},
+      "shares_weighted":      {"value": 400, "source": "q425", "page": "56", "note": "Average number of ordinary shares less treasury shares"},
+      "total_assets":         {"value": 373048, "source": "q425", "page": "18"},
+      "equity":               {"value": 22447, "source": "q425", "page": "18", "note": "Parent shareholders' equity"},
+      "cash":                 {"value": 46834, "source": "q425", "page": "18", "note": "Cash, cash balances with central banks and other demand deposits with credit institutions"},
+      "dps":                  {"value": 4.85, "source": "q425", "page": "19", "note": "Includes an extraordinary interim dividend of 0.70; the ordinary dividend was 4.15"}
+    },
+    {
+      "fiscal_year": 2023,
+      "revenue":              {"value": 11224, "source": "q424", "page": "15", "note": "Total income (a bank has no revenue line)"},
+      "net_income":           {"value": 3402, "source": "q424", "page": "15", "note": "Attributable to equity holders of the parent"},
+      "eps_basic":            {"value": 8.04, "source": "q424", "page": "15", "note": "EPS is after the coupon on the AT1 instruments, so EPS × shares is below net income"},
+      "shares_weighted":      {"value": 415, "source": "q424", "page": "56", "note": "Average number of ordinary shares less treasury shares"},
+      "total_assets":         {"value": 346921, "source": "q424", "page": "17"},
+      "equity":               {"value": 22010, "source": "q424", "page": "17", "note": "Parent shareholders' equity"},
+      "cash":                 {"value": 34530, "source": "q424", "page": "17", "note": "Cash, cash balances with central banks and other demand deposits with credit institutions"},
+      "dps":                  {"value": 4.15, "source": "q424", "page": "18"}
+    }
+  ]
+}

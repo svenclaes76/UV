@@ -14,8 +14,8 @@ app.py directly instead of this file.
         --server.port 8520 --server.headless true \
         --server.sslCertFile "" --server.sslKeyFile ""
 
-The empty sslCertFile / sslKeyFile args override .streamlit/config.toml,
-which otherwise forces a self-signed cert the in-app preview browser rejects.
+The empty sslCertFile / sslKeyFile args are a leftover from when
+.streamlit/config.toml forced a self-signed cert; since DM-6 they change nothing.
 """
 from __future__ import annotations
 

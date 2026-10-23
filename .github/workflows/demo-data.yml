@@ -1,0 +1,96 @@
+# Daily demo snapshot (docs/demo-mode-plan.md, DM-3): calls EODHD through
+# tools/demo_refresh.py and commits demo-data/ to the deploy/demo branch, which
+# Streamlit Community Cloud runs. master never gets these commits.
+#
+# deploy/demo = the latest release tag + data commits. Each run first merges the
+# newest v* tag, so the demo moves to new code only when a release is tagged.
+# A manual run can start from another ref instead (e.g. master, before the
+# first release that contains the demo code).
+#
+# Budget: weekdays 10 calls (prices; FX is free), Sundays 10 calls (dividends),
+# both under the script's own stop at 18 of EODHD's 20 per day. The key is the
+# EODHD_API_KEY repository secret and nothing else needs it.
+#
+# Scheduled workflows only run from the default branch, so this file does
+# nothing until it is merged into master.
+name: demo-data
+
+on:
+  schedule:
+    - cron: "0 21 * * 1-5"   # weekdays 21:00 UTC, after the European closes
+    - cron: "0 21 * * 0"     # Sundays: dividends
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "What to refresh"
+        type: choice
+        options: [prices, dividends]
+        default: prices
+      ref:
+        description: "Base for deploy/demo (default: the latest v* tag)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: demo-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out deploy/demo with the latest release
+        env:
+          BASE_REF: ${{ inputs.ref }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          base="${BASE_REF:-$(git tag --list 'v*' --sort=-v:refname | head -n1)}"
+          echo "Base: $base"
+          if git ls-remote --exit-code --heads origin deploy/demo >/dev/null; then
+            git checkout -B deploy/demo origin/deploy/demo
+            git merge --no-edit -m "Merge $base into deploy/demo [skip ci]" "$base"
+          else
+            git checkout -b deploy/demo "$base"
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Refresh the snapshot
+        env:
+          EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
+          JOB: ${{ inputs.job || (github.event.schedule == '0 21 * * 0' && 'dividends' || 'prices') }}
+        run: |
+          if [ "$JOB" = "dividends" ]; then args="--dividends"; else args="--prices --fx"; fi
+          set +e
+          python tools/demo_refresh.py --live $args
+          code=$?
+          set -e
+          # 1 = some tickers failed: keep what did refresh. 2 = stopped (budget
+          # or key): still commit the counter, then fail the run so it shows.
+          echo "REFRESH_EXIT=$code" >> "$GITHUB_ENV"
+
+      - name: Commit and push
+        run: |
+          git add -f demo-data
+          if git diff --cached --quiet; then
+            echo "No data change."
+          else
+            git commit -m "data(demo): refresh $(date -u +%F) [skip ci]"
+          fi
+          git push origin deploy/demo
+          test "${REFRESH_EXIT:-0}" != "2"

@@ -1088,6 +1088,28 @@ def record_value_snapshot(invested: float, value: float) -> None:
     hist = hist.sort_values("date").reset_index(drop=True)
     save_value_history(hist)
 
+def _closes_in_eur(close: pd.DataFrame, tickers: list[str]) -> pd.DataFrame:
+    """``close`` with each holding's column converted from its quote unit to
+    EUR per share. A holding with no EUR rate is left out (NaN) rather than
+    summed in the wrong currency."""
+    import marketdata
+    out = close.copy()
+    held = [t for t in tickers if t in out.columns]
+    ccys = {t: currency_for_ticker(t) for t in held}
+    foreign = {c for c in ccys.values() if c != "EUR"}
+    rates = marketdata.fx_to_eur_frame(foreign, period="10y") if foreign else pd.DataFrame()
+    for t in held:
+        col = out[t] / marketdata.price_divisor(t)
+        ccy = ccys[t]
+        if ccy != "EUR":
+            if rates.empty or ccy not in rates.columns:
+                col = col * float("nan")
+            else:
+                col = col * rates[ccy].reindex(out.index.union(rates.index)).ffill().reindex(out.index)
+        out[t] = col
+    return out
+
+
 def backfill_value_history(open_df: pd.DataFrame, sold_df: pd.DataFrame | None = None) -> int:
     """
     Rebuild full portfolio value history from yfinance price data.
@@ -1165,6 +1187,10 @@ def backfill_value_history(open_df: pd.DataFrame, sold_df: pd.DataFrame | None =
         close = raw[["Close"]].rename(columns={"Close": fetch_tickers[0]})
 
     close = close.ffill()
+    # Holdings in EUR, the unit of `invested`: quotes in a minor unit (London
+    # pence) divided down (EX-14), then the ECB rate of each day. The benchmark
+    # indices stay in points; only their relative path is used below.
+    close = _closes_in_eur(close, tickers)
 
     # Pre-compute tranches for each benchmark index:
     # simulate investing each position's purchase_value into the index on date_in.

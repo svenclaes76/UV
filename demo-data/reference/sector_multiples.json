@@ -1,0 +1,108 @@
+{
+  "source": {
+    "title": "Aswath Damodaran, Price Earnings and Price to Book ratios by industry, Europe (peEurope.xls, pbvEurope.xls)",
+    "urls": [
+      "https://pages.stern.nyu.edu/~adamodar/pc/datasets/peEurope.xls",
+      "https://pages.stern.nyu.edu/~adamodar/pc/datasets/pbvEurope.xls"
+    ],
+    "data_page": "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datacurrent.html",
+    "as_of": "2026-01-05",
+    "retrieved": "2026-10-18",
+    "attribution": "Industry multiples: Aswath Damodaran, NYU Stern (damodaran.com)",
+    "terms_note": "Damodaran's usage rules ask for no licence and welcome attribution; commercial use isn't addressed (open item before the paid launch)."
+  },
+  "measures": {
+    "pe": "Aggregate Mkt Cap/ Trailing Net Income (only money making firms) (aggregate market cap / trailing net income of the industry's profitable firms)",
+    "pb": "PBV (aggregate)"
+  },
+  "method": "A sector's multiple is the plain average of the Damodaran industries of the demo stocks in that sector (each industry counted once). The engine clips P/E to its own band (screener.PE_MULTIPLE_BAND).",
+  "industries": {
+    "Apparel": {
+      "firms": 109,
+      "pe": 30.64,
+      "pb": 4.054
+    },
+    "Bank (Money Center)": {
+      "firms": 113,
+      "pe": 10.91,
+      "pb": 1.245
+    },
+    "Beverage (Alcoholic)": {
+      "firms": 52,
+      "pe": 18.74,
+      "pb": 1.561
+    },
+    "Drugs (Pharmaceutical)": {
+      "firms": 115,
+      "pe": 20.61,
+      "pb": 4.092
+    },
+    "Food Processing": {
+      "firms": 173,
+      "pe": 19.52,
+      "pb": 3.032
+    },
+    "Oil/Gas (Integrated)": {
+      "firms": 12,
+      "pe": 15.2,
+      "pb": 2.141
+    },
+    "Semiconductor Equip": {
+      "firms": 21,
+      "pe": 38.18,
+      "pb": 13.956
+    },
+    "Software (System & Application)": {
+      "firms": 290,
+      "pe": 31.96,
+      "pb": 5.145
+    }
+  },
+  "sectors": {
+    "Consumer Defensive": {
+      "stocks": {
+        "ABI.BR": "Beverage (Alcoholic)",
+        "NESN.SW": "Food Processing"
+      },
+      "pe": 19.13,
+      "pb": 2.297
+    },
+    "Financial Services": {
+      "stocks": {
+        "KBC.BR": "Bank (Money Center)"
+      },
+      "pe": 10.91,
+      "pb": 1.245
+    },
+    "Technology": {
+      "stocks": {
+        "ASML.AS": "Semiconductor Equip",
+        "SAP.DE": "Software (System & Application)"
+      },
+      "pe": 35.07,
+      "pb": 9.551
+    },
+    "Consumer Cyclical": {
+      "stocks": {
+        "MC.PA": "Apparel"
+      },
+      "pe": 30.64,
+      "pb": 4.054
+    },
+    "Energy": {
+      "stocks": {
+        "TTE.PA": "Oil/Gas (Integrated)",
+        "SHEL.L": "Oil/Gas (Integrated)"
+      },
+      "pe": 15.2,
+      "pb": 2.141
+    },
+    "Healthcare": {
+      "stocks": {
+        "NOVO-B.CO": "Drugs (Pharmaceutical)"
+      },
+      "pe": 20.61,
+      "pb": 4.092
+    }
+  }
+}

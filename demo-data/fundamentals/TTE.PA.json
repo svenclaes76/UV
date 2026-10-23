@@ -1,0 +1,85 @@
+{
+  "ticker": "TTE.PA",
+  "company": "TotalEnergies SE",
+  "reporting_currency": "USD",
+  "dividend_currency": "EUR",
+  "fiscal_year_end": "12-31",
+  "entered_on": "2026-10-18",
+  "sources": {
+    "q425": {
+      "title": "TotalEnergies operating and financial review with unaudited consolidated financial statements for 2025 (SEC Form 6-K, exhibit 99.1, 11 February 2026); no page numbers, the page field names the statement",
+      "url": "https://www.sec.gov/Archives/edgar/data/879764/000110465926013065/tm265640d1_ex99-1.htm",
+      "published": "2026-02-11"
+    },
+    "q424": {
+      "title": "TotalEnergies operating and financial review with unaudited consolidated financial statements for 2024 (SEC Form 6-K, exhibit 99.1, 5 February 2025); no page numbers, the page field names the statement",
+      "url": "https://www.sec.gov/Archives/edgar/data/879764/000110465925009436/tm254590d2_ex99-1.htm",
+      "published": "2025-02-05"
+    },
+    "ar25": {
+      "title": "TotalEnergies Form 20-F 2025 (27 March 2026); pages as printed",
+      "url": "https://www.sec.gov/Archives/edgar/data/879764/000110465926035876/tot-20251231x20f.htm",
+      "published": "2026-03-27"
+    },
+    "ar24": {
+      "title": "TotalEnergies Form 20-F 2024 (31 March 2025); pages as printed",
+      "url": "https://www.sec.gov/Archives/edgar/data/879764/000110465925029751/tot-20241231x20f.htm",
+      "published": "2025-03-31"
+    }
+  },
+  "years": [
+    {
+      "fiscal_year": 2025,
+      "revenue":              {"value": 182344, "source": "q425", "page": "Consolidated statement of income (year)", "note": "Revenues from sales (sales net of excise taxes)"},
+      "ebit":                 {"value": 21407, "source": "q425", "page": "Consolidated statement of income (year)", "note": "No operating-income line in TotalEnergies' format: revenues from sales 182,344 − purchases 116,740 − other operating expenses 30,914 − exploration 419 − depreciation and impairment 13,312 + other income 2,375 − other expense 1,927"},
+      "net_income":           {"value": 13127, "source": "q425", "page": "Consolidated statement of income (year)", "note": "TotalEnergies share"},
+      "eps_basic":            {"value": 5.84, "source": "q425", "page": "Consolidated statement of income (year)", "note": "EPS is after the coupons on perpetual subordinated notes, so EPS × shares is a little below net income"},
+      "shares_weighted":      {"value": 2191.4, "source": "ar25", "page": "F-52", "note": "Weighted-average number of shares (basic)"},
+      "cfo":                  {"value": 27343, "source": "q425", "page": "Consolidated statement of cash flow (year)"},
+      "capex":                {"value": 16953, "source": "q425", "page": "Consolidated statement of cash flow (year)", "note": "Intangible assets and property, plant and equipment additions"},
+      "total_assets":         {"value": 291055, "source": "q425", "page": "Consolidated balance sheet"},
+      "equity":               {"value": 114883, "source": "q425", "page": "Consolidated balance sheet", "note": "Total shareholders' equity - TotalEnergies share"},
+      "total_debt":           {"value": 61033, "source": "q425", "page": "Consolidated balance sheet", "note": "Non-current financial debt 48,995 + current borrowings 12,038"},
+      "cash":                 {"value": 26202, "source": "q425", "page": "Consolidated balance sheet"},
+      "current_assets":       {"value": 89469, "source": "q425", "page": "Consolidated balance sheet"},
+      "current_liabilities":  {"value": 92563, "source": "q425", "page": "Consolidated balance sheet"},
+      "interest_expense":     {"value": 3182, "source": "q425", "page": "Consolidated statement of income (year)", "note": "Financial interest on debt"},
+      "dps":                  {"value": 3.4, "source": "ar25", "page": "F-52", "note": "Proposed to the Shareholders' Meeting of 29 May 2026"}
+    },
+    {
+      "fiscal_year": 2024,
+      "revenue":              {"value": 195610, "source": "q425", "page": "Consolidated statement of income (year)", "note": "Revenues from sales (sales net of excise taxes)"},
+      "ebit":                 {"value": 25893, "source": "q425", "page": "Consolidated statement of income (year)", "note": "No operating-income line in TotalEnergies' format: revenues from sales 195,610 − purchases 127,664 − other operating expenses 29,860 − exploration 999 − depreciation and impairment 12,025 + other income 2,112 − other expense 1,281"},
+      "net_income":           {"value": 15758, "source": "q425", "page": "Consolidated statement of income (year)", "note": "TotalEnergies share"},
+      "eps_basic":            {"value": 6.74, "source": "q425", "page": "Consolidated statement of income (year)", "note": "EPS is after the coupons on perpetual subordinated notes, so EPS × shares is a little below net income"},
+      "shares_weighted":      {"value": 2298.0, "source": "ar25", "page": "F-52", "note": "Weighted-average number of shares (basic)"},
+      "cfo":                  {"value": 30854, "source": "q425", "page": "Consolidated statement of cash flow (year)"},
+      "capex":                {"value": 14909, "source": "q425", "page": "Consolidated statement of cash flow (year)", "note": "Intangible assets and property, plant and equipment additions"},
+      "total_assets":         {"value": 285487, "source": "q425", "page": "Consolidated balance sheet"},
+      "equity":               {"value": 117858, "source": "q425", "page": "Consolidated balance sheet", "note": "Total shareholders' equity - TotalEnergies share"},
+      "total_debt":           {"value": 53557, "source": "q425", "page": "Consolidated balance sheet", "note": "Non-current financial debt 43,533 + current borrowings 10,024"},
+      "cash":                 {"value": 25844, "source": "q425", "page": "Consolidated balance sheet"},
+      "current_assets":       {"value": 96571, "source": "q425", "page": "Consolidated balance sheet"},
+      "current_liabilities":  {"value": 87960, "source": "q425", "page": "Consolidated balance sheet"},
+      "interest_expense":     {"value": 3016, "source": "q425", "page": "Consolidated statement of income (year)", "note": "Financial interest on debt"},
+      "dps":                  {"value": 3.22, "source": "ar24", "page": "F-52"}
+    },
+    {
+      "fiscal_year": 2023,
+      "revenue":              {"value": 218945, "source": "q424", "page": "Consolidated statement of income (year)", "note": "Revenues from sales (sales net of excise taxes)"},
+      "ebit":                 {"value": 33431, "source": "q424", "page": "Consolidated statement of income (year)", "note": "No operating-income line in TotalEnergies' format: revenues from sales 218,945 − purchases 143,041 − other operating expenses 30,419 − exploration 573 − depreciation and impairment 12,762 + other income 3,677 − other expense 2,396"},
+      "net_income":           {"value": 21384, "source": "q424", "page": "Consolidated statement of income (year)", "note": "TotalEnergies share"},
+      "eps_basic":            {"value": 8.72, "source": "q424", "page": "Consolidated statement of income (year)", "note": "EPS is after the coupons on perpetual subordinated notes, so EPS × shares is a little below net income"},
+      "shares_weighted":      {"value": 2417.4, "source": "ar25", "page": "F-52", "note": "Weighted-average number of shares (basic)"},
+      "cfo":                  {"value": 40679, "source": "q424", "page": "Consolidated statement of cash flow (year)"},
+      "capex":                {"value": 17722, "source": "q424", "page": "Consolidated statement of cash flow (year)", "note": "Intangible assets and property, plant and equipment additions"},
+      "total_assets":         {"value": 283654, "source": "q424", "page": "Consolidated balance sheet"},
+      "equity":               {"value": 116753, "source": "q424", "page": "Consolidated balance sheet", "note": "Total shareholders' equity - TotalEnergies share"},
+      "total_debt":           {"value": 50068, "source": "q424", "page": "Consolidated balance sheet", "note": "Non-current financial debt 40,478 + current borrowings 9,590"},
+      "cash":                 {"value": 27263, "source": "q424", "page": "Consolidated balance sheet"},
+      "current_assets":       {"value": 99529, "source": "q424", "page": "Consolidated balance sheet"},
+      "current_liabilities":  {"value": 88785, "source": "q424", "page": "Consolidated balance sheet"},
+      "interest_expense":     {"value": 2820, "source": "q424", "page": "Consolidated statement of income (year)", "note": "Financial interest on debt"}
+    }
+  ]
+}

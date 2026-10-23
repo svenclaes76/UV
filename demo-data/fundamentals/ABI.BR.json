@@ -1,0 +1,82 @@
+{
+  "ticker": "ABI.BR",
+  "company": "Anheuser-Busch InBev SA/NV",
+  "reporting_currency": "USD",
+  "dividend_currency": "EUR",
+  "fiscal_year_end": "12-31",
+  "entered_on": "2026-10-18",
+  "sources": {
+    "fy25": {
+      "title": "AB InBev Reports Full Year and Fourth Quarter 2025 Results (press release, 12 February 2026; SEC Form 6-K, exhibit 99.1)",
+      "url": "https://www.sec.gov/Archives/edgar/data/1668717/000119312526049841/d891969dex991.htm",
+      "published": "2026-02-12"
+    },
+    "fy24": {
+      "title": "AB InBev Reports Full Year and Fourth Quarter 2024 Results (press release, 26 February 2025; SEC Form 6-K, exhibit 99.1)",
+      "url": "https://www.sec.gov/Archives/edgar/data/1668717/000119312525042839/d902611dex991.htm",
+      "published": "2025-02-26"
+    }
+  },
+  "years": [
+    {
+      "fiscal_year": 2025,
+      "revenue":             {"value": 59320,  "source": "fy25", "page": "11"},
+      "ebit":                {"value": 15405,  "source": "fy25", "page": "11", "note": "Normalized EBIT 15 854 + non-underlying items above EBIT (449)"},
+      "ebit_normalized":     {"value": 15854,  "source": "fy25", "page": "11"},
+      "net_income":          {"value": 6837,   "source": "fy25", "page": "11"},
+      "eps_basic":           {"value": 3.45,   "source": "fy25", "page": "14"},
+      "shares_weighted":     {"value": 1984,   "source": "fy25", "page": "13"},
+      "cfo":                 {"value": 14883,  "source": "fy25", "page": "25"},
+      "capex":               {"value": 3656,   "source": "fy25", "page": "25"},
+      "total_assets":        {"value": 218808, "source": "fy25", "page": "24"},
+      "equity":              {"value": 87287,  "source": "fy25", "page": "24"},
+      "retained_earnings":   {"value": 50128,  "source": "fy25", "page": "24"},
+      "total_debt":          {"value": 73013,  "source": "fy25", "page": "24", "note": "Interest-bearing loans and borrowings: non-current 72 128 + current 885"},
+      "cash":                {"value": 11638,  "source": "fy25", "page": "24"},
+      "current_assets":      {"value": 24769,  "source": "fy25", "page": "24"},
+      "current_liabilities": {"value": 34475,  "source": "fy25", "page": "24"},
+      "interest_expense":    {"value": 2566,   "source": "fy25", "page": "12"},
+      "dps":                 {"value": 1.15,   "source": "fy25", "page": "1", "note": "Interim 0.15 EUR paid November 2025 + final 1.00 EUR proposed to the AGM of 29 April 2026"}
+    },
+    {
+      "fiscal_year": 2024,
+      "revenue":             {"value": 59768,  "source": "fy25", "page": "11"},
+      "ebit":                {"value": 15487,  "source": "fy25", "page": "11", "note": "Normalized EBIT 15 462 + non-underlying items above EBIT 25"},
+      "ebit_normalized":     {"value": 15462,  "source": "fy25", "page": "11"},
+      "net_income":          {"value": 5855,   "source": "fy25", "page": "11"},
+      "eps_basic":           {"value": 2.92,   "source": "fy25", "page": "14"},
+      "shares_weighted":     {"value": 2003,   "source": "fy25", "page": "13"},
+      "cfo":                 {"value": 15055,  "source": "fy25", "page": "25"},
+      "capex":               {"value": 3863,   "source": "fy25", "page": "25"},
+      "total_assets":        {"value": 206637, "source": "fy25", "page": "24"},
+      "equity":              {"value": 78237,  "source": "fy25", "page": "24"},
+      "retained_earnings":   {"value": 46577,  "source": "fy25", "page": "24"},
+      "total_debt":          {"value": 72169,  "source": "fy25", "page": "24", "note": "Interest-bearing loans and borrowings: non-current 70 720 + current 1 449"},
+      "cash":                {"value": 11174,  "source": "fy25", "page": "24"},
+      "current_assets":      {"value": 22999,  "source": "fy25", "page": "24"},
+      "current_liabilities": {"value": 33066,  "source": "fy25", "page": "24"},
+      "interest_expense":    {"value": 2704,   "source": "fy25", "page": "12", "note": "As restated in the FY25 release; the FY24 release showed 2 846"},
+      "dps":                 {"value": 1.00,   "source": "fy24", "page": "1"}
+    },
+    {
+      "fiscal_year": 2023,
+      "revenue":             {"value": 59380,  "source": "fy24", "page": "11"},
+      "ebit":                {"value": 13966,  "source": "fy24", "page": "11", "note": "Normalized EBIT 14 590 + non-underlying items above EBIT (624)"},
+      "ebit_normalized":     {"value": 14590,  "source": "fy24", "page": "11"},
+      "net_income":          {"value": 5341,   "source": "fy24", "page": "11"},
+      "eps_basic":           {"value": 2.65,   "source": "fy24", "page": "13"},
+      "shares_weighted":     {"value": 2016,   "source": "fy24", "page": "13"},
+      "cfo":                 {"value": 13265,  "source": "fy24", "page": "24"},
+      "capex":               {"value": 4638,   "source": "fy24", "page": "24"},
+      "total_assets":        {"value": 219340, "source": "fy24", "page": "23"},
+      "equity":              {"value": 81848,  "source": "fy24", "page": "23"},
+      "retained_earnings":   {"value": 42215,  "source": "fy24", "page": "23"},
+      "total_debt":          {"value": 78150,  "source": "fy24", "page": "23", "note": "Interest-bearing loans and borrowings: non-current 74 163 + current 3 987"},
+      "cash":                {"value": 10332,  "source": "fy24", "page": "23"},
+      "current_assets":      {"value": 23367,  "source": "fy24", "page": "23"},
+      "current_liabilities": {"value": 37156,  "source": "fy24", "page": "23"},
+      "interest_expense":    {"value": 3131,   "source": "fy24", "page": "12", "note": "FY24 release basis; not restated like FY24's figure"},
+      "dps":                 {"value": 0.82,   "source": "fy24", "page": "3", "note": "Not stated directly: the FY24 dividend of 1.00 EUR is described as a 22% increase"}
+    }
+  ]
+}

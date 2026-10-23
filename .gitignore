@@ -15,3 +15,12 @@ report.html
 # Build metadata — written by tools/stamp_build.py at start/deploy, never by hand (VM-05)
 build_info.json
 static/version.json
+
+# Demo snapshot written by tools/demo_refresh.py (demo-mode plan DM-3): only the
+# demo-data workflow commits these, on deploy/demo (git add -f). Hand-entered
+# source files (fundamentals, sector reference) under demo-data/ stay tracked.
+demo-data/eod/
+demo-data/dividends/
+demo-data/fx.csv
+demo-data/refresh.json
+demo-data/budget.json

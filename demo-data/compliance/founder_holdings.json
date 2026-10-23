@@ -1,0 +1,5 @@
+{
+  "updated": "2026-10-18",
+  "note": "The founder's positions in the demo's stocks (conflicts-of-interest policy, open item L32). Update this file together with data/compliance/founder_holdings.json within 2 business days of a trade in a demo stock; the demo shows the notice next to the signal from the next deploy.",
+  "tickers": []
+}

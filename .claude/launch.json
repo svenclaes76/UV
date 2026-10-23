@@ -32,6 +32,23 @@
         ""
       ],
       "port": 8520
+    },
+    {
+      "name": "uvalu-demo",
+      "runtimeExecutable": ".venv/Scripts/streamlit.exe",
+      "runtimeArgs": [
+        "run",
+        ".claude/skills/run-uvalu/_demo_entry.py",
+        "--server.port",
+        "8530",
+        "--server.headless",
+        "true",
+        "--server.sslCertFile",
+        "",
+        "--server.sslKeyFile",
+        ""
+      ],
+      "port": 8530
     }
   ]
 }

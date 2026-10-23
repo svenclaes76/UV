@@ -1,6 +1,27 @@
 # Demo mode plan (draft)
 
-18 October 2026 · Sven Claes · status: **draft; DM-D1, D3, D4, D5 decided 18 Oct 2026, the rest open (§2)**
+18 October 2026 · Sven Claes · status: **all decisions DM-D1–D21 taken 18 Oct 2026 (§2)**
+
+**Progress (18 Oct 2026, `feature/demo-mode`, not merged):** DM-1 core (`uvalu/datamode.py`, demo universe) and DM-3 (EODHD client, budget, snapshot store, `tools/demo_refresh.py`, `demo-data` workflow) built and tested. All 10 EODHD codes confirmed with a live backfill (10 calls on 18 Oct; 248–254 bars each, last bar 16 Oct; London in pence). DM-4 started: template + validator (`uvalu/demo/fundamentals.py`, `tools/demo_fundamentals.py check|template`); All 9 stocks entered for FY2023–FY2025 from results releases, annual reports and 20-Fs (SEC copies where they exist; company PDFs for KBC, LVMH and Nestlé), every figure with source and page; KBC uses the bank statement type. The six SEC filers were cross-checked against their 20-F XBRL facts (SAP's FY2025 moved to the audited 20-F figures as a result). Awaiting Sven's spot-check.
+
+**DM-5 first pass (18 Oct 2026):** the demo runs locally (`.claude/launch.json` → `uvalu-demo`, port 8530). How it works, in place of the cache-feeding sketch in §4b:
+- `uvalu/demo/workspace.py` builds a temporary workspace per process and redirects every data path the app writes (`data/…`, `.cache/…`) into it, runs the migrations there, and seeds each browser session with the sample portfolio (D15) and watchlist; "Reset sample portfolio" puts it back. Your personal data is never touched; throwaway secrets, no sign-in.
+- `uvalu/demo/yfshim.py` answers `yfinance` from the snapshot (prices, history, dividends, lookups), `fx` answers from the snapshot's ECB rates, the Ken French download is off. Missed requests log `demo.offline_request` (only `^GSPC` today).
+- `uvalu/demo/rows.py` turns the reports into Yahoo-style rows (reporting-currency figures plus `financialCurrency`, converted by the engine); beta against EURO STOXX 50 (`STOXX50E.INDX`, D16).
+- Screener: demo universe of 9 (planned exchanges Copenhagen and London included), scored with the Damodaran sector multiples (`demo-data/reference/sector_multiples.json`, as of 5 Jan 2026) through a new `sector_multiples` option of `compute_scores`; fetching off in demo mode.
+- Two existing bugs fixed on the way (they affect personal mode too): the value-history backfill summed pence and foreign-currency prices as euros; the Risk page's cash note added native values as euros.
+
+**DM-5 second pass (18 Oct 2026):** demo notice redesigned (design A: one line, ending in "Terms →" and "Reset sample", no layout shift); Settings shows only Language & region in demo mode (no password, sessions, export or delete, D6); "X isn't in the demo" on the Watchlist add field and the Buy dialog (F-10); data-source rows, the screener's provenance label and two Methodology answers per mode; Risk shows "Factor analysis isn't part of the demo… available in the full version"; prices labelled "end-of-day prices of <date>"; demo privacy notice and data-sources page (`docs/legal/policies/demo/`, drafts for the DM-7 legal review); "Give feedback →" appears in the notice once `UVALU_FEEDBACK_URL` is set (D10); 18 new texts drafted in five languages, fuzzy, for review in Poedit (D21).
+
+**Legal first pass (18 Oct 2026, part of DM-7):** three persona reviews, [financial regulation](legal/demo-financial-regulation-review.md), [privacy and consumer law](legal/demo-privacy-consumer-review.md) and [data licensing](legal/demo-data-licensing-review.md): low risk for testers you know; medium to medium–high for crowdfunding backers until L3, L4 and the EODHD answer (L38) are in; the crowdfunding type (L33) decides the most. Open items L32–L40; demo questions added to briefing packs 01–03. Dev fixes before testers: L32, L34, L35 done and L37 terms drafted (18 Oct 2026).
+
+**DM-6 prep (18 Oct 2026):** `.streamlit/config.toml` no longer sets a certificate (a test guards it); `run_app.py` passes the localhost certificate itself, behind Caddy nothing changes; checked by starting the demo with the committed config and no SSL flags. `requirements.txt` resolves for Linux / Python 3.12 from binary wheels. Community Cloud setup written in [deployment.md](deployment.md) ("The demo on Streamlit Community Cloud"). Found on the way: CI on `master` has failed since 17 Oct (migration tests needed a local `ENCRYPTION_KEY`); fixed on `fix/ci-withholding-key`.
+
+**First deploy (18 Oct 2026, ahead of the merge):** `deploy/demo` was made by hand from `feature/demo-mode` plus the local live snapshot (prices to 16 Oct), and the Community Cloud app runs from it. Found on Cloud and fixed: Cloud puts its own buttons (Share, star, edit, GitHub, menu) in Streamlit's header, which then took every click over the top bar (now passes clicks through except on its own buttons); the demo's top bar keeps 220px free on the right for them and has no market-status pill; no development stripe or DEV badge in the demo. Cloud pulls new commits into the running app without restarting it, so the demo now checks `demo-data/` every 5 minutes and loads a newer snapshot in place (`workspace.refresh_if_newer`); new code still needs **Reboot app**.
+
+**Contact in the demo (18 Oct 2026, Sven):** the uvalu.app domain isn't held yet, so the demo names no uvalu.app address: the footer and every legal page it shows use `uvalu.app@gmail.com` (beta texts are rewritten on display in demo mode; a test guards it). Personal mode and the beta texts are unchanged.
+
+**Still open before testers:** Poedit review of the drafts; feedback form chosen and its URL set; dividends for Nestlé, Novo and Shell (next refresh); terms of use: the beta text still applies to the demo (check in the DM-7 legal review).
 
 Source: *Uvalu Demo – Requirements Spec* (18 Oct 2026). This plan turns that spec into work packages for this repo. It also adds the things the spec doesn't cover yet: data modes, Streamlit Community Cloud, licensing and privacy.
 
@@ -23,7 +44,18 @@ One setting picks the mode: `UVALU_DATA_MODE = personal | demo | commercial` (en
 
 ## 2. Decisions to take
 
-Recommendation first. These change the work below. **Decided 18 Oct 2026 (as recommended): DM-D1 invite-only first, DM-D3 hand-made sector reference file, DM-D4 per-session edits with reset, DM-D5 current compliant labels.**
+Recommendation first. These change the work below. DM-D11–D21 added 18 Oct 2026 after a second read of the plan and what building DM-1/3/4 turned up.
+
+**All decided 18 Oct 2026.** As recommended: D1 invite-only first, D2 demo question added to the L20 list and sent now, D3 hand-made sector reference, D4 per-session edits with reset, D5 compliant labels, D7 all six languages, D8 yearly update with audited figures winning, D9 Hetzner stays personal (testers move to the demo), D11 none of the 9 stocks held (no disclosure needed), D12 accept repo access for the invite-only phase, D13 Damodaran Europe (terms to check), D14 FY2025 annual only, D17 M4 now and M5 with R2, D18 release v2026.10.11 right after the merge, D19 21:00 UTC, D20 `uvalu-demo.streamlit.app`, D21 Poedit plus legal review.
+
+Different from the recommendation, and what follows from it:
+
+- **D6: Watchlist is shown,** kept per browser session like the sample portfolio (starred stocks reset when the session ends). Hidden: Admin, import/export, account pages; Settings only for language and region.
+- **D10: feedback form plus basic analytics.** Tool decided 18 Oct 2026:
+  - **Invite-only phase: Community Cloud's built-in app analytics** (total viewers, the last 20 viewers with their last visit; named for a private app). Nothing added to the page, no cookies, no consent banner. Every invited viewer can also open these analytics and see the other testers' names, so the demo privacy note says so.
+  - **Before people you don't know get access: Uvalu's own anonymous page events**: page, language, session length, features used; no names or IP addresses; sent from the existing `logkit` render events to an EU-hosted store (e.g. Supabase, Frankfurt), key in Streamlit secrets; one line in the privacy note. Not Google Analytics; no third-party tracking script.
+- **D15: €25,000, a realistic mix:** uneven weights in 6 of the 9 stocks, still including the CHF, DKK and GBX lines and at least one dividend payer, so the spec's currency and dividend checks keep working (F-02, F-03, F-04, F-06).
+- **D16: benchmark matches the app (EURO STOXX 50).** One extra EODHD series, so 11 calls on weekdays (still under the stop at 18). The index code is checked with one call when built. L21 (STOXX licence) now applies to the demo too; VWCE stays in the universe as the ETF example.
 
 | ID | Question | Recommendation | Why it matters |
 | --- | --- | --- | --- |
@@ -37,6 +69,17 @@ Recommendation first. These change the work below. **Decided 18 Oct 2026 (as rec
 | DM-D8 | **Fundamentals snapshot refresh.** | Once at setup, then after each annual report (March–April); every field carries the report and page it came from. | Hand entry is work: about 15–25 fields × 9 stocks. |
 | DM-D9 | **What happens to today's Hetzner beta?** | It stays in **personal** mode for you only. Beta testers you know move to the demo. | Today's beta shows Yahoo data to other people (L2). The demo is the clean way to keep showing the product. |
 | DM-D10 | **Feedback from viewers.** | A "Give feedback" link to a form (e.g. Tally, EU-hosted) and no analytics in the app. | You want to learn from backers, but Community Cloud already runs in the US (see §3); keep the app itself free of personal data. |
+| DM-D11 | **Do you hold any of the 9 demo stocks?** | Name them; then disclose them the way the app already does, or swap the stock for another in the same sector and currency. | §3 "Conflicts": signals on a stock the publisher holds need a disclosure. |
+| DM-D12 | **Repo access.** Community Cloud reads the whole private repo (business plans, legal drafts, expert reviews). | Accept it for the invite-only phase; decide on a separate small demo repo before the demo goes public. | It's a third party reading confidential documents. |
+| DM-D13 | **Source of the sector reference file** (DM-D3). | Damodaran's European industry multiples (January 2026), after checking his terms of use; dated and cited in the file. | DM-D3 chose a hand-made file but not where its numbers come from. |
+| DM-D14 | **How fresh the fundamentals are.** FY2025 is about 10 months old; H1 2026 interim results exist. | FY2025 audited annual figures only, shown as "as of 31 Dec 2025". | Interim figures are unaudited, differ per company and double the entry work. |
+| DM-D15 | **Sample portfolio contents.** | About €50,000, roughly equal weights in the 9 stocks, bought on different dates inside the 1-year history; fictional, round numbers. | The spec only says "pre-filled"; gains, losses and dividends should all show. |
+| DM-D16 | **Benchmark for beta and risk.** The app uses EURO STOXX 50 (licence question L21); the demo has VWCE. | VWCE in the demo, said on the Methodology page. | Methodology differs between modes; VWCE also sidesteps L21. |
+| DM-D17 | **Which model the demo runs.** | Deploy on M4 now; move to M5 with the R2 release (re-run the snapshot → cache step then). | M5 changes scores; waiting for it delays the demo by weeks. |
+| DM-D18 | **First deploy.** The workflow builds `deploy/demo` from the latest release tag. | Cut a small release right after the merge (v2026.10.11), so `deploy/demo` starts from a tag. | Before that, no tag contains the demo code. |
+| DM-D19 | **Refresh time.** The spec says 18:30 CET; built as 21:00 UTC. | Keep 21:00 UTC weekdays; record it as a spec change. | EODHD's European end-of-day prices aren't final right after the close; the job re-asks for the full year anyway. |
+| DM-D20 | **App address** on Community Cloud. | `uvalu-demo.streamlit.app`. | It's the link you share. |
+| DM-D21 | **New demo texts** (banner, privacy note, "full version" placeholders, "not in the demo"). | Draft them, review in Poedit as usual (six languages), and include them in the DM-7 legal-persona review. | New user-facing and legal-ish wording. |
 
 Answered already, by the spec or the existing code:
 
@@ -47,14 +90,14 @@ Answered already, by the spec or the existing code:
 
 **Streamlit Community Cloud**
 
-- **The repo is private.** Community Cloud can deploy from a private repo, but you give Streamlit read access to the whole repo: business plans, legal drafts, expert reviews in `docs/`. Options: accept that, or deploy from a separate small demo repo that a CI job fills (more work). **Limits (checked 18 Oct 2026): 1 private app, unlimited public apps, 2.7 GB per app.** The invite-only demo (DM-D1) takes the one private slot, so there's no second private app for a staging copy. Test demo mode locally (`UVALU_DATA_MODE=demo`) before pushing to the `demo` branch. Going public later (after DM-D2) frees the slot.
+- **The repo is private.** Community Cloud can deploy from a private repo, but you give Streamlit read access to the whole repo: business plans, legal drafts, expert reviews in `docs/`. Options: accept that, or deploy from a separate small demo repo that a CI job fills (more work). **Limits (checked 18 Oct 2026): 1 private app, unlimited public apps, 2.7 GB per app.** The invite-only demo (DM-D1) takes the one private slot, so there's no second private app for a staging copy. Test demo mode locally (`UVALU_DATA_MODE=demo`) before pushing to the `deploy/demo` branch. Going public later (after DM-D2) frees the slot.
 - **Servers are in the US** (Snowflake). The privacy notice promises EU hosting at Hetzner. The demo needs its own short privacy note: no account, no personal data stored by Uvalu, Streamlit's own logs and cookies apply. No sign-in in demo mode keeps this simple.
 - **Sleep.** An app with no traffic for about 12 hours goes to sleep; the next visitor sees a "wake up" button and waits 30–60 s. A daily data push redeploys it, which helps but doesn't guarantee it's awake. Tell backers, or open it yourself before a presentation.
 - **`.streamlit/config.toml` forces a local SSL certificate** (`.ssl/cert.pem`). On Community Cloud that file doesn't exist and the app won't start. Move the SSL lines out of the committed config (into `run_app.py` / `_dev_entry.py` flags, or the Hetzner service file).
 - **Secrets.** `AUTH_SECRET` and `ENCRYPTION_KEY` are required at start-up today. In demo mode either skip what needs them or set throwaway values in Streamlit secrets, never the production ones.
 - **Python 3.12** must be chosen in the deploy settings (the app needs ≥ 3.12). Dependencies come from `requirements.txt`; check it installs cleanly without dev extras.
 - **Memory:** 2.7 GB per app. Plenty for 10 tickers; demo mode still loads only `demo-data/`, never the full 3,900-listing caches.
-- **Branch.** Community Cloud deploys from a **`demo` branch**, never from `master`. The daily Action checks out `demo`, merges the latest release tag into it, adds the new data under `demo-data/` and pushes. So `master` gets no daily bot commits (no pull-before-push, no data in release diffs, no clash with `tools/release.py`), and the demo moves to new code only when a release is tagged. Data commits carry `[skip ci]` so `tests.yml` doesn't run every weekday on private-repo minutes.
+- **Branch.** Community Cloud deploys from a **`deploy/demo` branch**, never from `master`. The daily Action checks out `deploy/demo`, merges the latest release tag into it, adds the new data under `demo-data/` and pushes. So `master` gets no daily bot commits (no pull-before-push, no data in release diffs, no clash with `tools/release.py`), and the demo moves to new code only when a release is tagged. Data commits carry `[skip ci]` so `tests.yml` doesn't run every weekday on private-repo minutes.
 
 **Data and model**
 
@@ -120,7 +163,7 @@ Building can start now on a branch `feature/demo-mode`; only the **merge** waits
 | Now (no R2 overlap) | After 21 Oct (merge) | After R2 |
 | --- | --- | --- |
 | DM-0 decisions; EODHD question added to L20 and sent | Merge `feature/demo-mode` | Re-run snapshot → cache for the R2/M5 row format |
-| DM-1 `uvalu/datamode.py` + profiles (new file) | First Community Cloud deploy from the `demo` branch | Hand-entered fields checked against M5 |
+| DM-1 `uvalu/datamode.py` + profiles (new file) | First Community Cloud deploy from the `deploy/demo` branch | Hand-entered fields checked against M5 |
 | DM-3 refresh job, budget counter, workflow, tests (new files) | | DM-7 acceptance, release |
 | DM-4 fundamentals template + validator; you start entering data | | |
 | Demo banner, sample portfolio, universe lock, privacy note, hidden pages (DM-5, mostly new code) | | |
@@ -138,7 +181,7 @@ Calls come from **one place only**: `tools/demo_refresh.py` with an explicit `--
 | Building the client and parser | **0** | EODHD's public `demo` token (works for a few US tickers such as AAPL.US) for the request/response shape, then recorded JSON fixtures in `tests/fixtures/eodhd/`. |
 | First live check | **1** | One ticker (ABI.BR), 1-year backfill: proves the key, the code format and the parser on a European stock. |
 | Setup for the rest | **9** | Backfill of the other 9 tickers. A wrong code fails on its own call, so no separate symbol-list calls (saves ~7). Their responses become fixtures too. |
-| Daily | **10** | GitHub Action, weekdays. |
+| Daily | **11** | GitHub Action, weekdays: 10 tickers + the EURO STOXX 50 benchmark (DM-D16). |
 | Weekly | **10** | Dividends, on Sunday (a day with no EOD run). |
 
 The setup total is about 10 calls out of the 500 welcome calls, and every run after that replays recorded data. Guards:

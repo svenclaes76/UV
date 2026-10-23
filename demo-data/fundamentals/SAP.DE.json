@@ -1,0 +1,84 @@
+{
+  "ticker": "SAP.DE",
+  "company": "SAP SE",
+  "reporting_currency": "EUR",
+  "dividend_currency": "EUR",
+  "fiscal_year_end": "12-31",
+  "entered_on": "2026-10-18",
+  "sources": {
+    "q425": {
+      "title": "SAP Quarterly Statement Q4 2025 (SEC Form 6-K, exhibit 99.1, 3 February 2026); pages as printed (n/28)",
+      "url": "https://www.sec.gov/Archives/edgar/data/1000184/000110465926009465/tm264433d1_ex99-1.htm",
+      "published": "2026-02-03"
+    },
+    "q424": {
+      "title": "SAP Quarterly Statement Q4 2024 (SEC Form 6-K, exhibit 99.1, 29 January 2025); pages as printed (n/24)",
+      "url": "https://www.sec.gov/Archives/edgar/data/1000184/000110465925006886/tm254685d1_ex99-1.htm",
+      "published": "2025-01-29"
+    },
+    "ar25": {
+      "title": "SAP Annual Report on Form 20-F for 2025 (26 February 2026); pages as printed",
+      "url": "https://www.sec.gov/Archives/edgar/data/1000184/000110465926020058/sap-20251231x20f.htm",
+      "published": "2026-02-26"
+    }
+  },
+  "years": [
+    {
+      "fiscal_year": 2025,
+      "revenue":              {"value": 36800, "source": "q425", "page": "12"},
+      "ebit":                 {"value": 9617, "source": "ar25", "page": "F-5", "note": "Operating profit, audited; the Q4 quarterly statement showed 9,830"},
+      "net_income":           {"value": 7161, "source": "ar25", "page": "F-5", "note": "Audited; the Q4 quarterly statement showed 7,327"},
+      "eps_basic":            {"value": 6.14, "source": "ar25", "page": "F-5", "note": "Audited; the Q4 quarterly statement showed 6.28"},
+      "shares_weighted":      {"value": 1166, "source": "q425", "page": "12"},
+      "cfo":                  {"value": 9156, "source": "q425", "page": "14"},
+      "capex":                {"value": 739, "source": "q425", "page": "14", "note": "Purchase of intangible assets and property, plant, and equipment"},
+      "total_assets":         {"value": 70362, "source": "ar25", "page": "F-7"},
+      "equity":               {"value": 44586, "source": "ar25", "page": "F-7"},
+      "retained_earnings":    {"value": 47345, "source": "ar25", "page": "F-7"},
+      "total_debt":           {"value": 8071, "source": "q425", "page": "13", "note": "Financial liabilities, current 2,050 + non-current 6,021 (bonds, loans and leases)"},
+      "cash":                 {"value": 8220, "source": "q425", "page": "13"},
+      "current_assets":       {"value": 20256, "source": "ar25", "page": "F-7"},
+      "current_liabilities":  {"value": 17416, "source": "ar25", "page": "F-7"},
+      "interest_expense":     {"value": 1377, "source": "ar25", "page": "F-5", "note": "Finance costs (all finance costs, not only interest)"},
+      "dps":                  {"value": 2.5, "source": "ar25", "page": "65", "note": "Proposed to the AGM of May 2026"}
+    },
+    {
+      "fiscal_year": 2024,
+      "revenue":              {"value": 34176, "source": "q425", "page": "12"},
+      "ebit":                 {"value": 4665, "source": "q425", "page": "12", "note": "Operating profit; includes 3,144 restructuring"},
+      "net_income":           {"value": 3124, "source": "q425", "page": "12"},
+      "eps_basic":            {"value": 2.68, "source": "q425", "page": "12"},
+      "shares_weighted":      {"value": 1166, "source": "q425", "page": "12"},
+      "cfo":                  {"value": 5207, "source": "q425", "page": "14"},
+      "capex":                {"value": 797, "source": "q425", "page": "14", "note": "Purchase of intangible assets and property, plant, and equipment"},
+      "total_assets":         {"value": 74237, "source": "q425", "page": "13"},
+      "equity":               {"value": 45438, "source": "q425", "page": "13"},
+      "retained_earnings":    {"value": 42907, "source": "q425", "page": "13"},
+      "total_debt":           {"value": 11446, "source": "q425", "page": "13", "note": "Financial liabilities, current 4,277 + non-current 7,169 (bonds, loans and leases)"},
+      "cash":                 {"value": 9609, "source": "q425", "page": "13"},
+      "current_assets":       {"value": 21401, "source": "q425", "page": "13"},
+      "current_liabilities":  {"value": 19082, "source": "q425", "page": "13"},
+      "interest_expense":     {"value": 1031, "source": "q425", "page": "12", "note": "Finance costs (all finance costs, not only interest)"},
+      "dps":                  {"value": 2.35, "source": "ar25", "page": "F-62"}
+    },
+    {
+      "fiscal_year": 2023,
+      "revenue":              {"value": 31207, "source": "q424", "page": "12"},
+      "ebit":                 {"value": 5799, "source": "q424", "page": "12", "note": "Operating profit, continuing operations"},
+      "net_income":           {"value": 3634, "source": "q424", "page": "12", "note": "Continuing operations; 6,139 including the discontinued Qualtrics business"},
+      "eps_basic":            {"value": 3.11, "source": "q424", "page": "12", "note": "From continuing operations"},
+      "shares_weighted":      {"value": 1167, "source": "q424", "page": "12"},
+      "cfo":                  {"value": 6332, "source": "q424", "page": "14"},
+      "capex":                {"value": 785, "source": "q424", "page": "14", "note": "Purchase of intangible assets and property, plant, and equipment"},
+      "total_assets":         {"value": 68331, "source": "q424", "page": "13"},
+      "equity":               {"value": 43157, "source": "q424", "page": "13"},
+      "retained_earnings":    {"value": 42457, "source": "q424", "page": "13"},
+      "total_debt":           {"value": 9676, "source": "q424", "page": "13", "note": "Financial liabilities, current 1,735 + non-current 7,941 (bonds, loans and leases)"},
+      "cash":                 {"value": 8124, "source": "q424", "page": "13"},
+      "current_assets":       {"value": 20571, "source": "q424", "page": "13"},
+      "current_liabilities":  {"value": 14641, "source": "q424", "page": "13"},
+      "interest_expense":     {"value": 1313, "source": "q424", "page": "12", "note": "Finance costs (all finance costs, not only interest)"},
+      "dps":                  {"value": 2.2, "source": "ar25", "page": "F-62"}
+    }
+  ]
+}

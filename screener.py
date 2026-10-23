@@ -60,7 +60,7 @@ import pandas as pd
 import yfinance as yf
 
 import marketdata
-from uvalu import logkit
+from uvalu import datamode, logkit
 from uvalu.i18n import N_, Fmt, lazy_
 from scoring import (  # re-exported for existing `from screener import …` call sites
     _clamp, _get_num, _finite,
@@ -285,6 +285,11 @@ MIN_MOS_FLOOR = 0.10
 # licensed provider's name and required attribution wording once DATA-2 is
 # signed (M2).
 DATA_SOURCE = "Yahoo Finance (delayed quotes, via yfinance)"
+DEMO_DATA_SOURCE = "EODHD end-of-day closes; fundamentals from company reports (demo snapshot)"
+
+
+def _data_source() -> str:
+    return DEMO_DATA_SOURCE if datamode.is_demo() else DATA_SOURCE
 
 # DATA-6: analyst price targets (targetMeanPrice/High/Low, numberOfAnalystOpinions)
 # and the consensus recommendation mean are sell-side content licensed separately
@@ -1408,6 +1413,9 @@ def fetch_fundamentals_nowait(stocks: list[dict], fetcher: "_Fetcher | None" = N
     fresh_count = len(stocks) - len(stale)
 
     _lane = "screener" if f is SCREENER_FETCH else "portfolio"
+    if stale and not datamode.current().live_fetch:
+        # Demo mode reads a fixed snapshot (uvalu/demo/workspace.py): no fetch.
+        stale = []
     if stale and (not f.bg_thread or not f.bg_thread.is_alive()):
         _log.info("background fundamentals fetch queued",
                   extra={"event": "job.queued", "job": "fundamentals_fetch",
@@ -2548,7 +2556,8 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    user_selected: bool = False,
                    founder_holdings: "set | frozenset | None" = None,
                    computed_at: "datetime | None" = None,
-                   previous_signals: "dict | None" = None) -> pd.DataFrame:
+                   previous_signals: "dict | None" = None,
+                   sector_multiples: "tuple[dict, dict] | None" = None) -> pd.DataFrame:
     # ``reference``: score `df` against another universe's sector medians and
     # rank distributions instead of its own (the portfolio lane passes the
     # scored universe's). ``reference_out``: a dict that receives this pass's
@@ -2627,6 +2636,12 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
     _no_peer_basis = reference is None and (user_selected or not _peers.any())
     if reference is not None:
         sector_pe, sector_pb = reference.sector_pe, reference.sector_pb
+    elif sector_multiples is not None:
+        # ``sector_multiples``: ({sector: P/E}, {sector: P/B}) from a published
+        # reference instead of the peers' medians. The demo's 9 stocks are too
+        # few for medians (MIN_SECTOR_SAMPLE), so it passes Damodaran's
+        # European industry multiples (demo-mode plan DM-D13).
+        sector_pe, sector_pb = sector_multiples
     elif _no_peer_basis:
         # PER-1: no public peer group to take sector multiples from. Medians of
         # a user-selected set would make the P/E and P/B fair values depend on
@@ -2826,7 +2841,7 @@ def compute_scores(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
         if t is not None else None
         for t in _fetched
     ]
-    df["data_source"]       = DATA_SOURCE
+    df["data_source"]       = _data_source()
     # Whether the row belongs to the shared public universe. Only these rows go
     # into the shared signal history (signal_history.record_changes): a user's
     # own tickers, or a user-selected pass without a peer mask, never do.
@@ -2877,18 +2892,20 @@ def run_screener_from_df(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                          peer_mask: "pd.Series | None" = None,
                          user_selected: bool = False,
                          founder_holdings: "set | frozenset | None" = None,
-                         previous_signals: "dict | None" = None) -> pd.DataFrame:
+                         previous_signals: "dict | None" = None,
+                         sector_multiples: "tuple[dict, dict] | None" = None) -> pd.DataFrame:
     """Score and clean a DataFrame that was already fetched (avoids re-fetching).
     ``reference`` / ``reference_out`` / ``peer_mask`` / ``user_selected`` /
-    ``founder_holdings`` / ``previous_signals``: see compute_scores and
-    _apply_signal_hysteresis."""
+    ``founder_holdings`` / ``previous_signals`` / ``sector_multiples``: see
+    compute_scores and _apply_signal_hysteresis."""
     return _score_and_clean(df.copy(), max_debt_equity=max_debt_equity,
                             max_payout=max_payout, min_mos=min_mos,
                             buy_threshold=buy_threshold, weights=weights,
                             reference=reference, reference_out=reference_out,
                             peer_mask=peer_mask, user_selected=user_selected,
                             founder_holdings=founder_holdings,
-                            previous_signals=previous_signals)
+                            previous_signals=previous_signals,
+                            sector_multiples=sector_multiples)
 
 
 def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
@@ -2900,7 +2917,8 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                      peer_mask: "pd.Series | None" = None,
                      user_selected: bool = False,
                      founder_holdings: "set | frozenset | None" = None,
-                     previous_signals: "dict | None" = None) -> pd.DataFrame:
+                     previous_signals: "dict | None" = None,
+                     sector_multiples: "tuple[dict, dict] | None" = None) -> pd.DataFrame:
     if "Price" not in df.columns:
         df["Price"] = None
     before  = len(df)
@@ -2922,7 +2940,8 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                           reference=reference, reference_out=reference_out,
                           peer_mask=peer_mask, user_selected=user_selected,
                           founder_holdings=founder_holdings,
-                          previous_signals=previous_signals)
+                          previous_signals=previous_signals,
+                          sector_multiples=sector_multiples)
 
 
 def _fair_value_doubts(df: pd.DataFrame) -> "tuple[pd.Series, pd.Series]":
@@ -3107,14 +3126,18 @@ def strip_analyst_fields(data):
     return data
 
 
-def load_founder_holdings(path: Path = FOUNDER_HOLDINGS_FILE) -> frozenset:
+def load_founder_holdings(path: "Path | None" = None) -> frozenset:
     """REC-8: the tickers the founder holds a position in, at any size, for the
     `founder_holds` disclosure flag. The file is kept by hand and updated with
     each personal trade in a covered stock (see the conflicts of interest
     policy): {"updated": "YYYY-MM-DD", "tickers": ["ABI.BR", ...]}.
 
     A missing file means "no positions". A file that exists but can't be read
-    raises: silently showing no disclosure would be a false statement."""
+    raises: silently showing no disclosure would be a false statement.
+
+    ``path`` defaults to FOUNDER_HOLDINGS_FILE read at call time, so the demo
+    workspace's redirect applies (uvalu/demo/workspace.py, L32)."""
+    path = Path(path) if path is not None else FOUNDER_HOLDINGS_FILE
     if not path.exists():
         return frozenset()
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -3160,7 +3183,7 @@ def methodology(*, max_debt_equity: float = 500.0, max_payout: float = 0.90,
         "model_version": MODEL_VERSION,
         "model_settings_id": model_settings_id(max_debt_equity=max_debt_equity, max_payout=max_payout,
                                                min_mos=min_mos, buy_threshold=buy_threshold, weights=w),
-        "data_source": DATA_SOURCE,
+        "data_source": _data_source(),
         "update_frequency_hours": {"fundamentals": CACHE_TTL_HOURS,
                                    "fundamentals_jitter": CACHE_TTL_JITTER},
         "fair_value": {
