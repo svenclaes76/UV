@@ -4,7 +4,7 @@ One list of what is still open, so nothing has to be rediscovered. Tick an
 item off by deleting it (git history keeps it) and add new ones under the
 right heading with a date and a trigger: *when* it has to be done.
 
-Last updated: 17 October 2026.
+Last updated: 23 October 2026.
 
 The items whose trigger is "inviting anyone you don't know personally" are put in order in
 [before-strangers-plan.md](before-strangers-plan.md).
@@ -101,11 +101,12 @@ the 3× limit flags 29% of stocks, worth checking with the valuation expert.
 
 From the quant and data review (13 October 2026,
 [`quant-review.md`](quant-review.md)), on the signal history of 4–13 October. Q2 shipped
-in model M2 (14 October 2026).
+in model M2 (14 October 2026). Q1 is closed (23 October 2026): about 11 signal changes a
+day on 15–18 October against 87 before M2, and the daily build (S4) waits for the EODHD
+switch; numbers in [`quant-review.md`](quant-review.md#re-measure-after-m2-23-october-2026-q1-closed).
 
 | # | Item | Do it before |
 | --- | --- | --- |
-| Q1 | **Re-measure the signal flicker after a week of M2.** Hysteresis (2 points), carried-forward inputs and `changed_inputs` shipped in M2 (merged 14 October 2026); replayed on 4–13 October they halve the changes (842 → 437). How: count `signal_change` records in `data/compliance/signal_history.jsonl` from 14 to 21 October (changes per day, stocks with 3+ changes, the `changed_inputs` that drive them) against the 4–13 October baseline of 805 changes on 242 stocks; check the `data_quality.summary` / `data_quality.alert` log lines. Then decide whether the daily build (S4) is still needed before the EODHD switch. | 21 October 2026 |
 | Q4 | **Risk-band calibration:** run ~8 reference portfolios, adjust sub-score mappings, publish the reference points. | Paid launch |
 | Q5 | **Small-cap betas:** weekly or Dimson-adjusted returns for illiquid holdings. | Paid launch |
 | Q6 | **Methodology wording:** VaR window limits, dividend-adjusted prices, the stability rule, no backtests on restated data. | With Q1–Q4 |

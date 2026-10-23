@@ -130,3 +130,25 @@ Give them this review, the valuation review, read access to `data/compliance/` (
 - the band calibration on the reference set (§4)
 - a written protocol for the future forward track record (§5)
 - a check of the hysteresis margins chosen for §1
+
+## Re-measure after M2 (23 October 2026, Q1 closed)
+
+Counted on `data/compliance/signal_history.jsonl`. The personal app stopped on 18 October,
+so the window is 15–18 October (4 days, 17–18 October a weekend) instead of 14–21 October.
+14 October itself is left out: its 133 changes are the one-off M2, M3 and M4 model bumps.
+
+| | Signal changes |
+| --- | --- |
+| Baseline, 4–13 October | 865 in 10 days, about 87 a day |
+| 15–18 October (M4) | 8, 15, 11, 9: about 11 a day |
+
+- About 85–90% fewer changes, against 50% in the replay.
+- Repeats are few and all small caps: INFRAC.SW changed 4 times, VACN.SW 3 times.
+- The changes come with fair value and margin of safety (`Value Score`, `Sub MoS`,
+  `fair_value` in `changed_inputs`), not from price moves alone.
+- `data_quality.alert` fired 5 times on 18 October, all from the demo's 7–9 stock
+  workspace on its first build (fixed on the demo branch in `a9da530`), none from
+  the real universe.
+
+**Decision:** Q1 is closed on these 4 days. The daily build (S4) is not needed before
+the EODHD switch; it comes with it, since end-of-day data gives one snapshot a day anyway.
