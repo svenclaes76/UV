@@ -20,6 +20,25 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+## [2026.10.11] — 2026-10-23
+
+**A more accurate value chart.** Signals don't change.
+
+### Improved
+
+- **Less data sent to third parties**: the app no longer sends usage
+  statistics from your browser to Streamlit.
+- **New contact address**: questions and privacy requests go to
+  uvalu.app@gmail.com.
+
+### Fixed
+
+- **Portfolio value over time in euros**: holdings quoted in pounds,
+  Swiss francs or Danish kroner are converted at each day's ECB rate, so
+  the value chart no longer jumps when you own a London or Swiss stock.
+- **Cash note on the Risk page** counts holdings in other currencies at
+  their euro value.
+
 ## [2026.10.10] — 2026-10-17
 
 **Clearer currencies and dividend tax by country.** Signals don't change.
