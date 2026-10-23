@@ -61,7 +61,9 @@ def _founder_holdings() -> frozenset:
     An unreadable file is logged as an error and treated as empty rather than
     taking the screens down; fix it, because the disclosure is then missing."""
     try:
-        return load_founder_holdings()
+        # P1 (EX-W4): every line of a held company, so a position held on
+        # AIR.DE still discloses on the AIR.PA line the Screener shows.
+        return frozenset(universe.company_lines(load_founder_holdings()))
     except Exception:
         logkit.get_logger("uvalu.data").error("founder holdings file unreadable", exc_info=True,
                                               extra={"event": "compliance.founder_holdings_failed"})
@@ -200,10 +202,10 @@ def _build_all_screener_data(enabled: tuple,
     enabled_set = set(enabled)
     empty = pd.DataFrame(columns=["Ticker"])
 
-    # V2 (model M2): the public universe is home listings only
-    # (uvalu/universe.py). Listings whose cached country already marks them
-    # as foreign aren't fetched at all; the rest are fetched, then filtered
-    # once their country is known.
+    # EX-W4: the public universe is one line per company, its primary listing
+    # (uvalu/universe.py). Listings whose cached country is already known to be
+    # outside Europe aren't fetched at all; the rest are fetched, then chosen
+    # between once their country is known.
     _cached_country = {t: r.get("country") for t, r in _load_cache().items()}
     stock_lists: dict[str, list[dict]] = {}
     _all_listed: set[str] = set()      # every listed ticker, foreign or not: kept by prune_cache
@@ -249,9 +251,14 @@ def _build_all_screener_data(enabled: tuple,
                 if "country" in all_fund.columns else {})
     _volume = (dict(zip(all_fund["Ticker"], all_fund["averageVolume"]))
                if "averageVolume" in all_fund.columns else {})
+    _switches: list = []
+    _exclusions: dict = {}
     if not _demo:   # the demo list is hand-picked home listings, on planned exchanges too
-        stock_lists = {key: universe.home_listings(stocks, _country, _volume)
+        _choice = _choose_primary_lines(stock_lists, all_fund, enabled_set)
+        _kept = {s["ticker"] for s in _choice.kept}
+        stock_lists = {key: [s for s in stocks if s["ticker"] in _kept]
                        for key, stocks in stock_lists.items()}
+        _switches, _exclusions = _choice.switches, _choice.counts()
     all_stocks: list[dict] = [s for stocks in stock_lists.values() for s in stocks]
     _exchange_ticker_set = {s["ticker"] for s in all_stocks}
     # A user's holding that isn't a home listing is scored as an extra ticker,
@@ -263,9 +270,9 @@ def _build_all_screener_data(enabled: tuple,
     ]
     all_stocks.extend(_extra_stocks)
     logkit.get_logger("uvalu.data").info(
-        "public universe: %d home listings", len(_exchange_ticker_set),
-        extra={"event": "universe.home_listings", "stocks": len(_exchange_ticker_set),
-               "listed": len(_listed), "extra": len(_extra_stocks)})
+        "public universe: %d primary listings", len(_exchange_ticker_set),
+        extra={"event": "universe.primary_listings", "stocks": len(_exchange_ticker_set),
+               "listed": len(_listed), "extra": len(_extra_stocks), "excluded": _exclusions})
 
     # One scoring pass over every enabled exchange plus the extra portfolio
     # tickers: the sector medians and percentile ranks are taken across the
@@ -278,6 +285,11 @@ def _build_all_screener_data(enabled: tuple,
     # user sees the same signal for the same stock.
     _ref_out: dict = {}
     _prev_signals = _previous_signals()
+    # A3: a company whose primary line switched keeps its signal history for
+    # the stability rule on the new line.
+    for _old, _new in _switches:
+        if _old in _prev_signals and _new not in _prev_signals:
+            _prev_signals[_new] = _prev_signals[_old]
     _universe_fund = all_fund[all_fund["Ticker"].isin({s["ticker"] for s in all_stocks})]
     scored = run_screener_from_df(_universe_fund,
                                   max_debt_equity=_max_de, max_payout=_max_payout,
@@ -295,7 +307,7 @@ def _build_all_screener_data(enabled: tuple,
     # A demo process starts with an empty signal history, so its first build
     # logs every signal as new: not a change worth an alert.
     _log_data_quality(_universe_fund, scored, _exchange_ticker_set, _changes,
-                      first_build=_demo and not _prev_signals)
+                      first_build=_demo and not _prev_signals, exclusions=_exclusions)
 
     def _subset(stock_list):
         if scored.empty or "Ticker" not in scored.columns:
@@ -312,6 +324,33 @@ def _build_all_screener_data(enabled: tuple,
         universe_df = universe_df.assign(exchange_key=universe_df["Ticker"].map(_key_of))
     _extra_df = _subset(_extra_stocks) if _extra_stocks else empty
     return (universe_df, _extra_df)
+
+
+def _choose_primary_lines(stock_lists: dict[str, list[dict]], all_fund: pd.DataFrame,
+                          enabled_set: set) -> "universe.Choice":
+    """EX-W4: one line per company among the enabled exchanges' lists, the
+    saved choices updated (.cache/listing_choice.json), and the left-out
+    lines counted per reason and exchange (EX-8)."""
+    from screener import _traded_value_eur
+    from uvalu import exchanges
+    fund = all_fund.copy()
+    fund["traded_value_eur"] = _traded_value_eur(fund)
+    cols = [c for c in ("country", "averageVolume", "traded_value_eur", "sharesOutstanding",
+                        "quoteType", "Name") if c in fund.columns]
+    info = {t: dict(zip(cols, vals)) for t, *vals in zip(fund["Ticker"], *(fund[c] for c in cols))}
+    stocks = [s for key in stock_lists for s in stock_lists[key]]
+    suffixes = {e.suffix for e in exchanges.EXCHANGES if e.key in enabled_set}
+    choice = universe.choose_primary_lines(stocks, info, enabled_suffixes=suffixes)
+    try:
+        universe.save_choices(choice.choices)
+    except OSError:
+        logkit.get_logger("uvalu.data").warning("listing choices not saved", exc_info=True,
+                                                extra={"event": "universe.choices_unsaved"})
+    logkit.get_logger("uvalu.data").info(
+        "left out of the universe: %d lines", len(choice.excluded),
+        extra={"event": "universe.exclusions", "counts": choice.counts(),
+               "switches": len(choice.switches)})
+    return choice
 
 
 def _demo_stock_lists() -> dict[str, list[dict]]:
@@ -334,7 +373,7 @@ def _demo_sector_multiples():
 
 
 def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, changes: int,
-                      first_build: bool = False) -> None:
+                      first_build: bool = False, exclusions: "dict | None" = None) -> None:
     """Q2: log the build's data-quality summary, and a warning per threshold
     crossed (uvalu/data_quality.py), except on a first build against an empty
     signal history. Never fails a build."""
@@ -344,6 +383,7 @@ def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, cha
         pub_fund = fund[fund["Ticker"].isin(public)] if "Ticker" in fund.columns else fund
         pub_scored = scored[scored["Ticker"].isin(public)] if "Ticker" in scored.columns else scored
         summary = data_quality.build_summary(pub_fund, pub_scored, changes=changes)
+        summary["excluded"] = exclusions or {}   # EX-8: per exchange, per reason
         _log.info("build data quality: %d rows, %d signal changes", summary["rows"], summary["signal_changes"],
                   extra={"event": "data_quality.summary", "first_build": first_build, **summary})
         for text in ([] if first_build else data_quality.alerts(summary)):

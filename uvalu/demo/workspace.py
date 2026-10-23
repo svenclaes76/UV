@@ -74,6 +74,7 @@ REDIRECTS: tuple[tuple[str, str, str], ...] = (
     ("uvalu.migrations.runner", "DATA_DIR", "data"),
     ("uvalu.migrations.runner", "CACHE_DIR", ".cache"),
     ("fetch_tickers", "_EXCEPTIONS_FILE", ".cache/frankfurt_exceptions.json"),
+    ("uvalu.universe", "LISTING_CHOICE_FILE", ".cache/listing_choice.json"),
     ("fetch_tickers", "_LIST_CACHE_DIR", ".cache/ticker_lists"),
     ("screener", "FOUNDER_HOLDINGS_FILE", "data/compliance/founder_holdings.json"),
     ("marketdata", "_HISTORY_DIR", ".cache/history"),

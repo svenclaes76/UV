@@ -43,6 +43,26 @@ each part can be switched back to M4 in the shared settings.
 
 ### Changed
 
+- Coverage is one line per company, its primary listing (EX-W4, EX-4–EX-8,
+  D1–D3), instead of home listings only (V2): `uvalu/universe.py`
+  `choose_primary_lines`. Same company = normalised name + country + share
+  class, share counts within 5%, lines on different exchanges. The home
+  exchange's line wins; otherwise the most-traded line in EUR, saved in
+  `.cache/listing_choice.json` and switched only when another line trades
+  2x more in two checks a week apart (`listing.switched`; the signal state
+  carries over). A non-home line needs EUR 1M a day unless the company's
+  country has no exchange in the registry or both are Euronext markets.
+  Borsa Italiana's Global Equity Market ("1"-prefixed Milan lines), SIX
+  "2. Linie" and Euronext "USD" lines are never primary. Left-out lines
+  record a reason (`not_european`, `secondary_listing`, `dormant`, `fund`,
+  `country_unknown`), counted per exchange in `universe.exclusions` and the
+  data-quality summary. Lines of European companies away from home are
+  fetched again (weekly once known to be secondary). In a dry run on the
+  23 October cache: 1,727 -> 1,793 lines, 88 in (Airbus, Stellantis,
+  STMicro, ArcelorMittal, Shell and Unilever on Amsterdam, argenx, Tenaris,
+  Luxembourg companies), 22 duplicate lines out.
+- The founder-holdings disclosure matches every line of a held company
+  (P1): a position held as AIR.DE discloses on AIR.PA.
 - Model M5 (EX-W5b, D33–D35):
   - The cost of equity is the share's currency's 10-year yield + beta × 5%
     (was 3% + beta × 5% for every currency). A currency without a yield is

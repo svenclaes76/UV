@@ -288,6 +288,23 @@ def test_hide_positions_i_own_drops_held_tickers(isolated_data, monkeypatch):
     assert "BBB.BR" in html and "AAA.BR" not in html
 
 
+def test_hide_positions_i_own_matches_by_company(isolated_data, monkeypatch):
+    # D19: held on a secondary line (AIR.DE), shown on the primary (AIR.PA).
+    from uvalu import universe
+    universe.save_choices({"airbus|Netherlands|": {"chosen": "AIR.PA", "lines": ["AIR.DE", "AIR.PA"]}})
+    portfolio.save_portfolio(pd.DataFrame([dict(ticker="AIR.DE", name="Airbus SE", google_ticker="ETR:AIR",
+                                                shares=10, purchase_value=1000.0, purchase_price=100.0,
+                                                target_price=130.0, dividends=0.0, date_in="2023-01-01",
+                                                date_out="")]))
+    df = make_scored_df([make_scored_row(Ticker="AIR.PA", Name="Airbus SE"),
+                         make_scored_row(Ticker="BBB.BR", Name="Beta NV")])
+    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=df))
+    at.pills(key="scr_hide_owned_pill").set_value("owned").run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "BBB.BR" in html and "AIR.PA" not in html
+
+
 def _with_pending_row():
     """A valued Undervalued row plus a No signal row (no fair value, score or margin)."""
     pending = make_scored_row(Ticker="PEND.BR", Name="Pending Peer NV", signal_code="pending",

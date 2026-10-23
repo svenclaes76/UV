@@ -341,7 +341,9 @@ def render() -> None:
     if _hide_owned:
         _held = load_portfolio()
         _held_tickers = set(_held["ticker"]) if _held is not None and "ticker" in _held.columns else set()
-        _filtered = _filtered[~_filtered["Ticker"].isin(_held_tickers)]
+        # D19: by company, not ticker: a position held as AIR.DE hides AIR.PA.
+        from uvalu import universe
+        _filtered = _filtered[~_filtered["Ticker"].isin(universe.company_lines(_held_tickers))]
     if _sector_sel and _sector_sel != _ALL_SECTORS:
         _filtered = _filtered[_filtered.get("sector") == _sector_sel]
     if _market_sel and _market_sel != _ALL_MARKETS:

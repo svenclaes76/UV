@@ -25,6 +25,9 @@ change.
 
 ### Improved
 
+- **European companies listed outside their home country**: Airbus,
+  Stellantis, STMicroelectronics, ArcelorMittal, Shell and Unilever are in
+  the Screener, each once, on the exchange where they trade most.
 - **Discount rate per currency**: fair values use the 10-year government
   bond yield of the currency a share trades in, so Swiss stocks are no
   longer valued at euro interest rates.

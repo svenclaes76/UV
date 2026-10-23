@@ -139,6 +139,15 @@ def _risk_free_fixed(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _listing_choices_isolated(tmp_path, monkeypatch):
+    """The saved primary-line choices (EX-W4) live in tmp_path, never in the
+    developer's real .cache/listing_choice.json."""
+    from uvalu import universe
+    monkeypatch.setattr(universe, "LISTING_CHOICE_FILE", tmp_path / "listing_choice.json")
+    monkeypatch.setattr(universe, "_secondary_cache", {"mtime": None, "lines": frozenset()})
+
+
+@pytest.fixture(autouse=True)
 def _ticker_lists_isolated(tmp_path, monkeypatch):
     """Never read or write the developer's real .cache/ticker_lists/, and
     refresh a stale list synchronously so no test leaves a thread behind."""

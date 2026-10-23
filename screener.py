@@ -60,7 +60,7 @@ import pandas as pd
 import yfinance as yf
 
 import marketdata
-from uvalu import datamode, logkit, riskfree
+from uvalu import datamode, logkit, riskfree, universe
 from uvalu.i18n import N_, Fmt, lazy_
 from scoring import (  # re-exported for existing `from screener import …` call sites
     _clamp, _get_num, _finite,
@@ -528,6 +528,7 @@ MIN_FV_MODELS         = 2
 # fetches a day each, for companies that are simply data-poor) and about 4,100
 # rows with no price and no country (symbols Yahoo doesn't know, mostly
 # Frankfurt) were fetched every day.
+SECONDARY_TTL_DAYS = 7     # A2: a secondary line (uvalu/universe.py) is refetched weekly
 THIN_TTL_STEPS_HOURS = (3, 12)          # 1st and 2nd thin result in a row; then the normal TTL
 DEAD_BACKOFF_DAYS    = (1, 2, 4, 8, 16, 30)   # no price and no country, n times in a row
 CACHE_PRUNE_DAYS     = 30               # a row in no list and no portfolio this long is removed
@@ -849,6 +850,11 @@ def _apply_refetch_schedule(row: dict, previous: "dict | None") -> dict:
             row["next_fetch_at"] = _next_fetch_at()
         return row
     row.pop("thin_streak", None)
+    # A2 (EX-W4): a company's secondary line is only needed to choose between
+    # its lines, so it is refreshed weekly, not daily.
+    if row.get("Ticker") in universe.secondary_lines_cached():
+        row["next_fetch_at"] = (datetime.now(timezone.utc)
+                                + timedelta(days=SECONDARY_TTL_DAYS, hours=random.uniform(0, 12))).isoformat()
     return row
 
 
