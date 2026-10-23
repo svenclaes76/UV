@@ -15,7 +15,7 @@ app relies on); there is no intraday data.
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pandas as pd
 
@@ -53,8 +53,9 @@ def download(tickers, start=None, end=None, period=None, interval="1d", **_kw) -
         return pd.DataFrame()          # no intraday data in the demo
     lo = pd.Timestamp(start) if start else None
     hi = pd.Timestamp(end) if end else None
-    if lo is None and period:
-        lo = pd.Timestamp(date.today() - timedelta(days=_PERIOD_DAYS.get(str(period), 366)))
+    # A period counts back from the snapshot's last bar, not from today: the
+    # snapshot is the demo's "today", and a late refresh must not empty "5d".
+    back = timedelta(days=_PERIOD_DAYS.get(str(period), 366)) if lo is None and period else None
     parts = {}
     for t in tickers:
         df = _frame(t)
@@ -62,7 +63,9 @@ def download(tickers, start=None, end=None, period=None, interval="1d", **_kw) -
             _miss("prices", t)
             continue
         sel = df
-        if lo is not None:
+        if back is not None:
+            sel = sel[sel.index >= df.index.max() - back]
+        elif lo is not None:
             sel = sel[sel.index >= lo]
         if hi is not None:
             sel = sel[sel.index < hi]
