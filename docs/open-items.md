@@ -24,7 +24,7 @@ wording.
 | L5 | **Email-hosting provider: decided 18 October 2026 (Sven):** the uvalu.app domain isn't held, so every contact is uvalu.app@gmail.com (Gmail, Google LLC). App contacts and the beta legal pages changed; beta privacy notice 1.5: Google in §4, the US transfer under the EU–US Data Privacy Framework in §5, effective 18 October 2026 (no beta users yet, so no notice period). Still to do: check Google's DPF listing; accept Google's data processing terms for the mailbox. The paid-launch drafts and the deploy files still assume the uvalu.app domain. | Medium | Beta opens to others | Founder |
 | L6 | **Translations of the UI disclaimers** (nl/fr/de/it/es) were drafted, not legally reviewed (INT-1 / INT-4). | Low–medium | Anyone relies on a non-English disclaimer | Fluent legal reviewer |
 | L7 | **Terms: "English version prevails" clause** — check it is there; translate the Terms into at least Dutch and French. | Low (beta) | Paid launch | Founder / lawyer |
-| L8 | **Self-service account deletion** — built on `feature/import-export` (11 October 2026): Settings › Privacy › Delete account, beta privacy notice §8 → beta 1.3. The 30 days now hold by design: `deploy/offsite-backup.sh` prunes offsite archives after 29 days, and the incident procedure and breach register are written (`docs/incident-procedure.md`, 13 October 2026). Still to do: set up the Storage Box with its automatic snapshots off (`docs/deployment.md` step 7). | Low | Server set-up | Founder |
+| L8 | **Self-service account deletion** — built on `feature/import-export` (11 October 2026): Settings › Privacy › Delete account, beta privacy notice §8 → beta 1.3. The incident procedure and breach register are written (`docs/incident-procedure.md`, 13 October 2026). Parked with the production server (24 October 2026): there are no offsite backups until a server exists; the removed backup job pruned them after 29 days (git `648559b`), and the Storage Box needs its automatic snapshots off. | Low | Parked: production server | Founder |
 | L9 | **Rebalancing UI** needs its own MiFID II review before it is built: nothing may combine a signal with the user's position into an action ("reduce", "rebalance"). | Medium if built wrongly | Building it | Review |
 | L11 | **Paywall launch checklist**: drop the "no income during the free beta" lines (already tied to `BETA`), re-check the conflicts policy, and switch to the paid-launch legal pages. | — | Paid launch | Dev + founder |
 
@@ -138,9 +138,8 @@ penetration test. SR1, SR3 and SR5 were fixed on 13 October 2026
 
 | # | Item | Do it before |
 | --- | --- | --- |
-| SR2 | **Production deployment baseline:** written and in the repo (13 October 2026): `deploy/` (Caddyfile with HTTPS and headers, systemd service, offsite backup job), `docs/deployment.md` (firewall, SSH, unprivileged user, `.env` permissions), per-IP sign-in limit in the app. Still to do: create the server and apply it step by step, then switch the CSP from report-only to enforcing. | Inviting anyone you don't know personally |
-| SR4 | **Session token, rest:** cookie flags and the escaping test (13 October 2026), and the token in the cookie only, no localStorage copy (15 October 2026, spike result in `docs/security-review.md` #3). Still open: a CSP at the reverse proxy (with SR2). Later, optional: an HttpOnly cookie set by a small endpoint in front of Streamlit. | Inviting anyone you don't know personally |
-| SR6 | **Keys and restores:** offline copy of `.env`, the borg passphrase and the exported borg key; written rotation procedures for both secrets; the restore test (procedure and log in `docs/deployment.md` §9) done once and dated. | Restore test: with the server set-up; rotation: paid launch |
+| SR4 | **Session token, rest:** cookie flags and the escaping test (13 October 2026), and the token in the cookie only, no localStorage copy (15 October 2026, spike result in `docs/security-review.md` #3). Still open: a CSP at a reverse proxy, parked with the production server (24 October 2026). Later, optional: an HttpOnly cookie set by a small endpoint in front of Streamlit. | Inviting anyone you don't know personally |
+| SR6 | **Keys and restores:** offline copy of `.env`, the borg passphrase and the exported borg key; written rotation procedures for both secrets; the restore test (procedure and log in `docs/deployment.md` §9) done once and dated. | Restore test: parked with the production server; rotation: paid launch |
 
 ## Usability
 
@@ -205,6 +204,20 @@ Plan: [exchange-expansion-plan.md](exchange-expansion-plan.md) (decisions in §0
 | # | Item |
 | --- | --- |
 | D3 | Passkeys and two-factor extensions: deferred (decided 9 October 2026). |
+
+## Parked: production server
+
+Removed on 24 October 2026 (Sven: no beta planned soon). The Hetzner setup — `deploy/` (Caddyfile with HTTPS
+and headers, systemd service, borg offsite backups to a Storage Box) and the 9-step guide in
+`docs/deployment.md` — is in git history, last in commit `648559b`. Bring it back from there when a beta is
+planned, then do these:
+
+| # | Item |
+| --- | --- |
+| SR2 | **Production deployment baseline:** create the server and apply the guide step by step (firewall, SSH keys, unprivileged user, `.env` permissions, Caddy, systemd), then switch the CSP from report-only to enforcing. The per-IP sign-in limit stays in the app (`UVALU_BEHIND_PROXY=1`). |
+| SR4 (rest) | A CSP at the reverse proxy. |
+| SR6 (part) | The restore test: one dated restore of an offsite backup onto a fresh machine. |
+| L8 (rest) | Offsite backups with 29-day pruning and the Storage Box's own snapshots off, so the 30-day deletion promise holds. |
 
 ## Product backlog
 

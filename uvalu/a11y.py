@@ -16,7 +16,7 @@ so this module works in two halves:
   the page (a fragment rerun, a dialog), so nothing depends on timing.
 
 The deployment's Content-Security-Policy allows inline scripts
-(deploy/Caddyfile), which Streamlit itself needs as well.
+(a reverse proxy, if one is put in front), which Streamlit itself needs as well.
 """
 from __future__ import annotations
 

@@ -94,7 +94,7 @@ def handle_logout() -> None:
 
 def _client_ip() -> str | None:
     """The browser's IP address, for the per-IP sign-in limit (SR2).
-    Behind the reverse proxy (deploy/Caddyfile) Streamlit sees the proxy on
+    Behind a reverse proxy (UVALU_BEHIND_PROXY=1) Streamlit sees the proxy on
     localhost; the real address is then the last X-Forwarded-For entry, the
     one Caddy itself appends. The header is trusted only on a localhost
     connection, so a client can't spoof it when reaching Streamlit directly."""
