@@ -44,6 +44,7 @@ _SHARED_DEFAULTS: dict = {
     "m5_rate_per_currency": True,   # D33: 10-year government yield per quote currency
     "m5_epv_tax_floor":     True,   # D34: 0% registrations use the 25% default in EPV
     "m5_liquidity_eur":     True,   # D35: liquidity on traded value in EUR
+    "m5_per_share_currency": True,  # V7: per-share figures' currency decided per row
     "us_listed_enabled": False,  # not yet wired — no US ticker universe exists
     # Login rate limiting — read by auth.py's login() on every attempt. Surfaced
     # as sliders on the Admin -> Security page (uvalu/pages_/admin.py).

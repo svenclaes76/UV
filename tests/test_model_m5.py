@@ -127,7 +127,7 @@ class TestSwitches:
     def test_switches_read_from_shared_settings(self):
         state = screener.refresh_model_switches({"m5_epv_tax_floor": False})
         assert state == {"m5_rate_per_currency": True, "m5_epv_tax_floor": False,
-                         "m5_liquidity_eur": True}
+                         "m5_liquidity_eur": True, "m5_per_share_currency": True}
 
     def test_settings_id_changes_with_a_switch(self):
         kw = dict(max_debt_equity=500, max_payout=0.9, min_mos=0.1, buy_threshold=70,

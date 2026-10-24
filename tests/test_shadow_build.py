@@ -42,14 +42,21 @@ def test_london_needs_the_golden_sample():
     assert sb.go_no_go(stats, 0.05, golden_ok=True)["london"]["go"] is True
 
 
-def test_golden_sample_checks_pe_and_fair_value():
-    scored = pd.DataFrame([{"Ticker": "SHEL.L", "Price": 28.0, "trailingEps": 2.0, "fair_value": 30.0},
-                           {"Ticker": "BP.L", "Price": 4.0, "trailingEps": 0.4, "fair_value": 40.0}])
-    raw = pd.DataFrame([{"Ticker": "SHEL.L", "trailingPE": 14.1}, {"Ticker": "BP.L", "trailingPE": 10.0}])
+def test_golden_sample_checks_pe_against_net_income_and_fair_value():
+    # V7: Yahoo's P/E (11.9) is not the reference; price / net income per share is.
+    scored = pd.DataFrame([
+        {"Ticker": "SHEL.L", "Price": 40.33, "trailingEps": 2.54, "fair_value": 30.0,
+         "sharesOutstanding": 5.684e9, "netIncomeHistory": [13.38e9, 12.0e9]},
+        {"Ticker": "BP.L", "Price": 4.0, "trailingEps": 0.4, "fair_value": 40.0,
+         "sharesOutstanding": 1e9, "netIncomeHistory": [0.4e9]},
+        {"Ticker": "HSBA.L", "Price": 9.0, "trailingEps": 0.7, "fair_value": 10.0,
+         "sharesOutstanding": 1e9, "netIncomeHistory": [0.7e9 * 0.75]}])      # EPS left in USD
+    raw = pd.DataFrame([{"Ticker": "SHEL.L", "trailingPE": 11.93}, {"Ticker": "BP.L", "trailingPE": 10.0}])
     g = sb.golden_sample(scored, raw)
-    assert g["rows"]["SHEL.L"]["ok"] is True
+    assert g["rows"]["SHEL.L"]["ok"] is True and g["rows"]["SHEL.L"]["yahoo_pe"] == 11.93
     assert g["rows"]["BP.L"]["ok"] is False      # fair value 10x the price
-    assert g["ok"] is False and "HSBA.L" in g["missing"]
+    assert g["rows"]["HSBA.L"]["ok"] is False    # P/E off by the USD/GBP rate
+    assert g["ok"] is False and "GLEN.L" in g["missing"]
 
 
 def test_signal_changes_and_peer_group():

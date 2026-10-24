@@ -257,7 +257,8 @@ BLEND_PCT = 0.5
 # one off returns that part to M4 without a code revert, and model_version()
 # follows. Read from settings.load_shared_settings() by refresh_model_switches()
 # at the start of every scoring pass.
-M5_SWITCHES = ("m5_rate_per_currency", "m5_epv_tax_floor", "m5_liquidity_eur")
+M5_SWITCHES = ("m5_rate_per_currency", "m5_epv_tax_floor", "m5_liquidity_eur",
+               "m5_per_share_currency")
 _m5_state: dict = dict.fromkeys(M5_SWITCHES, True)
 
 # D34: EPV taxes a company at its registration's headline rate. A 0% or
@@ -3069,6 +3070,7 @@ def _score_and_clean(df: pd.DataFrame, *, max_debt_equity: float = 500.0,
                    extra={"event": "score.clean", "dropped": dropped})
     if df.empty:
         return df
+    refresh_model_switches()   # the conversion reads the M5 switches too (V7)
     df, peer_mask = _convert_reporting_currency(df, peer_mask)
     _log.debug("computing valuation scores for %d rows", len(df),
                extra={"event": "score.compute", "rows": len(df)})
@@ -3154,6 +3156,49 @@ def _apply_signal_hysteresis(df: pd.DataFrame, previous: dict, *,
 # These figures are converted to the quote currency before scoring.
 _REPORTING_CCY_FIELDS = ("trailingEps", "bookValue", "ebit", "totalDebt", "totalCash",
                          "freeCashflow", "netIncome")
+
+# V7 (M5): the per-share figures are not always in the reporting currency.
+# Checked on the 23 October 2026 shadow build against the latest annual net
+# income x shares, Yahoo gives trailingEps in the *quote* currency for most
+# lines (Oslo 57 of 64, Copenhagen 13 of 14, Stockholm 31 of 32, Warsaw 58 of
+# 63) and mixes in London (Shell: USD, Unilever: GBP). So each row is decided
+# on its own: EPS x shares is compared with net income in both currencies, and
+# the per-share figures (EPS and book value) are converted only when the
+# reporting currency fits. Below PER_SHARE_CCY_GAP the two currencies are too
+# close to tell apart and the figures stay as Yahoo gives them; a row where
+# neither fits within PER_SHARE_CCY_MATCH is currency_unverified.
+_PER_SHARE_CCY_FIELDS = ("trailingEps", "bookValue")
+PER_SHARE_CCY_GAP = 0.20      # |ln(rate)|: about 22% apart (EUR/GBP and EUR/USD count as close)
+PER_SHARE_CCY_MATCH = 0.47    # |ln(EPS x shares / net income)|: within a factor 1.6, or half the gap
+PER_SHARE_CCY_MARGIN = 0.10   # the better fit must be this much closer in log terms
+
+
+def per_share_currency(row, rate: float) -> str:
+    """V7: "quote", "reporting", "close" (currencies too close to tell, kept
+    as quote) or "unverified" (no anchor, or neither currency fits), for a row
+    whose reporting currency differs from its quote currency. `rate`: quote
+    units per reporting unit."""
+    if abs(math.log(rate)) < PER_SHARE_CCY_GAP:
+        return "close"
+    eps = _safe_float(row.get("trailingEps"))
+    shares = _safe_float(row.get("sharesOutstanding"))
+    hist = row.get("netIncomeHistory")
+    ni = next((x for x in hist if isinstance(x, (int, float)) and not isinstance(x, bool)
+               and math.isfinite(x) and x != 0), None) if isinstance(hist, (list, tuple)) else None
+    if ni is None:   # newest first; without a year of net income, the latest field
+        ni = _safe_float(row.get("netIncome"))
+    if not (eps and shares and ni) or (eps > 0) != (ni > 0) or shares <= 0:
+        return "unverified"
+    as_quote = abs(math.log(abs(eps * shares / (ni * rate))))
+    as_reporting = abs(math.log(abs(eps * shares / ni)))
+    # Far-apart currencies (NOK/USD: 10x) leave room for noisy earnings: a
+    # fit within half the gap still can't be the other currency.
+    match = max(PER_SHARE_CCY_MATCH, abs(math.log(rate)) / 2)
+    if as_quote <= match and as_quote + PER_SHARE_CCY_MARGIN <= as_reporting:
+        return "quote"
+    if as_reporting <= match and as_reporting + PER_SHARE_CCY_MARGIN <= as_quote:
+        return "reporting"
+    return "unverified"
 _REPORTING_CCY_HISTORIES = ("fcfHistory", "revenueHistory", "ebitHistory", "netIncomeHistory",
                             "cfoHistory", "retainedEarningsHistory", "totalAssetsHistory")
 
@@ -3179,8 +3224,10 @@ def _convert_reporting_currency(df: pd.DataFrame, peer_mask: "pd.Series | None" 
     quote currency."""
     df = df.copy()
     df["currency_unverified"] = False
+    df["per_share_ccy"] = None
     if "financialCurrency" not in df.columns or "Currency" not in df.columns:
         return df, peer_mask
+    per_row = _m5("m5_per_share_currency")
     rate_fn = rate_fn or _fx_rate
     rates: dict = {}
     converted = 0
@@ -3200,7 +3247,14 @@ def _convert_reporting_currency(df: pd.DataFrame, peer_mask: "pd.Series | None" 
         if not rate:
             df.at[i, "currency_unverified"] = True
             continue
+        # V7: per-share figures by their own currency, decided per row (M5).
+        decided = per_share_currency(df.loc[i], rate) if per_row else "reporting"
+        df.at[i, "per_share_ccy"] = decided
+        if decided == "unverified":
+            df.at[i, "currency_unverified"] = True
         for col in _REPORTING_CCY_FIELDS:
+            if col in _PER_SHARE_CCY_FIELDS and decided != "reporting":
+                continue
             if col in df.columns:
                 v = _safe_float(df.at[i, col])
                 df.at[i, col] = v * rate if v is not None else df.at[i, col]

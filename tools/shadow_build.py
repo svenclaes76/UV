@@ -11,7 +11,8 @@ gives, per exchange:
 - the signal mix and the Undervalued share against the universe's;
 - go/no-go (D36): fair value for at least 60%, under 5% currency_unverified,
   Undervalued at most 3x the universe's; London also needs the golden sample
-  (M4: 20 FTSE companies and Maersk, P/E within 2% of Yahoo's, fair value
+  (M4: 20 FTSE companies and Maersk, P/E within 0.8-1.25x of price over the
+  latest annual net income per share (V7: Yahoo's own P/E mixes currencies), fair value
   between 0.2x and 5x the price). Since 17 October every exchange goes on at
   release (plan §0), so the go/no-go is a check, not a gate;
 - peer group: how many of today's six exchanges' stocks change signal only
@@ -75,7 +76,12 @@ GOLDEN_SAMPLE = (
 MIN_FAIR_VALUE = 0.60          # D36
 MAX_CURRENCY_UNVERIFIED = 0.05
 MAX_UNDERVALUED_RATIO = 3.0
-GOLDEN_PE_TOLERANCE = 0.02
+# V7: Yahoo's own trailingPE divides a GBP price by a USD EPS for some London
+# lines (Shell), so the reference is the price over the latest annual net income
+# per share, both in the quote currency. Trailing EPS against the last full
+# year: a band that still catches a currency error (USD/GBP is 1.33x); a profit
+# that moved more than 25% in a year is flagged for a look.
+GOLDEN_PE_RANGE = (0.8, 1.25)
 GOLDEN_FV_RANGE = (0.2, 5.0)
 
 
@@ -150,8 +156,10 @@ def go_no_go(stats: dict[str, dict], universe_undervalued: float,
 
 
 def golden_sample(scored: pd.DataFrame, raw: pd.DataFrame) -> dict:
-    """M4: per sample ticker, our P/E against Yahoo's trailingPE and fair
-    value / price. {"ok": bool|None, "rows": {...}, "missing": [...]}."""
+    """M4 with V7: per sample ticker, our P/E against price over the latest
+    annual net income per share, and fair value / price.
+    {"ok": bool|None, "rows": {...}, "missing": [...]}. `raw` is kept for
+    the report's Yahoo P/E column."""
     yahoo_pe = dict(zip(raw["Ticker"], pd.to_numeric(raw.get("trailingPE"), errors="coerce"))) \
         if "trailingPE" in raw else {}
     rows, missing = {}, []
@@ -161,16 +169,24 @@ def golden_sample(scored: pd.DataFrame, raw: pd.DataFrame) -> dict:
             missing.append(t)
             continue
         r = by_ticker.loc[t]
-        price, eps, fv = (pd.to_numeric(r.get(c), errors="coerce") for c in ("Price", "trailingEps", "fair_value"))
+        price, eps, fv, shares = (pd.to_numeric(r.get(c), errors="coerce")
+                                  for c in ("Price", "trailingEps", "fair_value", "sharesOutstanding"))
+        hist = r.get("netIncomeHistory")
+        ni = next((x for x in hist if isinstance(x, (int, float)) and x == x and x != 0), None) \
+            if isinstance(hist, (list, tuple)) else None
         ours = price / eps if pd.notna(price) and pd.notna(eps) and eps > 0 else None
-        theirs = yahoo_pe.get(t)
-        pe_ok = (ours is not None and theirs is not None and pd.notna(theirs) and theirs > 0
-                 and abs(ours / theirs - 1) <= GOLDEN_PE_TOLERANCE)
+        anchor = (price / (ni / shares) if ni and ni > 0 and pd.notna(shares) and shares > 0
+                  and pd.notna(price) else None)
+        pe_ok = (ours is not None and anchor is not None
+                 and GOLDEN_PE_RANGE[0] <= ours / anchor <= GOLDEN_PE_RANGE[1])
         ratio = fv / price if pd.notna(fv) and pd.notna(price) and price > 0 else None
         fv_ok = ratio is not None and GOLDEN_FV_RANGE[0] <= ratio <= GOLDEN_FV_RANGE[1]
+        theirs = yahoo_pe.get(t)
         rows[t] = {"pe": None if ours is None else round(float(ours), 2),
+                   "pe_net_income": None if anchor is None else round(float(anchor), 2),
                    "yahoo_pe": None if theirs is None or pd.isna(theirs) else round(float(theirs), 2),
                    "fv_price": None if ratio is None else round(float(ratio), 2),
+                   "per_share_ccy": r.get("per_share_ccy"),
                    "ok": bool(pe_ok and fv_ok)}
     ok = None if not rows else all(v["ok"] for v in rows.values()) and not missing
     return {"ok": ok, "rows": rows, "missing": missing}
@@ -232,8 +248,10 @@ def render_markdown(report: dict) -> str:
                   + (f"; missing {', '.join(gs['missing'])}" if gs["missing"] else "") + "."]
     bad = {t: r for t, r in gs["rows"].items() if not r["ok"]}
     if bad:
-        lines += ["", "| Ticker | Our P/E | Yahoo P/E | FV / price |", "| --- | ---: | ---: | ---: |"]
-        lines += [f"| {t} | {r['pe']} | {r['yahoo_pe']} | {r['fv_price']} |" for t, r in bad.items()]
+        lines += ["", "| Ticker | Our P/E | Price / net income per share | Yahoo P/E | FV / price | EPS currency |",
+                  "| --- | ---: | ---: | ---: | ---: | --- |"]
+        lines += [f"| {t} | {r['pe']} | {r.get('pe_net_income')} | {r['yahoo_pe']} | {r['fv_price']} | "
+                  f"{r.get('per_share_ccy') or '—'} |" for t, r in bad.items()]
     return "\n".join(lines) + "\n"
 
 

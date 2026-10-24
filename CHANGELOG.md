@@ -61,6 +61,21 @@ each part can be switched back to M4 in the shared settings.
   23 October cache: 1,727 -> 1,793 lines, 88 in (Airbus, Stellantis,
   STMicro, ArcelorMittal, Shell and Unilever on Amsterdam, argenx, Tenaris,
   Luxembourg companies), 22 duplicate lines out.
+- Per-share figures and the reporting currency (V7, model M5, switch
+  `m5_per_share_currency`): V1 (M2) converted `trailingEps` and
+  `bookValue` from the reporting currency on every row where it differs
+  from the quote currency, but Yahoo gives them in the quote currency for
+  most lines and mixes in London (Shell's EPS in USD, Unilever's in GBP).
+  Each such row is now decided against the latest annual net income x
+  shares (`screener.per_share_currency`, column `per_share_ccy`):
+  converted when the reporting currency fits, left alone when the quote
+  currency fits or the two currencies are within about 22% (EUR/GBP,
+  EUR/USD, EUR/CHF), `currency_unverified` when neither fits. Statement
+  figures are converted as before. On today's six exchanges 2 signals
+  change; on the new markets the error was a factor 6-11 (NOK, DKK, SEK
+  against USD or EUR). The shadow build's London golden sample now checks
+  P/E against price over net income per share (0.8-1.25x), not Yahoo's
+  own P/E, which divides a GBP price by a USD EPS for Shell.
 - The founder-holdings disclosure matches every line of a held company
   (P1): a position held as AIR.DE discloses on AIR.PA.
 - Model M5 (EX-W5b, D33–D35):

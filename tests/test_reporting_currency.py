@@ -25,6 +25,8 @@ def _sek_eur(rep, quote):
 
 
 def test_reporting_currency_figures_are_converted_to_the_quote_currency():
+    # M4 behaviour (V7 switched off): every figure is taken as reporting currency.
+    screener._m5_state["m5_per_share_currency"] = False
     df, _ = screener._convert_reporting_currency(pd.DataFrame([_row()]), rate_fn=_sek_eur)
     r = df.iloc[0]
     assert math.isclose(r["bookValue"], 293.6 * 0.09)
@@ -66,3 +68,49 @@ def test_an_unverified_row_is_never_undervalued_and_carries_the_flag(monkeypatch
     inv = out[out["Ticker"] == "1INVEB.MI"].iloc[0]
     assert inv["signal_code"] != screener.SIGNAL_UNDERVALUED
     assert "currency_unverified" in inv["data_flags"]
+
+
+# ── V7 (M5): the per-share figures' currency is decided per row ────────────
+
+def _usd_gbp(rep, quote):
+    return {("USD", "GBP"): 0.75, ("EUR", "GBP"): 0.86, ("USD", "NOK"): 10.0}[(rep, quote)]
+
+
+def test_eps_in_the_reporting_currency_is_converted():
+    # Shell: EPS 3.38 USD, net income USD 17.8bn on 5.68bn shares.
+    row = _row(Ticker="SHEL.L", Currency="GBP", financialCurrency="USD", Price=40.33, trailingEps=3.38,
+               bookValue=31.0, sharesOutstanding=5.684e9, netIncomeHistory=[17.84e9, 16.1e9])
+    df, _ = screener._convert_reporting_currency(pd.DataFrame([row]), rate_fn=_usd_gbp)
+    r = df.iloc[0]
+    assert r["per_share_ccy"] == "reporting" and not r["currency_unverified"]
+    assert math.isclose(r["trailingEps"], 3.38 * 0.75) and math.isclose(r["bookValue"], 31.0 * 0.75)
+    assert math.isclose(r["netIncomeHistory"][0], 17.84e9 * 0.75)    # statements as before
+
+
+def test_eps_already_in_the_quote_currency_is_left_alone():
+    # Equinor: EPS NOK 36 against USD net income of USD 8.5bn on 2.37bn shares.
+    row = _row(Ticker="EQNR.OL", Currency="NOK", financialCurrency="USD", Price=453.8, trailingEps=36.04,
+               bookValue=165.9, sharesOutstanding=2.368e9, netIncomeHistory=[8.5e9], ebit=2.0e10)
+    df, _ = screener._convert_reporting_currency(pd.DataFrame([row]), rate_fn=_usd_gbp)
+    r = df.iloc[0]
+    assert r["per_share_ccy"] == "quote" and not r["currency_unverified"]
+    assert r["trailingEps"] == 36.04 and r["bookValue"] == 165.9
+    assert math.isclose(r["ebit"], 2.0e10 * 10.0)                   # statements are still converted
+    assert math.isclose(r["trailingPE"], 453.8 / 36.04)
+
+
+def test_close_currencies_stay_unconverted():
+    row = _row(Ticker="ULVR.L", Currency="GBP", financialCurrency="EUR", trailingEps=3.69, bookValue=6.3,
+               sharesOutstanding=2.15e9, netIncomeHistory=[6.0e9])
+    df, _ = screener._convert_reporting_currency(pd.DataFrame([row]), rate_fn=_usd_gbp)
+    r = df.iloc[0]
+    assert r["per_share_ccy"] == "close" and r["trailingEps"] == 3.69 and not r["currency_unverified"]
+
+
+def test_no_fit_or_no_anchor_is_unverified():
+    no_anchor = _row(Ticker="X.OL", Currency="NOK", financialCurrency="USD", sharesOutstanding=None)
+    misfit = _row(Ticker="Y.OL", Currency="NOK", financialCurrency="USD", trailingEps=6.32,
+                  sharesOutstanding=1e9, netIncomeHistory=[2.0e9])     # halfway between USD 2bn and NOK 20bn
+    df, _ = screener._convert_reporting_currency(pd.DataFrame([no_anchor, misfit]), rate_fn=_usd_gbp)
+    assert list(df["per_share_ccy"]) == ["unverified", "unverified"]
+    assert df["currency_unverified"].all()
