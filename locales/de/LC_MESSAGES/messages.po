@@ -1701,11 +1701,7 @@ msgid "Find value before the market does."
 msgstr "Finde Wert, bevor es der Markt tut."
 
 #: uvalu/authgate.py:339
-#, fuzzy, python-brace-format
-#| msgid ""
-#| "Five valuation models across 6 European exchanges: margin of safety, composite "
-#| "scores and quality screens in one workspace. Model outputs are the same for "
-#| "every user."
+#, python-brace-format
 msgid ""
 "Five valuation models across {n} European exchanges: margin of safety, composite"
 " scores and quality screens in one workspace. Model outputs are the same for "
@@ -4125,24 +4121,18 @@ msgid "ECB reference rates via frankfurter.dev"
 msgstr "EZB-Referenzkurse über frankfurter.dev"
 
 #: uvalu/compliance/disclosures.py:89 uvalu/compliance/disclosures.py:103
-#, fuzzy
-#| msgid "blended yield"
 msgid "Bond yields"
 msgstr "Anleiherenditen"
 
 #: uvalu/compliance/disclosures.py:89 uvalu/compliance/disclosures.py:103
-#, fuzzy
 msgid "OECD 10-year government bond yields · snapshot taken each quarter"
 msgstr "Renditen 10-jähriger Staatsanleihen der OECD · Stand jedes Quartal"
 
 #: uvalu/compliance/disclosures.py:90 uvalu/compliance/disclosures.py:104
-#, fuzzy
-#| msgid "Index membership"
 msgid "Index members"
 msgstr "Indexmitglieder"
 
 #: uvalu/compliance/disclosures.py:90 uvalu/compliance/disclosures.py:104
-#, fuzzy
 msgid "The index providers' published member lists · checked each quarter"
 msgstr "Die veröffentlichten Mitgliederlisten der Indexanbieter · jedes Quartal geprüft"
 
@@ -5423,7 +5413,7 @@ msgid "Which exchanges are covered?"
 msgstr "Welche Börsen werden abgedeckt?"
 
 #: uvalu/pages_/help.py:141
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid ""
 "Shares of European companies on {exchanges}: one line per company, on its home "
 "exchange if it is listed there, otherwise where it trades most."
