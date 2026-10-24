@@ -45,6 +45,10 @@ of that month); earlier releases used SemVer. Rules in
   descriptively and without logos. The in-app source rows gain "Bond
   yields" and "Index members". README, configuration and user guide no
   longer say six exchanges.
+- Index snapshot (EX8): WIG20 and OMX Baltic Benchmark filled; ticker fixes
+  for ISEQ 20 (RYA.IR), OMX Copenhagen 25 (NDA-DK.CO), PSI and the
+  FTSE/Athex Large Cap (Metlen, Allwyn, Bank of Cyprus in, Terna Energy
+  out); Golden Ocean out of the OBX. Four indices stay marked "check".
 - Index filter (EX-W10, EX-24 to EX-28): an Index dropdown after Market
   on the Screener, listing only indices with a member in the universe
   (EURO STOXX 50, STOXX Europe 50, then the national indices), with the

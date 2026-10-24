@@ -715,7 +715,7 @@
    ],
    "status": "check",
    "problems": [
-    "APAM.BR (Aperam): not in the Euronext Brussels list"
+    "Aperam (APAM.BR) is not in Euronext Brussels' list; its lines are Amsterdam, Madrid and Vienna. Check whether it is still a BEL 20 member"
    ]
   },
   "cac_40": {
@@ -894,7 +894,7 @@
    "owner": "Deutsche Börse",
    "source_url": "https://en.wikipedia.org/wiki/DAX",
    "size": 40,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "ADS.DE",
@@ -1057,18 +1057,15 @@
      "name": "Zalando"
     }
    ],
-   "status": "check",
-   "problems": [
-    "G1A.DE (GEA Group): not in the Xetra list",
-    "G24.DE (Scout24): not in the Xetra list"
-   ]
+   "status": "ok",
+   "problems": null
   },
   "ftse_100": {
    "name": "FTSE 100",
    "owner": "FTSE Russell",
    "source_url": "https://en.wikipedia.org/wiki/FTSE_100_Index",
    "size": 100,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "AAF.L",
@@ -1471,20 +1468,17 @@
      "name": "Whitbread"
     }
    ],
-   "status": "check",
+   "status": "ok",
    "problems": [
-    "ALW.L (Alliance Witan): not in the London Stock Exchange list",
-    "FCIT.L (F & C Investment Trust): not in the London Stock Exchange list",
-    "PCT.L (Polar Capital Technology Trust): not in the London Stock Exchange list",
-    "SMT.L (Scottish Mortgage Investment Trust): not in the London Stock Exchange list"
+    "four investment trusts (ALW, FCIT, PCT, SMT) are members but not in the universe (D5); kept for completeness"
    ]
   },
   "ftse_athex_large_cap": {
    "name": "FTSE/Athex Large Cap",
    "owner": "FTSE Russell / Euronext Athens",
-   "source_url": "https://en.wikipedia.org/wiki/FTSE/Athex_Large_Cap",
+   "source_url": "https://athens.euronext.com/en/market-data/instruments/indices/FTSE",
    "size": 25,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "AEGN.AT",
@@ -1495,8 +1489,16 @@
      "name": "Alpha Bank"
     },
     {
+     "ticker": "ALWN.AT",
+     "name": "Allwyn AG"
+    },
+    {
      "ticker": "BELA.AT",
      "name": "Jumbo"
+    },
+    {
+     "ticker": "BOCHGR.AT",
+     "name": "Bank of Cyprus Holdings PLC"
     },
     {
      "ticker": "CENER.AT",
@@ -1547,12 +1549,8 @@
      "name": "Motor Oil Hellas"
     },
     {
-     "ticker": "MYTIL.AT",
-     "name": "Mytilineos Holdings"
-    },
-    {
-     "ticker": "OPAP.AT",
-     "name": "OPAP"
+     "ticker": "MTLN.AT",
+     "name": "Metlen Energy & Metals PLC"
     },
     {
      "ticker": "OTOEL.AT",
@@ -1571,10 +1569,6 @@
      "name": "Gr. Sarantis S.A."
     },
     {
-     "ticker": "TENERGY.AT",
-     "name": "Terna Energy"
-    },
-    {
      "ticker": "TITC.AT",
      "name": "Titan Cement"
     },
@@ -1589,9 +1583,7 @@
    ],
    "status": "check",
    "problems": [
-    "MYTIL.AT (Mytilineos Holdings): not in the Euronext Athens list",
-    "OPAP.AT (OPAP): not in the Euronext Athens list",
-    "TENERGY.AT (Terna Energy): not in the Euronext Athens list"
+    "only the 12 largest members confirmed against the provider (23 Oct 2026); check the other 13, e.g. ELLAKTOR.AT, against the full list"
    ]
   },
   "ftse_mib": {
@@ -1921,7 +1913,7 @@
    "owner": "Euronext",
    "source_url": "https://en.wikipedia.org/wiki/ISEQ_20",
    "size": 20,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "A5G.IR",
@@ -1996,7 +1988,7 @@
      "name": "Permanent TSB"
     },
     {
-     "ticker": "RY4C.IR",
+     "ticker": "RYA.IR",
      "name": "Ryanair Holdings"
     },
     {
@@ -2004,17 +1996,15 @@
      "name": "Uniphar"
     }
    ],
-   "status": "check",
-   "problems": [
-    "RY4C.IR (Ryanair Holdings): not in the Euronext Dublin list"
-   ]
+   "status": "ok",
+   "problems": null
   },
   "obx": {
    "name": "OBX",
    "owner": "Euronext",
    "source_url": "https://en.wikipedia.org/wiki/OBX_Index",
    "size": 25,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "AKRBP.OL",
@@ -2039,10 +2029,6 @@
     {
      "ticker": "GJF.OL",
      "name": "Gjensidige Forsikring"
-    },
-    {
-     "ticker": "GOGL.OL",
-     "name": "Golden Ocean Group"
     },
     {
      "ticker": "HAFNI.OL",
@@ -2119,24 +2105,102 @@
    ],
    "status": "check",
    "problems": [
-    "GOGL.OL (Golden Ocean Group): not in the Oslo Børs list"
+    "Golden Ocean removed (merged into CMB.Tech); check which stock took its place (CMBTO.OL?) against Oslo Børs' list"
    ]
   },
   "omx_baltic_benchmark": {
    "name": "OMX Baltic Benchmark",
    "owner": "Nasdaq",
-   "source_url": "https://nasdaqbaltic.com/",
-   "size": null,
-   "as_of": null,
-   "members": [],
-   "status": "to_fill"
+   "source_url": "https://www.nasdaq.com/docs/global-indexes/OMXBBGI-aug-2026",
+   "size": 19,
+   "as_of": "2026-08-03",
+   "members": [
+    {
+     "ticker": "AKO1L.VS",
+     "name": "AB Akola Group"
+    },
+    {
+     "ticker": "APG1L.VS",
+     "name": "APB Apranga"
+    },
+    {
+     "ticker": "CPA1T.TL",
+     "name": "Coop Pank AS"
+    },
+    {
+     "ticker": "DGR1R.RG",
+     "name": "DelfinGroup AS"
+    },
+    {
+     "ticker": "ELEVR.RG",
+     "name": "Eleving Group S.A."
+    },
+    {
+     "ticker": "GRG1L.VS",
+     "name": "Grigeo Group AB"
+    },
+    {
+     "ticker": "HAE1T.TL",
+     "name": "AS Harju Elekter Group"
+    },
+    {
+     "ticker": "HPR1T.TL",
+     "name": "Hepsor AS"
+    },
+    {
+     "ticker": "IGN1L.VS",
+     "name": "AB Ignitis grupe"
+    },
+    {
+     "ticker": "INF1T.TL",
+     "name": "AS Infortar"
+    },
+    {
+     "ticker": "LHV1T.TL",
+     "name": "AS LHV Group"
+    },
+    {
+     "ticker": "MRK1T.TL",
+     "name": "AS Merko Ehitus"
+    },
+    {
+     "ticker": "PZV1L.VS",
+     "name": "AB Pieno Zvaigzdes"
+    },
+    {
+     "ticker": "ROE1L.VS",
+     "name": "AB Artea bankas"
+    },
+    {
+     "ticker": "TAL1T.TL",
+     "name": "AS Tallink Grupp"
+    },
+    {
+     "ticker": "TEL1L.VS",
+     "name": "Telia Lietuva, AB"
+    },
+    {
+     "ticker": "TKM1T.TL",
+     "name": "TKM Grupp AS"
+    },
+    {
+     "ticker": "TSM1T.TL",
+     "name": "AS Tallinna Sadam"
+    },
+    {
+     "ticker": "VLP1L.VS",
+     "name": "AB Vilkyskiu pienine"
+    }
+   ],
+   "status": "ok",
+   "problems": null
   },
   "omxc25": {
    "name": "OMX Copenhagen 25",
    "owner": "Nasdaq",
    "source_url": "https://en.wikipedia.org/wiki/OMX_Copenhagen_25",
    "size": 25,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "ALSYDB.CO",
@@ -2195,7 +2259,7 @@
      "name": "A.P. Møller-Mærsk (class B)"
     },
     {
-     "ticker": "NDA.CO",
+     "ticker": "NDA-DK.CO",
      "name": "Nordea Bank Abp"
     },
     {
@@ -2239,10 +2303,8 @@
      "name": "Zealand Pharma"
     }
    ],
-   "status": "check",
-   "problems": [
-    "NDA.CO (Nordea Bank Abp): not in the Nasdaq Copenhagen list"
-   ]
+   "status": "ok",
+   "problems": null
   },
   "omxh25": {
    "name": "OMX Helsinki 25",
@@ -2354,7 +2416,7 @@
    ],
    "status": "check",
    "problems": [
-    "KOJAMO.HE (Kojamo): not in the Nasdaq Helsinki list"
+    "Kojamo (KOJAMO.HE) is not in Nasdaq Helsinki's list (cached 17 Oct 2026): check whether it left the exchange and which stock replaced it"
    ]
   },
   "omxi15": {
@@ -2563,8 +2625,8 @@
    "name": "PSI",
    "owner": "Euronext",
    "source_url": "https://en.wikipedia.org/wiki/PSI-20",
-   "size": null,
-   "as_of": "2026-10-17",
+   "size": 17,
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "ALTR.LS",
@@ -2633,16 +2695,10 @@
     {
      "ticker": "SON.LS",
      "name": "Sonae"
-    },
-    {
-     "ticker": "SONC.LS",
-     "name": "Sonae Capital"
     }
    ],
-   "status": "check",
-   "problems": [
-    "SONC.LS (Sonae Capital): not in the Euronext Lisbon list"
-   ]
+   "status": "ok",
+   "problems": null
   },
   "smi": {
    "name": "SMI",
@@ -2740,9 +2796,93 @@
    "owner": "GPW Benchmark",
    "source_url": "https://gpwbenchmark.pl/",
    "size": 20,
-   "as_of": null,
-   "members": [],
-   "status": "to_fill"
+   "as_of": "2026-10-24",
+   "members": [
+    {
+     "ticker": "ALE.WA",
+     "name": "Allegro.eu S.A."
+    },
+    {
+     "ticker": "ALR.WA",
+     "name": "Alior Bank S.A."
+    },
+    {
+     "ticker": "BDX.WA",
+     "name": "Budimex SA"
+    },
+    {
+     "ticker": "CDR.WA",
+     "name": "CD Projekt S.A."
+    },
+    {
+     "ticker": "DNP.WA",
+     "name": "Dino Polska S.A."
+    },
+    {
+     "ticker": "EBP.WA",
+     "name": "Erste Bank Polska S.A."
+    },
+    {
+     "ticker": "KGH.WA",
+     "name": "KGHM Polska Miedz S.A."
+    },
+    {
+     "ticker": "KRU.WA",
+     "name": "KRUK S.A."
+    },
+    {
+     "ticker": "KTY.WA",
+     "name": "Grupa Kety S.A."
+    },
+    {
+     "ticker": "LPP.WA",
+     "name": "LPP SA"
+    },
+    {
+     "ticker": "MBK.WA",
+     "name": "mBank S.A."
+    },
+    {
+     "ticker": "MDV.WA",
+     "name": "Modivo S.A."
+    },
+    {
+     "ticker": "PCO.WA",
+     "name": "Pepco Group N.V."
+    },
+    {
+     "ticker": "PEO.WA",
+     "name": "Bank Polska Kasa Opieki S.A."
+    },
+    {
+     "ticker": "PGE.WA",
+     "name": "PGE Polska Grupa Energetyczna S.A."
+    },
+    {
+     "ticker": "PKN.WA",
+     "name": "Orlen S.A."
+    },
+    {
+     "ticker": "PKO.WA",
+     "name": "PKO Bank Polski S.A."
+    },
+    {
+     "ticker": "PZU.WA",
+     "name": "Powszechny Zaklad Ubezpieczen SA"
+    },
+    {
+     "ticker": "TPE.WA",
+     "name": "TAURON Polska Energia S.A."
+    },
+    {
+     "ticker": "ZAB.WA",
+     "name": "Zabka Group S.A."
+    }
+   ],
+   "status": "ok",
+   "problems": [
+    "from Investing.com's component list; confirm against GPW Benchmark's portfolio file after the next review"
+   ]
   }
  }
 }

@@ -52,7 +52,7 @@ class TestLookups:
     def test_display_order_starts_with_the_stoxx_indices(self):
         keys = indices.keys()
         assert keys[:2] == ["euro_stoxx_50", "stoxx_europe_50"]
-        assert "wig20" not in keys                      # nothing in it yet
+        assert "wig20" in keys and "omx_baltic_benchmark" in keys   # filled 24 Oct 2026 (EX8)
         rest = [indices.name(k).lower() for k in keys[2:]]
         assert rest == sorted(rest)
 
