@@ -4,9 +4,9 @@
   "euro_stoxx_50": {
    "name": "EURO STOXX 50",
    "owner": "STOXX",
-   "source_url": "https://en.wikipedia.org/wiki/EURO_STOXX_50",
+   "source_url": "https://stoxx.com/stoxx-blue-chip-indices-composition-changes-sep-01-2026/",
    "size": 50,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "ABI.BR",
@@ -101,6 +101,10 @@
      "name": "Enel"
     },
     {
+     "ticker": "ENGI.PA",
+     "name": "Engie"
+    },
+    {
      "ticker": "ENI.MI",
      "name": "Eni"
     },
@@ -143,6 +147,10 @@
     {
      "ticker": "NDA-FI.HE",
      "name": "Nordea"
+    },
+    {
+     "ticker": "NOKIA.HE",
+     "name": "Nokia"
     },
     {
      "ticker": "OR.PA",
@@ -199,14 +207,6 @@
     {
      "ticker": "UCG.MI",
      "name": "UniCredit"
-    },
-    {
-     "ticker": "VOW.DE",
-     "name": "Volkswagen Group"
-    },
-    {
-     "ticker": "WKL.AS",
-     "name": "Wolters Kluwer"
     }
    ],
    "status": "ok",
@@ -219,14 +219,15 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official: STOXX annual review of 1 Sep 2026 (effective 21 Sep): Engie and Nokia in, Wolters Kluwer and Volkswagen pref. out"
   },
   "stoxx_europe_50": {
    "name": "STOXX Europe 50",
    "owner": "STOXX",
-   "source_url": "https://de.wikipedia.org/wiki/STOXX_Europe_50",
+   "source_url": "https://stoxx.com/stoxx-blue-chip-indices-composition-changes-sep-01-2026/",
    "size": 50,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "ABBN.SW",
@@ -259,6 +260,10 @@
     {
      "ticker": "AZN.L",
      "name": "AstraZeneca"
+    },
+    {
+     "ticker": "BARC.L",
+     "name": "Barclays"
     },
     {
      "ticker": "BATS.L",
@@ -361,10 +366,6 @@
      "name": "L’Oréal"
     },
     {
-     "ticker": "PRX.AS",
-     "name": "Prosus"
-    },
-    {
      "ticker": "REL.L",
      "name": "RELX Group"
     },
@@ -439,15 +440,20 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official: STOXX annual review of 1 Sep 2026 (effective 21 Sep): Barclays in, Prosus out"
   },
   "aex": {
    "name": "AEX",
    "owner": "Euronext",
-   "source_url": "https://en.wikipedia.org/wiki/AEX_index",
-   "size": 25,
-   "as_of": "2026-10-17",
+   "source_url": "https://live.euronext.com/sites/default/files/documentation/index-composition/AEX_Index_Composition.pdf",
+   "size": 26,
+   "as_of": "2026-10-24",
    "members": [
+    {
+     "ticker": "AALB.AS",
+     "name": "Aalberts N.V."
+    },
     {
      "ticker": "ABN.AS",
      "name": "ABN AMRO"
@@ -525,12 +531,12 @@
      "name": "Prosus"
     },
     {
-     "ticker": "RAND.AS",
-     "name": "Randstad"
-    },
-    {
      "ticker": "REN.AS",
      "name": "RELX"
+    },
+    {
+     "ticker": "SBMO.AS",
+     "name": "SBM Offshore N.V."
     },
     {
      "ticker": "SHELL.AS",
@@ -550,7 +556,7 @@
     }
    ],
    "status": "ok",
-   "problems": [],
+   "problems": null,
    "review": {
     "months": [
      3,
@@ -559,14 +565,15 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official: Euronext composition sheet of 30 Sep 2026 (top 20); smaller members from Euronext's review releases: Mar 2026 SBM Offshore in, Randstad out; Jun 2026 Aalberts in; Sep 2026 no change"
   },
   "atx": {
    "name": "ATX",
    "owner": "Wiener Börse",
    "source_url": "https://de.wikipedia.org/wiki/Austrian_Traded_Index",
    "size": 20,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "ANDR.VI",
@@ -657,7 +664,8 @@
      9
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "Wiener Börse September 2026 review (effective 21 Sep) as reported: Mayr-Melnhof in, SBO out; official release not read"
   },
   "bel_20": {
    "name": "BEL 20",
@@ -760,12 +768,13 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official: Euronext composition sheet of 30 Sep 2026 (19 of 20; Montea the 20th); no change in the Jun 2026 review"
   },
   "cac_40": {
    "name": "CAC 40",
    "owner": "Euronext",
-   "source_url": "https://en.wikipedia.org/wiki/CAC_40",
+   "source_url": "https://live.euronext.com/sites/default/files/documentation/index-composition/CAC_40_Index_Composition.pdf",
    "size": 40,
    "as_of": "2026-10-17",
    "members": [
@@ -940,7 +949,8 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official: Euronext composition sheet of 30 Sep 2026 (top 25 of 40, all in the list); no change in the Mar, Jun and Sep 2026 reviews"
   },
   "dax": {
    "name": "DAX",
@@ -1120,12 +1130,13 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official: STOXX/Deutsche Börse review of 3 Sep 2026: no DAX changes; next review 3 Dec 2026"
   },
   "ftse_100": {
    "name": "FTSE 100",
    "owner": "FTSE Russell",
-   "source_url": "https://en.wikipedia.org/wiki/FTSE_100_Index",
+   "source_url": "https://www.lseg.com/en/media-centre/press-releases/2026/ftse-uk-index-series-review-september-2026",
    "size": 100,
    "as_of": "2026-10-24",
    "members": [
@@ -1542,7 +1553,8 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official: FTSE Russell / LSEG quarterly review of 2 Sep 2026 (effective 21 Sep): easyJet and Ithaca Energy in, Entain and Persimmon out"
   },
   "ftse_athex_large_cap": {
    "name": "FTSE/Athex Large Cap",
@@ -1668,14 +1680,15 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official: Euronext Athens review tables Nov 2024 - May 2026 applied to the tracking ETF's holdings of 30 Nov 2024"
   },
   "ftse_mib": {
    "name": "FTSE MIB",
    "owner": "FTSE Russell",
-   "source_url": "https://en.wikipedia.org/wiki/FTSE_MIB",
+   "source_url": "https://research.ftserussell.com/products/index-notices/home/getnotice/?id=2621949",
    "size": 40,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "A2A.MI",
@@ -1720,10 +1733,6 @@
     {
      "ticker": "CPR.MI",
      "name": "Campari"
-    },
-    {
-     "ticker": "DIA.MI",
-     "name": "Diasorin"
     },
     {
      "ticker": "ENEL.MI",
@@ -1826,6 +1835,10 @@
      "name": "Telecom Italia"
     },
     {
+     "ticker": "TPRO.MI",
+     "name": "Technoprobe"
+    },
+    {
      "ticker": "TRN.MI",
      "name": "Terna"
     },
@@ -1848,14 +1861,15 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official: FTSE Russell's FTSE MIB quarterly rebalancing notice of 14 Sep 2026 lists all 40 members (Technoprobe in, Diasorin out)"
   },
   "ibex_35": {
    "name": "IBEX 35",
    "owner": "BME",
    "source_url": "https://en.wikipedia.org/wiki/IBEX_35",
    "size": 35,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "ACS.MC",
@@ -2006,13 +2020,14 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "BME's CAT: no changes in Mar and Jun 2026 (Puig the last entry, Jul 2024); the 10 Sep 2026 decision not found"
   },
   "iseq_20": {
    "name": "ISEQ 20",
    "owner": "Euronext",
-   "source_url": "https://en.wikipedia.org/wiki/ISEQ_20",
-   "size": 20,
+   "source_url": "https://live.euronext.com/sites/default/files/documentation/index-composition/ISEQ_20_Index_Composition.pdf",
+   "size": 19,
    "as_of": "2026-10-24",
    "members": [
     {
@@ -2026,10 +2041,6 @@
     {
      "ticker": "C5H.IR",
      "name": "Cairn Homes"
-    },
-    {
-     "ticker": "DQ7A.IR",
-     "name": "Donegal investment group"
     },
     {
      "ticker": "EG7.IR",
@@ -2097,7 +2108,9 @@
     }
    ],
    "status": "ok",
-   "problems": null,
+   "problems": [
+    "the smaller members other than these changes rest on the earlier list"
+   ],
    "review": {
     "months": [
      3,
@@ -2106,7 +2119,8 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official: Euronext composition sheet of 30 Sep 2026 (top 9); review releases: Sep 2025 Donegal Investment out, Dec 2025 Great Western Mining out, Mar 2026 Hammerson in, Jun and Sep 2026 no change"
   },
   "obx": {
    "name": "OBX",
@@ -2226,7 +2240,8 @@
      9
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official review releases (Sep 2025, Mar 2026, Sep 2026) applied to the DNB OBX ETF's holdings of 31 Aug 2026 (Nordnet)"
   },
   "omx_baltic_benchmark": {
    "name": "OMX Baltic Benchmark",
@@ -2320,7 +2335,8 @@
      12
     ],
     "day": "first_weekday"
-   }
+   },
+   "verified": "official: Nasdaq constituent list of 3 Aug 2026"
   },
   "omxc25": {
    "name": "OMX Copenhagen 25",
@@ -2438,7 +2454,8 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official: Nasdaq semi-annual changes of 12 Jun 2026 (effective 22 Jun): Nordea in, Bavarian Nordic out"
   },
   "omxh25": {
    "name": "OMX Helsinki 25",
@@ -2561,14 +2578,15 @@
      8
     ],
     "day": "first_weekday"
-   }
+   },
+   "verified": "third-party: Investing.com list of 24 Oct 2026, consistent with Nasdaq's August 2026 review"
   },
   "omxi15": {
    "name": "OMX Iceland 15",
    "owner": "Nasdaq",
    "source_url": "https://en.wikipedia.org/wiki/OMX_Iceland_15",
    "size": 15,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "ALVO.IC",
@@ -2583,8 +2601,8 @@
      "name": "Arion Bank"
     },
     {
-     "ticker": "EIM.IC",
-     "name": "Eimskipafélag Íslands"
+     "ticker": "BRIM.IC",
+     "name": "Brim hf."
     },
     {
      "ticker": "FESTI.IC",
@@ -2593,10 +2611,6 @@
     {
      "ticker": "HAGA.IC",
      "name": "Hagar"
-    },
-    {
-     "ticker": "HEIMAR.IC",
-     "name": "Heimar"
     },
     {
      "ticker": "ICEAIR.IC",
@@ -2627,6 +2641,10 @@
      "name": "Sjóvá-Almennar Tryggingar"
     },
     {
+     "ticker": "SKAGI.IC",
+     "name": "Skagi hf."
+    },
+    {
      "ticker": "SVN.IC",
      "name": "Síldarvinnslan"
     }
@@ -2639,14 +2657,15 @@
      7
     ],
     "day": "first_weekday"
-   }
+   },
+   "verified": "official: Nasdaq semi-annual changes of 21 May 2026 (effective 1 Jun): Skagi and Brim in, Eimskip and Heimar out"
   },
   "omxs30": {
    "name": "OMX Stockholm 30",
    "owner": "Nasdaq",
    "source_url": "https://en.wikipedia.org/wiki/OMX_Stockholm_30",
    "size": 30,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "ABB.ST",
@@ -2777,12 +2796,13 @@
      7
     ],
     "day": "first_weekday"
-   }
+   },
+   "verified": "official: Nasdaq semi-annual review of 22 May 2026: no changes; last changes July 2025 (Addtech, Epiroc, EQT, Industrivärden, Lifco, Skanska in)"
   },
   "psi": {
    "name": "PSI",
    "owner": "Euronext",
-   "source_url": "https://en.wikipedia.org/wiki/PSI-20",
+   "source_url": "https://live.euronext.com/sites/default/files/documentation/index-composition/PSI_Index_Composition.pdf",
    "size": 17,
    "as_of": "2026-10-24",
    "members": [
@@ -2865,14 +2885,15 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official: Euronext composition sheet of 30 Sep 2026 (14 shown, all in the list); no change in the Mar and Jun 2026 reviews"
   },
   "smi": {
    "name": "SMI",
    "owner": "SIX",
-   "source_url": "https://en.wikipedia.org/wiki/Swiss_Market_Index",
+   "source_url": "https://www.six-group.com/dam/download/market-data/indices/index-messages/index-adjustments-on-the-occasion-of-the-ordinary-index-review-2026.pdf",
    "size": 20,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "ABBN.SW",
@@ -2962,7 +2983,8 @@
      9
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "official: SIX ordinary review of 8 Jul 2026 (effective 21 Sep): Galderma and Sandoz in, Swisscom and Kühne+Nagel out"
   },
   "wig20": {
    "name": "WIG20",
@@ -3064,7 +3086,8 @@
      12
     ],
     "day": "third_friday"
-   }
+   },
+   "verified": "third-party: Investing.com list of 24 Oct 2026; largest weights match GPW Benchmark's factsheet"
   }
  }
 }
