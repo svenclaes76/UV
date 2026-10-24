@@ -1584,7 +1584,7 @@
    ],
    "status": "check",
    "problems": [
-    "only the 12 largest members confirmed against the provider (23 Oct 2026); check the other 13, e.g. ELLAKTOR.AT, against the full list"
+    "the 12 largest confirmed (Euronext Athens, 23 Oct 2026; TradingView's top 10 agree, including Allwyn and Metlen); the other 13 need Euronext Athens' full list"
    ]
   },
   "ftse_mib": {
@@ -2336,10 +2336,6 @@
      "name": "Huhtamäki"
     },
     {
-     "ticker": "KALMAR.HE",
-     "name": "Kalmar B"
-    },
-    {
      "ticker": "KCR.HE",
      "name": "Konecranes"
     },
@@ -2356,8 +2352,8 @@
      "name": "KONE"
     },
     {
-     "ticker": "KOJAMO.HE",
-     "name": "Kojamo"
+     "ticker": "LUMO.HE",
+     "name": "Lumo Kodit Oyj"
     },
     {
      "ticker": "MANTA.HE",
@@ -2420,10 +2416,9 @@
      "name": "Wärtsilä"
     }
    ],
-   "status": "check",
+   "status": "ok",
    "problems": [
-    "Bittium added (August 2026 review); the snapshot now has 26 names, so one of them is no longer a member: confirm against Nasdaq's full list",
-    "Kojamo is a member and still listed, but missing from the Nasdaq Helsinki list we read: it won't be in the universe until that list gap is fixed"
+    "matched to Investing.com's list of 24 Oct 2026 (25 names): Bittium in and SSAB out (August 2026 review), Kalmar out, Kojamo renamed Lumo Kodit (LUMO) in March 2026"
    ]
   },
   "omxi15": {
