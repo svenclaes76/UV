@@ -3491,7 +3491,7 @@ SIGNAL_RECORD_FIELDS = (
     "graham_number", "pe_fair_value", "epv", "ddm", "ddm_multistage",
     "pb_fair_value", "fcf_fair_value", "data_flags", "veto_rules",
     "public_universe", "founder_holds",
-    "signal_computed_at", "model_version", "model_settings_id",
+    "signal_computed_at", "model_version", "model_settings_id", "universe_id",
 )
 
 

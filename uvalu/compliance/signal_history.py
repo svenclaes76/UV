@@ -101,8 +101,31 @@ def _changed_inputs(before: dict, after: dict) -> list[str]:
         if isinstance(a, float) and isinstance(b, float):
             return a == b or (a != a and b != b) or abs(a - b) <= 1e-9 * max(1.0, abs(a), abs(b))
         return a == b
-    return [k for k in _WATCHED_INPUTS if k in before or k in after
-            if not _same(before.get(k), after.get(k))]
+    out = [k for k in _WATCHED_INPUTS if k in before or k in after
+           if not _same(before.get(k), after.get(k))]
+    # EX-35: the peer group itself changed (exchanges or coverage rule), so
+    # the change is not noise. A record logged before the fingerprint existed
+    # counts as another universe.
+    if after.get("universe_id") and before.get("universe_id") != after.get("universe_id"):
+        out.append("universe_change")
+    return out
+
+
+def shift(records: list[dict], path: "Path | None" = None) -> dict[str, bool]:
+    """Whether this build's universe or model differs from the last logged
+    records (empty history: no shift). A shift explains a burst of signal
+    changes, so the data-quality summary doesn't alert on it (EX-35/EX-36)."""
+    path = path or HISTORY_FILE
+    with _lock:
+        prev = _last_records(path)
+    if not prev:
+        return {"universe": False, "model": False}
+    now_u = {r.get("universe_id") for r in records if r.get("universe_id")}
+    now_m = {(r.get("model_version"), r.get("model_settings_id")) for r in records if r.get("model_version")}
+    last_u = {r.get("universe_id") for r in prev.values()}
+    last_m = {(r.get("model_version"), r.get("model_settings_id")) for r in prev.values()}
+    return {"universe": bool(now_u) and not now_u <= last_u,
+            "model": bool(now_m) and not now_m <= last_m}
 
 
 def record_changes(records: list[dict], path: "Path | None" = None) -> int:

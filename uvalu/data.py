@@ -317,11 +317,15 @@ def _build_all_screener_data(enabled: tuple,
                 extra={"event": "index.unmatched",
                        "counts": {k: len(v) for k, v in _index_unmatched.items()}})
 
-    _changes = _record_signals(scored)
+    # EX-35: the universe's fingerprint on every record, so the first build
+    # after a coverage or exchange change marks its changes `universe_change`.
+    if not scored.empty:
+        scored = scored.assign(universe_id=universe.fingerprint(enabled_set))
+    _changes, _shift = _record_signals(scored)
     # A demo process starts with an empty signal history, so its first build
     # logs every signal as new: not a change worth an alert.
     _log_data_quality(_universe_fund, scored, _exchange_ticker_set, _changes,
-                      first_build=_demo and not _prev_signals, exclusions=_exclusions,
+                      first_build=_demo and not _prev_signals, exclusions=_exclusions, shift=_shift,
                       index_unmatched={k: len(v) for k, v in _index_unmatched.items()})
 
     def _subset(stock_list):
@@ -389,7 +393,7 @@ def _demo_sector_multiples():
 
 def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, changes: int,
                       first_build: bool = False, exclusions: "dict | None" = None,
-                      index_unmatched: "dict | None" = None) -> None:
+                      index_unmatched: "dict | None" = None, shift: "dict | None" = None) -> None:
     """Q2: log the build's data-quality summary, and a warning per threshold
     crossed (uvalu/data_quality.py), except on a first build against an empty
     signal history. Never fails a build."""
@@ -398,7 +402,7 @@ def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, cha
         from uvalu import data_quality
         pub_fund = fund[fund["Ticker"].isin(public)] if "Ticker" in fund.columns else fund
         pub_scored = scored[scored["Ticker"].isin(public)] if "Ticker" in scored.columns else scored
-        summary = data_quality.build_summary(pub_fund, pub_scored, changes=changes)
+        summary = data_quality.build_summary(pub_fund, pub_scored, changes=changes, shift=shift)
         summary["excluded"] = exclusions or {}   # EX-8: per exchange, per reason
         summary["index_unmatched"] = index_unmatched or {}   # EX-26
         _log.info("build data quality: %d rows, %d signal changes", summary["rows"], summary["signal_changes"],
@@ -409,18 +413,20 @@ def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, cha
         _log.error("data-quality summary failed", exc_info=True, extra={"event": "data_quality.failed"})
 
 
-def _record_signals(scored: pd.DataFrame) -> int:
+def _record_signals(scored: pd.DataFrame) -> "tuple[int, dict]":
     """REC-7 / REC-11: log signal changes and the day's snapshot of every
     public signal, and the model version the build used. Returns the number
-    of changes logged. Never fails a build: an error is logged and the
-    screens carry on."""
+    of changes logged and signal_history.shift() (a new universe or model).
+    Never fails a build: an error is logged and the screens carry on."""
+    shift = {"universe": False, "model": False}
     if scored is None or scored.empty:
-        return 0
+        return 0, shift
     changes = 0
     try:
         from screener import model_version, signal_records
         from uvalu.compliance import settings_audit, signal_history
         recs = signal_records(scored)
+        shift = signal_history.shift(recs)
         changes = signal_history.record_changes(recs)
         signal_history.write_daily_snapshot(recs)
         _ids = scored["model_settings_id"].dropna().unique() if "model_settings_id" in scored.columns else []
@@ -429,7 +435,7 @@ def _record_signals(scored: pd.DataFrame) -> int:
     except Exception:
         logkit.get_logger("uvalu.data").error("signal log write failed", exc_info=True,
                                               extra={"event": "compliance.signal_log_failed"})
-    return changes
+    return changes, shift
 
 
 # ScoreReference of the last scored universe per get_scored_universe key

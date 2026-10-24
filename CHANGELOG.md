@@ -23,6 +23,18 @@ of that month); earlier releases used SemVer. Rules in
 
 ### Added
 
+- Signal history and data quality for the new universe (EX-W11, EX-35,
+  EX-36, D37): every signal record carries `universe_id`
+  (`universe.fingerprint`: coverage rule + enabled exchanges); a change
+  logged against a record from another universe gets `universe_change` in
+  `changed_inputs`, so the switch build isn't counted as flicker.
+  `signal_history.shift()` tells the data-quality summary when a build has
+  a new universe or model; its signal-change alert is then not raised (the
+  numbers stay in the summary). The summary gains `by_exchange` (rows,
+  Undervalued, median P/E) with an alert when an exchange's Undervalued
+  share is above 3x the universe's with at least 5 such stocks. The
+  missing-data thresholds hold for the 21-exchange shadow universe (beta,
+  the worst field, 9.5% missing against a 25% limit), so they stay.
 - Index filter (EX-W10, EX-24 to EX-28): an Index dropdown after Market
   on the Screener, listing only indices with a member in the universe
   (EURO STOXX 50, STOXX Europe 50, then the national indices), with the

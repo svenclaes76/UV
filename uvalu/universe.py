@@ -100,6 +100,19 @@ _LEGAL_FORMS = {
 }
 
 
+# EX-35: what the public universe is made of, for the signal history: the
+# coverage rule and the enabled exchanges. A build whose fingerprint differs
+# from the last logged one marks its signal changes as `universe_change`.
+COVERAGE_RULE = "primary-listing-1"   # EX-W4; bump when the coverage rule changes
+
+
+def fingerprint(enabled_keys) -> str:
+    """Short stable id of the coverage rule and the enabled exchanges."""
+    import hashlib
+    payload = COVERAGE_RULE + "|" + ",".join(sorted(str(k) for k in enabled_keys))
+    return hashlib.sha256(payload.encode()).hexdigest()[:12]
+
+
 def exchange_country(ticker: str) -> str | None:
     """The country of the ticker's exchange if that exchange is covered, or
     None (a planned exchange isn't part of the public universe yet)."""
