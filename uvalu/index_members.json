@@ -2003,85 +2003,85 @@
   "obx": {
    "name": "OBX",
    "owner": "Euronext",
-   "source_url": "https://en.wikipedia.org/wiki/OBX_Index",
+   "source_url": "https://www.nordnet.no/etf/liste/dnb-obx-dnbnor-obxo-esto",
    "size": 25,
    "as_of": "2026-10-24",
    "members": [
     {
+     "ticker": "AKER.OL",
+     "name": "Aker ASA"
+    },
+    {
      "ticker": "AKRBP.OL",
-     "name": "Aker BP"
+     "name": "Aker BP ASA"
+    },
+    {
+     "ticker": "BNOR.OL",
+     "name": "BlueNord ASA"
     },
     {
      "ticker": "BWLPG.OL",
-     "name": "BW LPG"
+     "name": "BW LPG Limited"
     },
     {
      "ticker": "DNB.OL",
-     "name": "DNB Bank"
+     "name": "DNB Bank ASA"
     },
     {
      "ticker": "EQNR.OL",
-     "name": "Equinor"
+     "name": "Equinor ASA"
     },
     {
      "ticker": "FRO.OL",
-     "name": "Frontline"
+     "name": "Frontline plc"
     },
     {
      "ticker": "GJF.OL",
-     "name": "Gjensidige Forsikring"
-    },
-    {
-     "ticker": "HAFNI.OL",
-     "name": "Hafnia Limited"
+     "name": "Gjensidige Forsikring ASA"
     },
     {
      "ticker": "HAUTO.OL",
      "name": "Höegh Autoliners ASA"
     },
     {
+     "ticker": "KMAR.OL",
+     "name": "Kongsberg Maritime ASA"
+    },
+    {
      "ticker": "KOG.OL",
-     "name": "Kongsberg Gruppen"
+     "name": "Kongsberg Gruppen ASA"
     },
     {
      "ticker": "MOWI.OL",
-     "name": "Mowi"
-    },
-    {
-     "ticker": "MPCC.OL",
-     "name": "MPC Container Ships"
-    },
-    {
-     "ticker": "NAS.OL",
-     "name": "Norwegian Air Shuttle"
+     "name": "Mowi ASA"
     },
     {
      "ticker": "NHY.OL",
-     "name": "Norsk Hydro"
+     "name": "Norsk Hydro ASA"
     },
     {
      "ticker": "NOD.OL",
-     "name": "Nordic Semiconductor"
+     "name": "Nordic Semiconductor ASA"
     },
     {
      "ticker": "ORK.OL",
-     "name": "Orkla"
+     "name": "Orkla ASA"
     },
     {
      "ticker": "SALM.OL",
-     "name": "SalMar"
+     "name": "SalMar ASA"
     },
     {
      "ticker": "STB.OL",
-     "name": "Storebrand"
+     "name": "Storebrand ASA"
     },
     {
      "ticker": "SUBC.OL",
-     "name": "Subsea 7"
+     "name": "Subsea 7 S.A."
     },
     {
      "ticker": "TEL.OL",
-     "name": "Telenor"
+     "name": "Telenor ASA"
     },
     {
      "ticker": "TGS.OL",
@@ -2089,25 +2089,25 @@
     },
     {
      "ticker": "TOM.OL",
-     "name": "Tomra Systems"
+     "name": "Tomra Systems ASA"
     },
     {
      "ticker": "VAR.OL",
      "name": "Vår Energi ASA"
     },
     {
-     "ticker": "WAWI.OL",
-     "name": "Wallenius Wilhelmsen"
+     "ticker": "VEND.OL",
+     "name": "Vend Marketplaces ASA"
     },
     {
      "ticker": "YAR.OL",
-     "name": "Yara International"
+     "name": "Yara International ASA"
     }
    ],
    "status": "check",
    "problems": [
-    "Golden Ocean removed (merged into CMB.Tech, Aug 2025)",
-    "four semi-annual reviews since the source list (Sep 2024); Mar 2026: Protector Forsikring in, MPC Container Ships out; Sep 2026: Aker, BlueNord, TGS, Bakkafrost, DOF Group, Protector Forsikring, Wallenius Wilhelmsen changed (in/out split not readable in Euronext's release). Needs Euronext Oslo's full list"
+    "24 of 25 members: the DNB OBX ETF's holdings of 31 Aug 2026 (Nordnet) with Euronext's September 2026 review applied (Aker, BlueNord, TGS in; Bakkafrost, DOF Group, Protector Forsikring, Wallenius Wilhelmsen out)",
+    "the 25th is not known: Hafnia or Norwegian Air Shuttle (both members in Sept 2024); check against Euronext Oslo's list"
    ]
   },
   "omx_baltic_benchmark": {
