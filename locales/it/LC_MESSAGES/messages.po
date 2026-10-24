@@ -6921,13 +6921,10 @@ msgid "Which signals lead the composite score — Value tilts to margin of safet
 msgstr "Quali segnali guidano il punteggio composito: Valore privilegia margine di sicurezza e qualità, Crescita il momentum, Reddito i dividendi."
 
 #: uvalu/pages_/settings.py:1069
-#, fuzzy
-#| msgid "Model summary"
 msgid "Model M5 parts"
 msgstr "Componenti del modello M5"
 
 #: uvalu/pages_/settings.py:1071
-#, fuzzy
 msgid ""
 "Switch a part off to go back to model M4 for it. Signals are recalculated and "
 "the change is logged."
@@ -6936,13 +6933,11 @@ msgstr ""
 "vengono ricalcolati e la modifica viene registrata."
 
 #: uvalu/pages_/settings.py:1074
-#, fuzzy
 msgid "Risk-free rate per currency"
 msgstr "Tasso privo di rischio per valuta"
 
 #: uvalu/pages_/settings.py:1075
-#, fuzzy, no-python-format
-#| msgid "there is no government bond yield for the share's currency yet"
+#, no-python-format
 msgid ""
 "The 10-year government bond yield of each share's currency, instead of 3% for "
 "all."
@@ -6951,37 +6946,29 @@ msgstr ""
 "del 3% per tutte."
 
 #: uvalu/pages_/settings.py:1076
-#, fuzzy
-#| msgid "Earnings power value (EPV)"
 msgid "Tax floor in earnings power value"
 msgstr "Soglia minima d'imposta nel valore della capacità di utile"
 
 #: uvalu/pages_/settings.py:1077
-#, fuzzy, no-python-format
+#, no-python-format
 msgid "Companies registered where tax is below 5% are valued at the 25% default rate."
 msgstr ""
 "Le società con sede dove l'imposta è inferiore al 5% sono valutate con "
 "l'aliquota predefinita del 25%."
 
 #: uvalu/pages_/settings.py:1078
-#, fuzzy
-#| msgid "Amount in euro."
 msgid "Liquidity in euro"
 msgstr "Liquidità in euro"
 
 #: uvalu/pages_/settings.py:1079
-#, fuzzy
 msgid "Trading liquidity measured as value traded in euro, not as number of shares."
 msgstr "La liquidità è misurata come valore scambiato in euro, non come numero di azioni."
 
 #: uvalu/pages_/settings.py:1080
-#, fuzzy
-#| msgid "Per share ({currency})"
 msgid "Per-share figures by currency"
 msgstr "Dati per azione secondo la valuta"
 
 #: uvalu/pages_/settings.py:1081
-#, fuzzy
 msgid ""
 "Earnings and book value per share are converted only when they are in the "
 "reporting currency."
