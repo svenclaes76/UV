@@ -76,6 +76,9 @@ GOLDEN_SAMPLE = (
 MIN_FAIR_VALUE = 0.60          # D36
 MAX_CURRENCY_UNVERIFIED = 0.05
 MAX_UNDERVALUED_RATIO = 3.0
+# Decided 24 October 2026: the 3x test needs at least this many Undervalued
+# stocks, so one stock on a 20-line exchange (Dublin) can't fail it.
+MIN_UNDERVALUED_FOR_RATIO = 5
 # V7: Yahoo's own trailingPE divides a GBP price by a USD EPS for some London
 # lines (Shell), so the reference is the price over the latest annual net income
 # per share, both in the quote currency. Trailing EPS against the last full
@@ -146,7 +149,8 @@ def go_no_go(stats: dict[str, dict], universe_undervalued: float,
             fails.append(f"fair value for {s['fair_value']:.0%} (< {MIN_FAIR_VALUE:.0%})")
         if s["currency_unverified"] >= MAX_CURRENCY_UNVERIFIED:
             fails.append(f"currency_unverified {s['currency_unverified']:.0%} (>= {MAX_CURRENCY_UNVERIFIED:.0%})")
-        if universe_undervalued > 0 and s["undervalued"] > MAX_UNDERVALUED_RATIO * universe_undervalued:
+        if (universe_undervalued > 0 and s["undervalued"] > MAX_UNDERVALUED_RATIO * universe_undervalued
+                and s.get("signals", {}).get("undervalued", 0) >= MIN_UNDERVALUED_FOR_RATIO):
             fails.append(f"Undervalued {s['undervalued']:.1%} > {MAX_UNDERVALUED_RATIO:g}x universe "
                          f"{universe_undervalued:.1%}")
         if key == "london" and golden_ok is not True:
@@ -212,11 +216,13 @@ def peer_group_effect(full: pd.DataFrame, six: pd.DataFrame) -> dict:
             "moves": {f"{x} -> {y}": n for (x, y), n in moves.most_common()}}
 
 
-def regional_tilt(pooled: dict[str, float], regional: dict[str, float]) -> dict:
+def regional_tilt(pooled: dict[str, float], regional: dict[str, float],
+                  counts: "dict[str, int] | None" = None) -> dict:
     """D37: Undervalued share per exchange, pooled vs regional medians, and
     the exchanges above 3x the average under pooled medians."""
     avg = sum(pooled.values()) / len(pooled) if pooled else 0.0
-    flagged = sorted(k for k, v in pooled.items() if avg > 0 and v > MAX_UNDERVALUED_RATIO * avg)
+    flagged = sorted(k for k, v in pooled.items() if avg > 0 and v > MAX_UNDERVALUED_RATIO * avg
+                     and (counts is None or counts.get(k, 0) >= MIN_UNDERVALUED_FOR_RATIO))
     return {"average": round(avg, 4), "flagged": flagged,
             "by_exchange": {k: {"pooled": round(pooled[k], 4), "regional": round(regional.get(k, 0.0), 4)}
                             for k in sorted(pooled)}}
@@ -410,7 +416,8 @@ def run(shadow_dir: Path = SHADOW_DIR, app_cache: Path = APP_CACHE, fetch: bool 
         "golden": golden,
         "peer_group": peer_group_effect(full, six),
         "regional": regional_tilt({k: s["undervalued"] for k, s in stats.items() if s["in_universe"]},
-                                  regional_scores),
+                                  regional_scores,
+                                  {k: s["signals"].get("undervalued", 0) for k, s in stats.items()}),
         "changes": signal_changes(today_signals, previous),
         "previous_day": prev_files[-1].stem if prev_files else None,
         "switches": choice.switches,

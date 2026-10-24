@@ -31,7 +31,7 @@ def test_exchange_stats_and_go_no_go():
     assert stats["paris"]["excluded"] == {"dormant": 1} and stats["paris"]["median_pe"] == 13.0
     assert stats["stockholm"]["currency_unverified"] == 0.5
     go = sb.go_no_go(stats, universe_undervalued=0.1)
-    assert go["paris"]["go"] is False            # 50% Undervalued > 3 x 10%
+    assert go["paris"]["go"] is True             # 50% > 3 x 10%, but only 1 Undervalued stock (< 5)
     assert any("fair value" in f for f in go["stockholm"]["fails"])
     assert any("currency_unverified" in f for f in go["stockholm"]["fails"])
 
@@ -99,3 +99,13 @@ def test_markdown_and_summary(tmp_path):
     (tmp_path / "reports").mkdir()
     (tmp_path / "reports" / "2026-10-24.json").write_text(json.dumps(report))
     assert "| paris | 50.0% · 1 | yes |" in sb.summary(tmp_path)
+
+
+def test_the_3x_rule_needs_five_undervalued_stocks():
+    one = {"dublin": {"in_universe": 20, "fair_value": 1.0, "currency_unverified": 0.0,
+                      "undervalued": 0.05, "signals": {"undervalued": 1}}}
+    assert sb.go_no_go(one, 0.014)["dublin"]["go"] is True
+    five = {"brussels": {"in_universe": 100, "fair_value": 1.0, "currency_unverified": 0.0,
+                         "undervalued": 0.05, "signals": {"undervalued": 5}}}
+    assert sb.go_no_go(five, 0.014)["brussels"]["go"] is False
+    assert sb.regional_tilt({"a": 0.01, "b": 0.01, "c": 0.2}, {}, {"c": 1})["flagged"] == []
