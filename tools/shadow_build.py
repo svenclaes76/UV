@@ -370,6 +370,11 @@ def run(shadow_dir: Path = SHADOW_DIR, app_cache: Path = APP_CACHE, fetch: bool 
     cols = [c for c in ("country", "averageVolume", "traded_value_eur", "sharesOutstanding",
                         "quoteType", "Name") if c in fund.columns]
     info = {t: dict(zip(cols, vals)) for t, *vals in zip(fund["Ticker"], *(fund[c] for c in cols))}
+    from uvalu import indices
+    for t, country in indices.home_country_hints().items():   # as the app's build does
+        row = info.get(t)
+        if row is not None and not (isinstance(row.get("country"), str) and row["country"].strip()):
+            row["country"] = country
     choice = universe.choose_primary_lines(candidates, info,
                                            enabled_suffixes={e.suffix for e in exchanges.KNOWN_BY_KEY.values()},
                                            today=today)

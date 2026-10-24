@@ -307,15 +307,26 @@ def _build_all_screener_data(enabled: tuple,
     # filter and the drawer's tags read this column); members that match no
     # row are logged, so a stale snapshot shows up.
     _index_unmatched: dict = {}
+    _hidden: dict = {}
     if not scored.empty and "Ticker" in scored.columns:
         from uvalu import indices
-        _idx_map, _index_unmatched = indices.match_universe(set(scored["Ticker"]))
-        scored = scored.assign(indices=[_idx_map.get(t, []) for t in scored["Ticker"]])
-        if _index_unmatched and not _demo:
+        from uvalu import exchanges as _exchanges
+        _names = {s["ticker"]: s.get("name") for stocks in stock_lists.values() for s in stocks}
+        _names.update({t: n for t, n in zip(scored["Ticker"], scored.get("Name", [None] * len(scored)))
+                       if t not in _names and isinstance(n, str)})
+        _match = indices.match_universe(
+            set(scored["Ticker"]), names=_names,
+            enabled_suffixes={e.suffix for e in _exchanges.KNOWN_BY_SUFFIX.values() if e.key in enabled_set})
+        _index_unmatched = _match.unmatched
+        scored = scored.assign(indices=[_match.by_ticker.get(t, []) for t in scored["Ticker"]])
+        _hidden = {k: c.reason for k, c in _match.checks.items() if not c.visible and c.expected}
+        if not _demo and (_index_unmatched or _hidden):
             logkit.get_logger("uvalu.data").info(
-                "index members without a row: %d", sum(map(len, _index_unmatched.values())),
+                "index members without a row: %d; indices hidden: %d",
+                sum(map(len, _index_unmatched.values())), len(_hidden),
                 extra={"event": "index.unmatched",
-                       "counts": {k: len(v) for k, v in _index_unmatched.items()}})
+                       "counts": {k: len(v) for k, v in _index_unmatched.items()},
+                       "hidden": _hidden})
 
     # EX-35: the universe's fingerprint on every record, so the first build
     # after a coverage or exchange change marks its changes `universe_change`.
@@ -326,7 +337,8 @@ def _build_all_screener_data(enabled: tuple,
     # logs every signal as new: not a change worth an alert.
     _log_data_quality(_universe_fund, scored, _exchange_ticker_set, _changes,
                       first_build=_demo and not _prev_signals, exclusions=_exclusions, shift=_shift,
-                      index_unmatched={k: len(v) for k, v in _index_unmatched.items()})
+                      index_unmatched={k: len(v) for k, v in _index_unmatched.items()},
+                      index_hidden=_hidden)
 
     def _subset(stock_list):
         if scored.empty or "Ticker" not in scored.columns:
@@ -357,6 +369,13 @@ def _choose_primary_lines(stock_lists: dict[str, list[dict]], all_fund: pd.DataF
     cols = [c for c in ("country", "averageVolume", "traded_value_eur", "sharesOutstanding",
                         "quoteType", "Name") if c in fund.columns]
     info = {t: dict(zip(cols, vals)) for t, *vals in zip(fund["Ticker"], *(fund[c] for c in cols))}
+    # A national index member without a country from the provider takes its
+    # exchange's country (indices.home_country_hints): Michelin, Linde.
+    from uvalu import indices
+    for t, country in indices.home_country_hints().items():
+        row = info.get(t)
+        if row is not None and not (isinstance(row.get("country"), str) and row["country"].strip()):
+            row["country"] = country
     stocks = [s for key in stock_lists for s in stock_lists[key]]
     suffixes = {e.suffix for e in exchanges.EXCHANGES if e.key in enabled_set}
     choice = universe.choose_primary_lines(stocks, info, enabled_suffixes=suffixes)
@@ -393,7 +412,8 @@ def _demo_sector_multiples():
 
 def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, changes: int,
                       first_build: bool = False, exclusions: "dict | None" = None,
-                      index_unmatched: "dict | None" = None, shift: "dict | None" = None) -> None:
+                      index_unmatched: "dict | None" = None, shift: "dict | None" = None,
+                      index_hidden: "dict | None" = None) -> None:
     """Q2: log the build's data-quality summary, and a warning per threshold
     crossed (uvalu/data_quality.py), except on a first build against an empty
     signal history. Never fails a build."""
@@ -405,6 +425,7 @@ def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, cha
         summary = data_quality.build_summary(pub_fund, pub_scored, changes=changes, shift=shift)
         summary["excluded"] = exclusions or {}   # EX-8: per exchange, per reason
         summary["index_unmatched"] = index_unmatched or {}   # EX-26
+        summary["index_hidden"] = index_hidden or {}         # quality gate: index -> reason
         _log.info("build data quality: %d rows, %d signal changes", summary["rows"], summary["signal_changes"],
                   extra={"event": "data_quality.summary", "first_build": first_build, **summary})
         for text in ([] if first_build else data_quality.alerts(summary)):

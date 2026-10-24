@@ -1,5 +1,5 @@
 {
- "_note": "Index members as published, refreshed by hand after each quarterly review with tools/refresh_index_members.py. Today's members only: not point-in-time, so never use this for a backtest or a performance claim (it would be survivorship-biased; model review M9). Index names are trademarks of their owners.",
+ "_note": "Index members as published, refreshed by hand after each quarterly review with tools/refresh_index_members.py. Today's members only: not point-in-time, so never use this for a backtest or a performance claim (it would be survivorship-biased; model review M9). Index names are trademarks of their owners. Each index has its provider's review calendar (\"review\"); an index whose members were checked before its latest review (plus 30 days) is stale and hidden, and so is one whose members match the universe poorly (uvalu/indices.py). Members are matched by company: ticker, other lines of the company, then name or an \"aka\" name.",
  "indices": {
   "euro_stoxx_50": {
    "name": "EURO STOXX 50",
@@ -210,7 +210,16 @@
     }
    ],
    "status": "ok",
-   "problems": []
+   "problems": [],
+   "review": {
+    "months": [
+     3,
+     6,
+     9,
+     12
+    ],
+    "day": "third_friday"
+   }
   },
   "stoxx_europe_50": {
    "name": "STOXX Europe 50",
@@ -421,7 +430,16 @@
     }
    ],
    "status": "ok",
-   "problems": []
+   "problems": [],
+   "review": {
+    "months": [
+     3,
+     6,
+     9,
+     12
+    ],
+    "day": "third_friday"
+   }
   },
   "aex": {
    "name": "AEX",
@@ -532,7 +550,16 @@
     }
    ],
    "status": "ok",
-   "problems": []
+   "problems": [],
+   "review": {
+    "months": [
+     3,
+     6,
+     9,
+     12
+    ],
+    "day": "third_friday"
+   }
   },
   "atx": {
    "name": "ATX",
@@ -623,7 +650,14 @@
     }
    ],
    "status": "ok",
-   "problems": []
+   "problems": [],
+   "review": {
+    "months": [
+     3,
+     9
+    ],
+    "day": "third_friday"
+   }
   },
   "bel_20": {
    "name": "BEL 20",
@@ -717,7 +751,16 @@
    "problems": [
     "Aperam (member since 23 Mar 2026) listed as APAM.AS: its Brussels line is missing from the exchange list we read",
     "Montea is the 20th member, not shown in Euronext's public view"
-   ]
+   ],
+   "review": {
+    "months": [
+     3,
+     6,
+     9,
+     12
+    ],
+    "day": "third_friday"
+   }
   },
   "cac_40": {
    "name": "CAC 40",
@@ -888,7 +931,16 @@
     }
    ],
    "status": "ok",
-   "problems": []
+   "problems": [],
+   "review": {
+    "months": [
+     3,
+     6,
+     9,
+     12
+    ],
+    "day": "third_friday"
+   }
   },
   "dax": {
    "name": "DAX",
@@ -1059,7 +1111,16 @@
     }
    ],
    "status": "ok",
-   "problems": null
+   "problems": null,
+   "review": {
+    "months": [
+     3,
+     6,
+     9,
+     12
+    ],
+    "day": "third_friday"
+   }
   },
   "ftse_100": {
    "name": "FTSE 100",
@@ -1472,7 +1533,16 @@
    "status": "ok",
    "problems": [
     "four investment trusts (ALW, FCIT, PCT, SMT) are members but not in the universe (D5); kept for completeness"
-   ]
+   ],
+   "review": {
+    "months": [
+     3,
+     6,
+     9,
+     12
+    ],
+    "day": "third_friday"
+   }
   },
   "ftse_athex_large_cap": {
    "name": "FTSE/Athex Large Cap",
@@ -1491,7 +1561,10 @@
     },
     {
      "ticker": "ALWN.AT",
-     "name": "Allwyn AG"
+     "name": "Allwyn AG",
+     "aka": [
+      "OPAP"
+     ]
     },
     {
      "ticker": "BELA.AT",
@@ -1551,7 +1624,10 @@
     },
     {
      "ticker": "MTLN.AT",
-     "name": "Metlen Energy & Metals PLC"
+     "name": "Metlen Energy & Metals PLC",
+     "aka": [
+      "Mytilineos"
+     ]
     },
     {
      "ticker": "OTOEL.AT",
@@ -1585,7 +1661,14 @@
    "status": "check",
    "problems": [
     "the 12 largest confirmed (Euronext Athens, 23 Oct 2026; TradingView's top 10 agree, including Allwyn and Metlen); the other 13 need Euronext Athens' full list"
-   ]
+   ],
+   "review": {
+    "months": [
+     6,
+     12
+    ],
+    "day": "third_friday"
+   }
   },
   "ftse_mib": {
    "name": "FTSE MIB",
@@ -1756,7 +1839,16 @@
     }
    ],
    "status": "ok",
-   "problems": []
+   "problems": [],
+   "review": {
+    "months": [
+     3,
+     6,
+     9,
+     12
+    ],
+    "day": "third_friday"
+   }
   },
   "ibex_35": {
    "name": "IBEX 35",
@@ -1907,7 +1999,14 @@
     }
    ],
    "status": "ok",
-   "problems": []
+   "problems": [],
+   "review": {
+    "months": [
+     6,
+     12
+    ],
+    "day": "third_friday"
+   }
   },
   "iseq_20": {
    "name": "ISEQ 20",
@@ -1998,7 +2097,16 @@
     }
    ],
    "status": "ok",
-   "problems": null
+   "problems": null,
+   "review": {
+    "months": [
+     3,
+     6,
+     9,
+     12
+    ],
+    "day": "third_friday"
+   }
   },
   "obx": {
    "name": "OBX",
@@ -2108,7 +2216,14 @@
    "problems": [
     "24 of 25 members: the DNB OBX ETF's holdings of 31 Aug 2026 (Nordnet) with Euronext's September 2026 review applied (Aker, BlueNord, TGS in; Bakkafrost, DOF Group, Protector Forsikring, Wallenius Wilhelmsen out)",
     "the 25th is not known: Hafnia or Norwegian Air Shuttle (both members in Sept 2024); check against Euronext Oslo's list"
-   ]
+   ],
+   "review": {
+    "months": [
+     3,
+     9
+    ],
+    "day": "third_friday"
+   }
   },
   "omx_baltic_benchmark": {
    "name": "OMX Baltic Benchmark",
@@ -2195,7 +2310,14 @@
     }
    ],
    "status": "ok",
-   "problems": null
+   "problems": null,
+   "review": {
+    "months": [
+     6,
+     12
+    ],
+    "day": "first_weekday"
+   }
   },
   "omxc25": {
    "name": "OMX Copenhagen 25",
@@ -2306,7 +2428,14 @@
     }
    ],
    "status": "ok",
-   "problems": null
+   "problems": null,
+   "review": {
+    "months": [
+     6,
+     12
+    ],
+    "day": "third_friday"
+   }
   },
   "omxh25": {
    "name": "OMX Helsinki 25",
@@ -2353,7 +2482,10 @@
     },
     {
      "ticker": "LUMO.HE",
-     "name": "Lumo Kodit Oyj"
+     "name": "Lumo Kodit Oyj",
+     "aka": [
+      "Kojamo"
+     ]
     },
     {
      "ticker": "MANTA.HE",
@@ -2419,7 +2551,14 @@
    "status": "ok",
    "problems": [
     "matched to Investing.com's list of 24 Oct 2026 (25 names): Bittium in and SSAB out (August 2026 review), Kalmar out, Kojamo renamed Lumo Kodit (LUMO) in March 2026"
-   ]
+   ],
+   "review": {
+    "months": [
+     2,
+     8
+    ],
+    "day": "first_weekday"
+   }
   },
   "omxi15": {
    "name": "OMX Iceland 15",
@@ -2490,7 +2629,14 @@
     }
    ],
    "status": "ok",
-   "problems": []
+   "problems": [],
+   "review": {
+    "months": [
+     1,
+     7
+    ],
+    "day": "first_weekday"
+   }
   },
   "omxs30": {
    "name": "OMX Stockholm 30",
@@ -2621,7 +2767,14 @@
     }
    ],
    "status": "ok",
-   "problems": []
+   "problems": [],
+   "review": {
+    "months": [
+     1,
+     7
+    ],
+    "day": "first_weekday"
+   }
   },
   "psi": {
    "name": "PSI",
@@ -2700,7 +2853,16 @@
     }
    ],
    "status": "ok",
-   "problems": null
+   "problems": null,
+   "review": {
+    "months": [
+     3,
+     6,
+     9,
+     12
+    ],
+    "day": "third_friday"
+   }
   },
   "smi": {
    "name": "SMI",
@@ -2791,7 +2953,13 @@
     }
    ],
    "status": "ok",
-   "problems": []
+   "problems": [],
+   "review": {
+    "months": [
+     9
+    ],
+    "day": "third_friday"
+   }
   },
   "wig20": {
    "name": "WIG20",
@@ -2884,7 +3052,16 @@
    "status": "ok",
    "problems": [
     "from Investing.com's component list; confirm against GPW Benchmark's portfolio file after the next review"
-   ]
+   ],
+   "review": {
+    "months": [
+     3,
+     6,
+     9,
+     12
+    ],
+    "day": "third_friday"
+   }
   }
  }
 }

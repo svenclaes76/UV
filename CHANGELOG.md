@@ -49,6 +49,19 @@ of that month); earlier releases used SemVer. Rules in
   for ISEQ 20 (RYA.IR), OMX Copenhagen 25 (NDA-DK.CO), PSI and the
   FTSE/Athex Large Cap (Metlen, Allwyn, Bank of Cyprus in, Terna Energy
   out); Golden Ocean out of the OBX. Four indices stay marked "check".
+- Self-checking index membership (decided 24 Oct 2026): members are
+  matched by company (ticker, the company's other lines, then name or an
+  "aka" name for renames); each index carries its provider's review
+  calendar (`review` in the snapshot) and is stale 30 days after a review
+  it hasn't been checked against; at every build an index is shown and
+  tagged only when it is fresh and at least 90% of its members on enabled
+  exchanges match (`indices.match_universe` returns per-index checks).
+  Hidden indices and their reasons are logged (`index.unmatched`) and in
+  the data-quality summary (`index_hidden`). National indices appear only
+  once their own exchange is enabled. A national index member without a
+  country from the provider takes its exchange's country
+  (`indices.home_country_hints`), so Michelin and Linde are no longer left
+  out as country_unknown.
 - Index filter (EX-W10, EX-24 to EX-28): an Index dropdown after Market
   on the Screener, listing only indices with a member in the universe
   (EURO STOXX 50, STOXX Europe 50, then the national indices), with the
