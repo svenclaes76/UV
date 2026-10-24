@@ -1043,8 +1043,6 @@ msgid "the company's figures couldn't be converted to the share's currency"
 msgstr "die Zahlen des Unternehmens konnten nicht in die Währung der Aktie umgerechnet werden"
 
 #: screener.py:2278
-#, fuzzy
-#| msgid "the company's figures couldn't be converted to the share's currency"
 msgid "there is no government bond yield for the share's currency yet"
 msgstr "für die Währung der Aktie gibt es noch keine Rendite von Staatsanleihen"
 
@@ -2135,13 +2133,12 @@ msgstr "Richtlinie zu Interessenkonflikten →"
 #. drawer and Analysis › after the index tags: {n} more indices; the tooltip lists
 #. them.
 #: uvalu/components.py:357
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "+{n} more"
 msgstr "+{n} weitere"
 
 #. drawer and Analysis › accessible name of the row of index tags.
 #: uvalu/components.py:361
-#, fuzzy
 msgid "Index membership"
 msgstr "Indexzugehörigkeit"
 
@@ -6066,7 +6063,6 @@ msgstr "Alle Märkte"
 #. Screener › Index filter, first option: no index selected. Index names themselves
 #. are never translated.
 #: uvalu/pages_/screener.py:36
-#, fuzzy
 msgid "All indices"
 msgstr "Alle Indizes"
 
@@ -6114,14 +6110,12 @@ msgid "Market"
 msgstr "Markt"
 
 #: uvalu/pages_/screener.py:309 uvalu/pages_/screener.py:311
-#, fuzzy
-#| msgid "Next"
 msgid "Index"
 msgstr "Index"
 
 #. Screener › Index filter tooltip. {date} is the date of the index-member snapshot.
 #: uvalu/pages_/screener.py:315
-#, fuzzy, python-brace-format
+#, python-brace-format
 msgid "Index members as of {date}. Updated each quarter."
 msgstr "Indexzusammensetzung zum {date}. Vierteljährlich aktualisiert."
 
@@ -6838,7 +6832,6 @@ msgid "Cost of equity"
 msgstr "Eigenkapitalkosten"
 
 #: uvalu/pages_/settings.py:994
-#, fuzzy
 msgid ""
 "10-year government bond yield of the share's currency (shown: euro, Germany) "
 "plus beta times equity risk premium."
