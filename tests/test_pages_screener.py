@@ -348,3 +348,16 @@ def test_no_signal_chip_filters_to_pending_rows(isolated_data, monkeypatch):
     assert not at.exception, [str(e.value) for e in at.exception]
     html = "".join(m.value for m in at.markdown)
     assert "PEND.BR" in html and "AAA.BR" not in html
+
+
+def test_index_filter_keeps_members_only(isolated_data, monkeypatch):
+    # EX-24: the Index filter after Market; only indices with members are listed.
+    df = make_scored_df([make_scored_row(Ticker="AIR.PA", Name="Airbus SE", indices=["euro_stoxx_50", "cac_40"]),
+                         make_scored_row(Ticker="BBB.BR", Name="Beta NV", indices=[])])
+    at = _run(monkeypatch, screener_tuple=make_screener_data_tuple(exchange_df=df))
+    sel = at.selectbox(key="scr_index")
+    assert sel.options[0] == "All indices" and "EURO STOXX 50" in sel.options and "DAX" not in sel.options
+    sel.set_value("euro_stoxx_50").run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    html = "".join(m.value for m in at.markdown)
+    assert "AIR.PA" in html and "BBB.BR" not in html

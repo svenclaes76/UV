@@ -24,7 +24,7 @@ from portfolio import eur_per_unit, load_watchlist, load_portfolio
 from screener import signal_reason
 from settings import get_veto_thresholds
 from uvalu import nav as nav_registry
-from uvalu.components import (_esc, fmt_mos_pct, model_signal_badge_html, mos_text_color, signal_provenance_html, founder_notice_html,
+from uvalu.components import (_esc, index_tags_html, fmt_mos_pct, model_signal_badge_html, mos_text_color, signal_provenance_html, founder_notice_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
                               veto_reason_str, is_hard_veto, header_width_px)
@@ -212,6 +212,7 @@ def open_drawer(row: "pd.Series") -> None:
             st.rerun()
     st.markdown(f'<div style="padding-bottom:16px;border-bottom:0.5px solid var(--line);">'
                f'<span style="font-size:13px;color:var(--muted);">{_html.escape(display_name(row.get("Name"), _share_class(row)) or "—")} · {_fv(row, "sector", tr)}</span>'
+               f'{index_tags_html(row.get("indices"))}'
                f'{signal_provenance_html(row)}{founder_notice_html(row)}</div>',
                unsafe_allow_html=True)
 

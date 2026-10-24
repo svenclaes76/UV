@@ -303,11 +303,26 @@ def _build_all_screener_data(enabled: tuple,
         _UNIVERSE_REFS[(tuple(enabled), tuple(extra_tickers), tuple(extra_names), tuple(thresholds),
                         tuple(score_weights))] = _ref_out["ref"]
 
+    # EX-26: index memberships by company, on the scored rows (the Index
+    # filter and the drawer's tags read this column); members that match no
+    # row are logged, so a stale snapshot shows up.
+    _index_unmatched: dict = {}
+    if not scored.empty and "Ticker" in scored.columns:
+        from uvalu import indices
+        _idx_map, _index_unmatched = indices.match_universe(set(scored["Ticker"]))
+        scored = scored.assign(indices=[_idx_map.get(t, []) for t in scored["Ticker"]])
+        if _index_unmatched and not _demo:
+            logkit.get_logger("uvalu.data").info(
+                "index members without a row: %d", sum(map(len, _index_unmatched.values())),
+                extra={"event": "index.unmatched",
+                       "counts": {k: len(v) for k, v in _index_unmatched.items()}})
+
     _changes = _record_signals(scored)
     # A demo process starts with an empty signal history, so its first build
     # logs every signal as new: not a change worth an alert.
     _log_data_quality(_universe_fund, scored, _exchange_ticker_set, _changes,
-                      first_build=_demo and not _prev_signals, exclusions=_exclusions)
+                      first_build=_demo and not _prev_signals, exclusions=_exclusions,
+                      index_unmatched={k: len(v) for k, v in _index_unmatched.items()})
 
     def _subset(stock_list):
         if scored.empty or "Ticker" not in scored.columns:
@@ -373,7 +388,8 @@ def _demo_sector_multiples():
 
 
 def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, changes: int,
-                      first_build: bool = False, exclusions: "dict | None" = None) -> None:
+                      first_build: bool = False, exclusions: "dict | None" = None,
+                      index_unmatched: "dict | None" = None) -> None:
     """Q2: log the build's data-quality summary, and a warning per threshold
     crossed (uvalu/data_quality.py), except on a first build against an empty
     signal history. Never fails a build."""
@@ -384,6 +400,7 @@ def _log_data_quality(fund: pd.DataFrame, scored: pd.DataFrame, public: set, cha
         pub_scored = scored[scored["Ticker"].isin(public)] if "Ticker" in scored.columns else scored
         summary = data_quality.build_summary(pub_fund, pub_scored, changes=changes)
         summary["excluded"] = exclusions or {}   # EX-8: per exchange, per reason
+        summary["index_unmatched"] = index_unmatched or {}   # EX-26
         _log.info("build data quality: %d rows, %d signal changes", summary["rows"], summary["signal_changes"],
                   extra={"event": "data_quality.summary", "first_build": first_build, **summary})
         for text in ([] if first_build else data_quality.alerts(summary)):

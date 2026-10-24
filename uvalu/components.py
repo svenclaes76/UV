@@ -339,6 +339,31 @@ def founder_notice_html(row) -> str:
             + f'white-space:nowrap;">{h_("Conflicts of interest policy →")}</a></div>')
 
 
+def index_tags_html(index_keys, limit: int = 2) -> str:
+    """EX-28 / D24: a stock's index memberships as small read-only tags, at
+    most `limit` plus "+n", with every index in the "+n" tooltip. Index
+    names are proper names, never translated (D11). Empty for none."""
+    from uvalu import indices
+    keys = [k for k in (index_keys if isinstance(index_keys, (list, tuple)) else []) if k]
+    if not keys:
+        return ""
+    style = ("display:inline-block;font-size:10.5px;line-height:1.5;padding:0 6px;border-radius:4px;"
+             "border:0.5px solid var(--line);color:var(--muted);white-space:nowrap;")
+    tags = [f'<span class="uv-index-tag" style="{style}">{_esc(indices.name(k))}</span>' for k in keys[:limit]]
+    rest = keys[limit:]
+    if rest:
+        names = ", ".join(indices.name(k) for k in rest)
+        # Translators: drawer and Analysis › after the index tags: {n} more indices; the tooltip lists them.
+        more = _("+{n} more", n=len(rest))
+        tags.append(f'<span class="uv-index-tag" style="{style}" title="{_html_attr(names)}" '
+                    f'aria-label="{_html_attr(more + ": " + names)}">{_esc(more)}</span>')
+    # Translators: drawer and Analysis › accessible name of the row of index tags.
+    label = _("Index membership")
+    return (f'<div role="list" aria-label="{_html_attr(label)}" '
+            f'style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">'
+            + "".join(f'<span role="listitem">{t}</span>' for t in tags) + '</div>')
+
+
 def signal_badge_html(kind: str, label: str, tooltip: "str | None" = None) -> str:
     """Raw <span> markup for a badge — embed inside markdown/HTML contexts.
     For model signals use model_signal_badge_html (adds the BDG-2 tooltip)."""

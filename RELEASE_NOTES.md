@@ -20,6 +20,12 @@ Rules in [CONTRIBUTING.md § Versioning and releases](CONTRIBUTING.md#versioning
 
 ## [Unreleased]
 
+### New
+
+- **Filter by index**: show only the members of the EURO STOXX 50, the
+  DAX, the CAC 40 or another blue-chip index. A stock's indices also show
+  under its name.
+
 **Fair values in step with each currency's interest rates.** Some signals
 change.
 

@@ -69,3 +69,24 @@ def fallback_stocks(key: str, suffix: str, mic: str) -> list[dict]:
     (fetch_tickers' fallback when an exchange list can't be read, EX-13)."""
     return [{"name": m["name"], "isin": "", "ticker": m["ticker"], "mic": mic}
             for m in members(key) if m["ticker"].endswith(suffix)]
+
+
+def match_universe(tickers, choices: "dict | None" = None) -> "tuple[dict[str, list[str]], dict[str, list[str]]]":
+    """EX-26: index members matched to the universe's chosen lines, by company
+    (uvalu/universe.company_lines): a DAX member listed as AIR.DE matches
+    AIR.PA. Returns ({universe ticker: [index keys, display order]},
+    {index key: [member tickers that match no row]})."""
+    from uvalu import universe
+    in_universe = set(tickers)
+    choices = universe.load_choices() if choices is None else choices
+    out: dict[str, list[str]] = {}
+    unmatched: dict[str, list[str]] = {}
+    for key in keys():
+        for m in members(key):
+            hits = universe.company_lines({m["ticker"]}, choices) & in_universe
+            if not hits:
+                unmatched.setdefault(key, []).append(m["ticker"])
+            for t in sorted(hits):
+                if key not in out.setdefault(t, []):
+                    out[t].append(key)
+    return out, unmatched

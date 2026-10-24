@@ -21,6 +21,19 @@ of that month); earlier releases used SemVer. Rules in
 
 ## [Unreleased]
 
+### Added
+
+- Index filter (EX-W10, EX-24 to EX-28): an Index dropdown after Market
+  on the Screener, listing only indices with a member in the universe
+  (EURO STOXX 50, STOXX Europe 50, then the national indices), with the
+  snapshot's date in its help; index tags in the drawer (two plus "+n")
+  and in the Analysis header. Members are matched to the universe's line
+  by company (`indices.match_universe`, via the saved primary-line
+  choices), so Airbus in the DAX matches AIR.PA; members that match no
+  row are logged (`index.unmatched`) and counted in the data-quality
+  summary. The scored frame carries an `indices` column. The Analysis
+  page shows one stock, so it gets the tags, not a filter.
+
 **Model M5: signals change.** Fair values are discounted at the 10-year
 government bond yield of the share's currency instead of a fixed 3%, EPV no
 longer uses a 0% tax rate, and liquidity counts traded value in euro. In a

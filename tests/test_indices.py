@@ -100,3 +100,38 @@ class TestRefreshTool:
         assert tool._match_name("Siemens", "Germany")[0] == "SIE.DE"      # exact beats prefix
         assert tool._match_name("ABB", "Switzerland")[0] == "ABBN.SW"    # the home line
         assert tool._match_name("Münchener Rück", "Germany") == ("MUV2.DE", "manual fix")
+
+
+# ── EX-W10: matching by company, tags ───────────────────────────────────────
+
+@pytest.fixture
+def _snapshot(tmp_path, monkeypatch):
+    snap = tmp_path / "index_members.json"
+    snap.write_text(json.dumps({"indices": {
+        "euro_stoxx_50": {"name": "EURO STOXX 50", "as_of": "2026-09-30",
+                          "members": [{"ticker": "AIR.PA", "name": "Airbus"}, {"ticker": "SAP.DE", "name": "SAP"}]},
+        "dax": {"name": "DAX", "as_of": "2026-09-30",
+                "members": [{"ticker": "AIR.DE", "name": "Airbus"}, {"ticker": "SAP.DE", "name": "SAP"},
+                            {"ticker": "GONE.DE", "name": "Delisted"}]},
+        "cac_40": {"name": "CAC 40", "as_of": "2026-09-30", "members": [{"ticker": "AIR.PA", "name": "Airbus"}]},
+    }}), encoding="utf-8")
+    monkeypatch.setattr(indices, "SNAPSHOT", snap)
+    indices._data.cache_clear()
+    yield
+    indices._data.cache_clear()
+
+
+def test_members_match_the_chosen_line_by_company(_snapshot):
+    # EX-26: Airbus is a DAX member as AIR.DE; the universe shows AIR.PA.
+    choices = {"airbus|Netherlands|": {"chosen": "AIR.PA", "lines": ["AIR.DE", "AIR.PA"]}}
+    found, unmatched = indices.match_universe({"AIR.PA", "SAP.DE"}, choices)
+    assert found == {"AIR.PA": ["euro_stoxx_50", "cac_40", "dax"], "SAP.DE": ["euro_stoxx_50", "dax"]}
+    assert unmatched == {"dax": ["GONE.DE"]}
+
+
+def test_index_tags_show_two_and_the_rest_in_a_tooltip(_snapshot):
+    from uvalu.components import index_tags_html
+    html = index_tags_html(["euro_stoxx_50", "cac_40", "dax"])
+    assert "EURO STOXX 50" in html and "CAC 40" in html and ">+1 more<" in html
+    assert 'title="DAX"' in html and 'role="list"' in html
+    assert index_tags_html([]) == "" and index_tags_html(None) == ""

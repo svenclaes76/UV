@@ -21,7 +21,8 @@ from uvalu.components import (page_header, fit_widths, header_cell_html, signal_
                               list_provenance_html, signal_share_label, empty_results_html,
                               refresh_top_bar_html, skeleton_filter_bar_html, skeleton_rows, text_width_px)
 from uvalu.formatting import exchange_code, price_in_eur, row_currency, share_class
-from uvalu.i18n import N_, _, fmt_pct, frozen, h_, search_match, sort_key, tr
+from uvalu.i18n import N_, _, fmt_date, fmt_pct, frozen, h_, search_match, sort_key, tr
+from uvalu import indices as _indices
 from uvalu.runtime import current_user
 from uvalu.ui import _auto_rerun
 
@@ -31,6 +32,8 @@ from uvalu.ui import _auto_rerun
 from uvalu.exchanges import name as _exchange_name
 _ALL_SECTORS = N_("All sectors")
 _ALL_MARKETS = N_("All markets")
+# Translators: Screener › Index filter, first option: no index selected. Index names themselves are never translated.
+_ALL_INDICES = N_("All indices")
 # Filter chips: model signal codes, shown with their translated label (BDG-1,
 # G20: the full "Screened out"). None selected by default = every
 # signal, No signal ("pending") included, as in the design reference.
@@ -240,6 +243,10 @@ def render() -> None:
     _sector_vals = sorted((v for v in _all_df.get("sector", pd.Series(dtype=object)).dropna().unique() if str(v).strip()),
                           key=lambda v: sort_key(tr(v)))
     _market_vals = [_exchange_name(k) for k in _exch_keys]
+    # EX-25: only indices with a member in the universe, in the fixed order.
+    _present = {k for v in _all_df.get("indices", pd.Series(dtype=object)) if isinstance(v, list) for k in v}
+    _index_vals = [k for k in _indices.keys() if k in _present]
+    _index_as_of = min((d for d in (_indices.as_of(k) for k in _index_vals) if d), default=None)
 
     def _filter_label(text: str) -> None:
         st.markdown(f'<div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;'
@@ -251,6 +258,9 @@ def render() -> None:
     _sel_css = "".join(
         f".st-key-scr_select_{name} {{ width: {max(140, math.ceil(len(tr(label)) * 7.2 + 54))}px !important; }}"
         for name, label in (("sector", _ALL_SECTORS), ("market", _ALL_MARKETS)))
+    _sel_css += (f".st-key-scr_select_index {{ width: "
+                 f"{max(140, math.ceil(max([len(tr(_ALL_INDICES))] + [len(_indices.name(k)) for k in _index_vals]) * 7.2 + 54))}"
+                 f"px !important; }}")
     with st.container(key="uv_hidden_util_scr_select_css"):
         st.markdown(f"<style>{_sel_css}</style>", unsafe_allow_html=True)
 
@@ -294,6 +304,16 @@ def render() -> None:
                 _filter_label(h_("Market"))
                 _market_sel = st.selectbox(_("Market"), options=[_ALL_MARKETS] + _market_vals, format_func=frozen(tr),
                                            key="scr_market", label_visibility="collapsed")
+            # EX-24 / EX-27: Index right after Market; the snapshot's date in its help.
+            with st.container(key="scr_select_index"):
+                _filter_label(h_("Index"))
+                _index_sel = st.selectbox(
+                    _("Index"), options=[_ALL_INDICES] + _index_vals,
+                    format_func=frozen(lambda k: tr(_ALL_INDICES) if k == _ALL_INDICES else _indices.name(k)),
+                    key="scr_index", label_visibility="collapsed",
+                    # Translators: Screener › Index filter tooltip. {date} is the date of the index-member snapshot.
+                    help=(_("Index members as of {date}. Updated each quarter.", date=fmt_date(_index_as_of))
+                          if _index_as_of else None))
             # Both sliders in one group: they wrap onto a second line together
             # instead of one at a time.
             with st.container(key="scr_slider_group", horizontal=True, vertical_alignment="top"):
@@ -348,6 +368,8 @@ def render() -> None:
         _filtered = _filtered[_filtered.get("sector") == _sector_sel]
     if _market_sel and _market_sel != _ALL_MARKETS:
         _filtered = _filtered[_filtered["Exchange"] == _market_sel]
+    if _index_sel and _index_sel != _ALL_INDICES and "indices" in _filtered.columns:
+        _filtered = _filtered[_filtered["indices"].map(lambda v: isinstance(v, list) and _index_sel in v)]
     _filtered = _filtered[pd.to_numeric(_filtered["Value Score"], errors="coerce").fillna(0) >= _min_score]
     # A missing margin of safety (No signal) passes only while the filter is
     # at its lowest setting; raising it means "at least this margin".
@@ -383,7 +405,7 @@ def render() -> None:
         with _scr_actions.container(key="scr_header_btns", horizontal=True, gap="small", width="content"):
             with st.container(key="scr_reset_btn"):
                 if st.button(_("Reset filters"), key="scr_reset", icon=":material/refresh:", type="tertiary"):
-                    for _k in ("scr_search", "scr_signal", "scr_sector", "scr_market",
+                    for _k in ("scr_search", "scr_signal", "scr_sector", "scr_market", "scr_index",
                               "scr_min_score", "scr_min_mos", "scr_hide_owned_pill"):
                         st.session_state.pop(_k, None)
                     st.rerun()
@@ -433,7 +455,7 @@ def render() -> None:
 
         # 25 rows at a time (the full list was ~125 rows, a 9 000px page);
         # back to the first page whenever the filters or the sort change.
-        _page_sig = repr((_search, sorted(_signal or []), _sector_sel, _market_sel, _min_score, _min_mos,
+        _page_sig = repr((_search, sorted(_signal or []), _sector_sel, _market_sel, _index_sel, _min_score, _min_mos,
                           _hide_owned, _sort_key, _sort_dir))
         if st.session_state.get("scr_page_sig") != _page_sig:
             st.session_state["scr_page_sig"] = _page_sig

@@ -18,7 +18,7 @@ from settings import (load_shared_settings, get_veto_thresholds, get_score_weigh
 from uvalu import a11y
 from uvalu import nav as nav_registry
 from uvalu.data import _load_all_screener_data, _cache_version
-from uvalu.components import (_esc, back_link, fmt_mos_pct, model_signal_badge_html, signal_provenance_html, founder_notice_html,
+from uvalu.components import (_esc, index_tags_html, back_link, fmt_mos_pct, model_signal_badge_html, signal_provenance_html, founder_notice_html,
                               fair_value_ladder, six_model_ladder_rows,
                               six_model_ladder_reasons, six_model_ladder_caption,
                               sub_score_bar_html, quality_score_color, score_band_label, mos_text_color,
@@ -328,6 +328,7 @@ def render() -> None:
             f'<div style="font-size:13.5px;color:var(--muted);">'
             f'{html.escape(display_name(row.get("Name"), _share_class(row)) or "—")} · {tr(_sector) if _sector else "—"} · {exchange_label(ticker, row.get("Exchange"))}</div>'
             f'{_score_rating_html}</div>'
+            f'{index_tags_html(row.get("indices"), limit=4)}'
             f'{signal_provenance_html(row)}{founder_notice_html(row)}',
             unsafe_allow_html=True,
         )
