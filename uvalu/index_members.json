@@ -1547,17 +1547,25 @@
   "ftse_athex_large_cap": {
    "name": "FTSE/Athex Large Cap",
    "owner": "FTSE Russell / Euronext Athens",
-   "source_url": "https://athens.euronext.com/en/market-data/instruments/indices/FTSE",
+   "source_url": "https://athens.euronext.com/en/more-options/announcements/semi-annual-review-ftseathex-index-series-4",
    "size": 25,
    "as_of": "2026-10-24",
    "members": [
     {
      "ticker": "AEGN.AT",
-     "name": "Aegean Airlines"
+     "name": "Aegean Airlines S.A."
+    },
+    {
+     "ticker": "AIA.AT",
+     "name": "Athens International Airport S.A."
+    },
+    {
+     "ticker": "AKTR.AT",
+     "name": "AKTOR Group of Companies"
     },
     {
      "ticker": "ALPHA.AT",
-     "name": "Alpha Bank"
+     "name": "Alpha Bank S.A."
     },
     {
      "ticker": "ALWN.AT",
@@ -1568,7 +1576,7 @@
     },
     {
      "ticker": "BELA.AT",
-     "name": "Jumbo"
+     "name": "Jumbo S.A."
     },
     {
      "ticker": "BOCHGR.AT",
@@ -1576,7 +1584,11 @@
     },
     {
      "ticker": "CENER.AT",
-     "name": "Cenergy Holdings"
+     "name": "Cenergy Holdings SA"
+    },
+    {
+     "ticker": "CREDIA.AT",
+     "name": "CrediaBank S.A."
     },
     {
      "ticker": "EEE.AT",
@@ -1584,43 +1596,39 @@
     },
     {
      "ticker": "ELHA.AT",
-     "name": "ElvalHalcor"
-    },
-    {
-     "ticker": "ELLAKTOR.AT",
-     "name": "Ellaktor"
+     "name": "ElvalHalcor S.A."
     },
     {
      "ticker": "ELPE.AT",
-     "name": "Hellenic Petroleum"
+     "name": "HELLENiQ ENERGY Holdings S.A."
     },
     {
      "ticker": "ETE.AT",
-     "name": "National Bank of Greece"
+     "name": "National Bank of Greece S.A."
     },
     {
      "ticker": "EUROB.AT",
-     "name": "Eurobank Ergasias"
+     "name": "Eurobank S.A."
     },
     {
      "ticker": "EYDAP.AT",
-     "name": "EYDAP"
+     "name": "Athens Water Supply and Sewerage Company S.A."
     },
     {
      "ticker": "GEKTERNA.AT",
-     "name": "GEK Terna"
+     "name": "GEK TERNA S.A."
     },
     {
      "ticker": "HTO.AT",
-     "name": "OTE"
+     "name": "Hellenic Telecommunications Organization S.A."
     },
     {
      "ticker": "LAMDA.AT",
-     "name": "Lamda Development"
+     "name": "LAMDA Development S.A."
     },
     {
      "ticker": "MOH.AT",
-     "name": "Motor Oil Hellas"
+     "name": "Motor Oil (Hellas) Corinth Refineries S.A."
     },
     {
      "ticker": "MTLN.AT",
@@ -1630,37 +1638,29 @@
      ]
     },
     {
-     "ticker": "OTOEL.AT",
-     "name": "Autohellas"
+     "ticker": "OPTIMA.AT",
+     "name": "Optima bank S.A."
     },
     {
      "ticker": "PPC.AT",
-     "name": "Public Power Corporation"
-    },
-    {
-     "ticker": "QUEST.AT",
-     "name": "Quest Holdings"
-    },
-    {
-     "ticker": "SAR.AT",
-     "name": "Gr. Sarantis S.A."
+     "name": "Public Power Corporation S.A."
     },
     {
      "ticker": "TITC.AT",
-     "name": "Titan Cement"
+     "name": "Titan S.A."
     },
     {
      "ticker": "TPEIR.AT",
-     "name": "Piraeus Bank"
+     "name": "Piraeus Bank S.A."
     },
     {
      "ticker": "VIO.AT",
-     "name": "Viohalco"
+     "name": "Viohalco S.A."
     }
    ],
-   "status": "check",
+   "status": "ok",
    "problems": [
-    "the 12 largest confirmed (Euronext Athens, 23 Oct 2026; TradingView's top 10 agree, including Allwyn and Metlen); the other 13 need Euronext Athens' full list"
+    "rebuilt from the tracking ETF's holdings of 30 Nov 2024 with every change since, from Euronext Athens' review tables: Nov 2024 Optima Bank in, Autohellas out; 28 Feb 2025 AKTOR replaced Terna Energy (free float); May 2025 Bank of Cyprus in, Ellaktor out; Nov 2025 no change; May 2026 CrediaBank in, Sarantis out"
    ],
    "review": {
     "months": [
