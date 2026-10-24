@@ -35,6 +35,8 @@ Each fix gets its own test.
 
 ## Phase 2: Production baseline (week 2–3, dev + founder, ~2 days)
 
+**Parked on 24 October 2026:** no beta is planned soon, so the Hetzner setup was removed from the repo (git history, commit `648559b`). The steps below wait until a beta is planned; see open-items.md, "Parked: production server".
+
 | Step | Item | What |
 |---|---|---|
 | 2.1 | SR2 | Reverse proxy with a public certificate, HTTP→HTTPS + HSTS, CSP and `frame-ancestors 'none'` (completes SR4), Streamlit on localhost only, firewall (443 + SSH keys), unprivileged user, `.env` permissions, per-IP login rate limit, automatic security updates. Write it down in `docs/deployment.md`. |
