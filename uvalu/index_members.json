@@ -2164,6 +2164,10 @@
      "name": "Mowi ASA"
     },
     {
+     "ticker": "NAS.OL",
+     "name": "Norwegian Air Shuttle ASA"
+    },
+    {
      "ticker": "NHY.OL",
      "name": "Norsk Hydro ASA"
     },
@@ -2212,10 +2216,9 @@
      "name": "Yara International ASA"
     }
    ],
-   "status": "check",
+   "status": "ok",
    "problems": [
-    "24 of 25 members: the DNB OBX ETF's holdings of 31 Aug 2026 (Nordnet) with Euronext's September 2026 review applied (Aker, BlueNord, TGS in; Bakkafrost, DOF Group, Protector Forsikring, Wallenius Wilhelmsen out)",
-    "the 25th is not known: Hafnia or Norwegian Air Shuttle (both members in Sept 2024); check against Euronext Oslo's list"
+    "from the DNB OBX ETF's holdings of 31 Aug 2026 (Nordnet) with Euronext's reviews applied: Sep 2025 (Bakkafrost, DOF Group, Tomra in; CMB.Tech, Hafnia, TGS out), Mar 2026 (Protector in; MPC Container Ships out), Sep 2026 (Aker, BlueNord, TGS in; Bakkafrost, DOF Group, Protector, Wallenius Wilhelmsen out); Norwegian Air Shuttle is the remaining member from the 2024 list"
    ],
    "review": {
     "months": [

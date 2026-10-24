@@ -62,6 +62,13 @@ of that month); earlier releases used SemVer. Rules in
   country from the provider takes its exchange's country
   (`indices.home_country_hints`), so Michelin and Linde are no longer left
   out as country_unknown.
+- Index data points (24 Oct 2026): OBX confirmed (Norwegian Air Shuttle
+  the 25th member, from Euronext's Sep 2025 and Mar 2026 releases);
+  BW LPG on the D2 allow-list (Singapore-registered, primary listing
+  Oslo); index members left out on purpose (not European, primary listing
+  elsewhere, funds) no longer count against an index; a national-index
+  member with a reported zero volume isn't treated as dormant (Greencoat
+  Renewables). With all 21 exchanges every index passes the gate.
 - Index filter (EX-W10, EX-24 to EX-28): an Index dropdown after Market
   on the Screener, listing only indices with a member in the universe
   (EURO STOXX 50, STOXX Europe 50, then the national indices), with the

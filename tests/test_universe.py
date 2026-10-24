@@ -242,3 +242,7 @@ def test_a_planned_exchange_line_is_home_when_enabled():
     stocks = [_stock("ASPO.HE", "Aspo Oyj")]
     c = _choose(stocks, {"ASPO.HE": _info("Finland", 50e3)}, suffixes={".HE"})
     assert [s["ticker"] for s in c.kept] == ["ASPO.HE"]
+
+
+def test_bw_lpg_is_on_the_allow_list():
+    assert universe.is_european("BWLPG.OL", "Singapore")

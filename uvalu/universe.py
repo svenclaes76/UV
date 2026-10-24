@@ -59,6 +59,7 @@ EUROPE = frozenset({
 # Europe. Reviewed by hand; starts small.
 ALLOW_LIST: dict[str, str] = {
     "HAFNI.OL": "Hafnia: registered in Singapore, primary listing Oslo",
+    "BWLPG.OL": "BW LPG: registered in Singapore, primary listing Oslo (OBX member)",
 }
 
 REASONS = ("not_european", "secondary_listing", "dormant", "fund", "country_unknown")

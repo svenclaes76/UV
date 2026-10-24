@@ -375,6 +375,10 @@ def run(shadow_dir: Path = SHADOW_DIR, app_cache: Path = APP_CACHE, fetch: bool 
         row = info.get(t)
         if row is not None and not (isinstance(row.get("country"), str) and row["country"].strip()):
             row["country"] = country
+        # An index member trades: a reported zero average volume is a data gap,
+        # not a dormant line (Greencoat Renewables, ISEQ 20, Oct 2026).
+        if row is not None and row.get("averageVolume") == 0:
+            row["averageVolume"] = None
     choice = universe.choose_primary_lines(candidates, info,
                                            enabled_suffixes={e.suffix for e in exchanges.KNOWN_BY_KEY.values()},
                                            today=today)

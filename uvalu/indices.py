@@ -148,8 +148,14 @@ def _member_names(m: dict) -> set[str]:
     return {n for n in (universe.normalise_name(x) for x in names if x) if n}
 
 
+# Members our coverage rules leave out on purpose: they don't count against
+# an index (JBT Marel in the OMX Iceland 15 has its primary listing in New York).
+OUT_OF_SCOPE_REASONS = frozenset({"not_european", "secondary_listing", "fund"})
+
+
 def match_universe(tickers, choices: "dict | None" = None, *, names: "dict | None" = None,
-                   enabled_suffixes: "set[str] | None" = None, today: "date | None" = None) -> Match:
+                   enabled_suffixes: "set[str] | None" = None, today: "date | None" = None,
+                   excluded: "dict | None" = None) -> Match:
     """EX-26 + the quality gate. Each member is matched to the universe by
     company, in this order: its ticker; another line of the same company
     (uvalu/universe.company_lines, so a DAX member listed as AIR.DE matches
@@ -187,6 +193,8 @@ def match_universe(tickers, choices: "dict | None" = None, *, names: "dict | Non
             suffix = "." + t.rsplit(".", 1)[-1] if "." in t else ""
             if suffix not in enabled_suffixes:
                 continue   # its exchange isn't covered: not expected, not tagged
+            if not found and (excluded or {}).get(t) in OUT_OF_SCOPE_REASONS:
+                continue   # left out of the universe on purpose (``excluded``: Choice.excluded)
             expected += 1
             if found:
                 matched += 1

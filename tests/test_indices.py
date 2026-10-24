@@ -183,3 +183,16 @@ def test_national_index_members_give_a_home_country_hint(_snapshot):
     assert hints["AIR.PA"] == "France" and hints["AIR.DE"] == "Germany"
     assert "SAP.DE" in hints                     # via the DAX
     assert all(k in hints for k in ("GONE.DE",))
+
+
+def test_members_left_out_on_purpose_do_not_count_against_an_index(_snapshot):
+    # JBT Marel (OMX Iceland 15) has its primary listing in New York: our
+    # coverage leaves it out by design, so it must not hide the index.
+    from datetime import date
+    m = indices.match_universe({"SAP.DE"}, {}, today=date(2026, 10, 24), enabled_suffixes={".DE"},
+                               excluded={"AIR.DE": "secondary_listing", "GONE.DE": "not_european"})
+    assert m.checks["dax"].expected == 1 and m.checks["dax"].visible
+    # A data gap (dormant, no country) still counts.
+    m = indices.match_universe({"SAP.DE"}, {}, today=date(2026, 10, 24), enabled_suffixes={".DE"},
+                               excluded={"AIR.DE": "dormant", "GONE.DE": "country_unknown"})
+    assert m.checks["dax"].expected == 3 and not m.checks["dax"].visible

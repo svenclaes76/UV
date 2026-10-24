@@ -253,12 +253,14 @@ def _build_all_screener_data(enabled: tuple,
                if "averageVolume" in all_fund.columns else {})
     _switches: list = []
     _exclusions: dict = {}
+    _excluded_lines: dict = {}
     if not _demo:   # the demo list is hand-picked home listings, on planned exchanges too
         _choice = _choose_primary_lines(stock_lists, all_fund, enabled_set)
         _kept = {s["ticker"] for s in _choice.kept}
         stock_lists = {key: [s for s in stocks if s["ticker"] in _kept]
                        for key, stocks in stock_lists.items()}
         _switches, _exclusions = _choice.switches, _choice.counts()
+        _excluded_lines = _choice.excluded
     all_stocks: list[dict] = [s for stocks in stock_lists.values() for s in stocks]
     _exchange_ticker_set = {s["ticker"] for s in all_stocks}
     # A user's holding that isn't a home listing is scored as an extra ticker,
@@ -315,7 +317,7 @@ def _build_all_screener_data(enabled: tuple,
         _names.update({t: n for t, n in zip(scored["Ticker"], scored.get("Name", [None] * len(scored)))
                        if t not in _names and isinstance(n, str)})
         _match = indices.match_universe(
-            set(scored["Ticker"]), names=_names,
+            set(scored["Ticker"]), names=_names, excluded=_excluded_lines,
             enabled_suffixes={e.suffix for e in _exchanges.KNOWN_BY_SUFFIX.values() if e.key in enabled_set})
         _index_unmatched = _match.unmatched
         scored = scored.assign(indices=[_match.by_ticker.get(t, []) for t in scored["Ticker"]])
@@ -376,6 +378,10 @@ def _choose_primary_lines(stock_lists: dict[str, list[dict]], all_fund: pd.DataF
         row = info.get(t)
         if row is not None and not (isinstance(row.get("country"), str) and row["country"].strip()):
             row["country"] = country
+        # An index member trades: a reported zero average volume is a data gap,
+        # not a dormant line (Greencoat Renewables, ISEQ 20, Oct 2026).
+        if row is not None and row.get("averageVolume") == 0:
+            row["averageVolume"] = None
     stocks = [s for key in stock_lists for s in stock_lists[key]]
     suffixes = {e.suffix for e in exchanges.EXCHANGES if e.key in enabled_set}
     choice = universe.choose_primary_lines(stocks, info, enabled_suffixes=suffixes)
