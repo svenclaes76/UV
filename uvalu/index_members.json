@@ -334,10 +334,6 @@
      "name": "ING Groep"
     },
     {
-     "ticker": "LIN.DE",
-     "name": "Linde"
-    },
-    {
      "ticker": "MC.PA",
      "name": "LVMH Moët Hennessy"
     },
@@ -430,8 +426,10 @@
      "name": "Zurich Insurance Group"
     }
    ],
-   "status": "ok",
-   "problems": [],
+   "status": "check",
+   "problems": [
+    "Linde removed: it left the STOXX indices on 27 Feb 2023 when it delisted from Frankfurt; the 50th member is unknown until STOXX's full list is read"
+   ],
    "review": {
     "months": [
      3,
@@ -571,7 +569,7 @@
   "atx": {
    "name": "ATX",
    "owner": "Wiener Börse",
-   "source_url": "https://de.wikipedia.org/wiki/Austrian_Traded_Index",
+   "source_url": "https://www.wienerborse.at/en/news/vienna-stock-exchange-news/mayr-melnhof-atx-rbi-atx-five-092026/",
    "size": 20,
    "as_of": "2026-10-24",
    "members": [
@@ -665,7 +663,7 @@
     ],
     "day": "third_friday"
    },
-   "verified": "Wiener Börse September 2026 review (effective 21 Sep) as reported: Mayr-Melnhof in, SBO out; official release not read"
+   "verified": "official: Wiener Börse release of 2 Sep 2026 (effective 21 Sep): Mayr-Melnhof in, SBO out"
   },
   "bel_20": {
    "name": "BEL 20",
@@ -2021,7 +2019,7 @@
     ],
     "day": "third_friday"
    },
-   "verified": "BME's CAT: no changes in Mar and Jun 2026 (Puig the last entry, Jul 2024); the 10 Sep 2026 decision not found"
+   "verified": "BME's CAT: no changes in Mar, Jun and Sep 2026 (Sep from press reports of 10 Sep); Puig the last entry, Jul 2024; next ordinary review Dec 2026"
   },
   "iseq_20": {
    "name": "ISEQ 20",
@@ -2579,7 +2577,7 @@
     ],
     "day": "first_weekday"
    },
-   "verified": "third-party: Investing.com list of 24 Oct 2026, consistent with Nasdaq's August 2026 review"
+   "verified": "official for August 2026: Nasdaq release of 24 Jul 2026 (effective 3 Aug): Bittium in, SSAB B out; the rest from Investing.com's list of 24 Oct 2026 (February 2026 review not read)"
   },
   "omxi15": {
    "name": "OMX Iceland 15",
@@ -3076,7 +3074,8 @@
    ],
    "status": "ok",
    "problems": [
-    "from Investing.com's component list; confirm against GPW Benchmark's portfolio file after the next review"
+    "from Investing.com's component list; confirm against GPW Benchmark's portfolio file after the next review",
+    "Żabka (ZAB.WA) is under a takeover offer by Couche-Tard (closing expected Q4 2026): an extraordinary change is expected, with Benefit Systems first on the reserve list"
    ],
    "review": {
     "months": [
@@ -3087,7 +3086,7 @@
     ],
     "day": "third_friday"
    },
-   "verified": "third-party: Investing.com list of 24 Oct 2026; largest weights match GPW Benchmark's factsheet"
+   "verified": "third-party: Investing.com list of 24 Oct 2026; GPW Benchmark's September 2026 review left WIG20 unchanged (Parkiet)"
   }
  }
 }
