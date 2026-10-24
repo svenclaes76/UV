@@ -85,6 +85,9 @@ DATA_SOURCE_ROWS = (
     (N_("Fundamentals"), N_("Yahoo Finance · refreshed about every 24 hours")),
     (N_("Dividends"), N_("Yahoo Finance payment history · your own entries are your records")),
     (N_("FX"), N_("ECB reference rates via frankfurter.dev")),
+    # Model M5 and the Index filter (exchange expansion R2).
+    (N_("Bond yields"), N_("OECD 10-year government bond yields · snapshot taken each quarter")),
+    (N_("Index members"), N_("The index providers' published member lists · checked each quarter")),
 )
 
 # The demo's sources (demo-mode plan DM-5): a committed snapshot, never fetched
@@ -96,6 +99,9 @@ DEMO_DATA_SOURCE_ROWS = (
     (N_("Dividends"), N_("EODHD payment history")),
     (N_("Sector multiples"), N_("Aswath Damodaran, NYU Stern · European industry P/E and P/B, January 2026")),
     (N_("FX"), N_("ECB reference rates via frankfurter.dev")),
+    # Model M5 and the Index filter (exchange expansion R2).
+    (N_("Bond yields"), N_("OECD 10-year government bond yields · snapshot taken each quarter")),
+    (N_("Index members"), N_("The index providers' published member lists · checked each quarter")),
 )
 
 

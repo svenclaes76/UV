@@ -66,7 +66,7 @@ preview drawer.
 ## Screener
 
 One unified, ranked list across every exchange enabled in the Admin portal's
-Data feeds section (Brussels, Amsterdam, Paris, Milan, Frankfurt, Swiss).
+Data feeds section (one switch per covered exchange).
 
 **Columns** — Company, Ticker, Market, Signal, Score, MoS %, Price, P/E, Div
 Yield. Every column is sortable by clicking its header.

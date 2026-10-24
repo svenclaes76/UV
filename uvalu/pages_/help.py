@@ -38,7 +38,8 @@ from screener import (SIGNAL_DEFINITIONS, SIGNAL_LABELS, SIGNAL_HORIZON, SIGNAL_
 from uvalu.compliance import disclosures
 from uvalu.components import _SIGNAL_KIND, signal_badge_html, signal_tooltip, support_page
 from uvalu.shell import producer_line, producer_name
-from uvalu.i18n import N_, _, h_, tr
+from uvalu.i18n import N_, _, h_, lazy_, tr
+from uvalu import exchanges as _exchanges
 
 
 def _t(text: str) -> str:
@@ -136,7 +137,10 @@ _FAQ = [
         "names which. Its composite score is set to 0. It still appears in your portfolio and "
         "valuations.")),
     (N_("Which exchanges are covered?"),
-     N_("Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana.")),
+     # EX-32: from the registry, so it follows when exchanges are added. Exchange names are never translated.
+     lazy_("Shares of European companies on {exchanges}: one line per company, on its home exchange "
+           "if it is listed there, otherwise where it trades most.",
+           exchanges=", ".join(e.name for e in _exchanges.EXCHANGES))),
 ]
 
 # Demo mode (DM-5): the two answers that differ for the fixed demo snapshot.

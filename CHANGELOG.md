@@ -35,6 +35,16 @@ of that month); earlier releases used SemVer. Rules in
   share is above 3x the universe's with at least 5 such stocks. The
   missing-data thresholds hold for the 21-exchange shadow universe (beta,
   the worst field, 9.5% missing against a 25% limit), so they stay.
+- Coverage wording follows the exchange registry (EX-W12, EX-32, EX-38):
+  the sign-in screen's exchange count and copy, and Help's "Which
+  exchanges are covered?", are built from `uvalu/exchanges.py`; the Data
+  sources page (beta 1.1, paid draft) and the methodology describe coverage
+  as the Screener's Market list. Data sources adds the OECD bond yields
+  (model M5) and index membership as sources, drops "the risk-free rate is
+  a fixed 3%", and says index names are trade marks of their owners, used
+  descriptively and without logos. The in-app source rows gain "Bond
+  yields" and "Index members". README, configuration and user guide no
+  longer say six exchanges.
 - Index filter (EX-W10, EX-24 to EX-28): an Index dropdown after Market
   on the Screener, listing only indices with a member in the universe
   (EURO STOXX 50, STOXX Europe 50, then the national indices), with the

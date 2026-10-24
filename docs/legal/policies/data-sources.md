@@ -17,15 +17,17 @@ Uvalu's calculations depend on data from third parties. This page lists where th
 
 | Data | Provider | Freshness | Coverage |
 | --- | --- | --- | --- |
-| Share prices | EOD Historical Data (EODHD) | End-of-day closing prices, updated once per trading day | Euronext Brussels, Euronext Amsterdam, Euronext Paris, Borsa Italiana, Deutsche Börse, SIX Swiss Exchange |
+| Share prices | EOD Historical Data (EODHD) | End-of-day closing prices, updated once per trading day | The exchanges in the Screener's Market list (one line per company, on its primary listing) |
 | Company financial statements | EODHD | Uvalu checks for updates about every 24 hours; new filings appear once the provider has processed them | Same exchanges |
 | Dividends and corporate actions (splits, etc.) | EODHD | Dividend history refreshed weekly | Same exchanges |
 | Benchmark index (EURO STOXX 50), used for beta | EODHD | End-of-day | Euro area |
 | Sector and industry classification | EODHD | With the company data | All covered shares |
 | Currency rates | European Central Bank reference rates, retrieved through Frankfurter (frankfurter.dev) | Daily, on ECB working days | All currencies of the covered exchanges, converted to EUR |
 | Factor data for risk analysis | Kenneth R. French Data Library (Tuck School of Business, Dartmouth): Developed markets five factors plus momentum, with the US factors as a fallback | Daily series, refreshed at most weekly | Developed markets |
+| Government bond yields (10-year), used as the risk-free rate per currency | OECD, Long-term interest rates (for the euro: Germany) | Snapshot taken each quarter, with its date | EUR, CHF, GBP, SEK, DKK, NOK, PLN |
+| Index membership (EURO STOXX 50, DAX, CAC 40 and other blue-chip indices) | The index providers' published member lists, checked by hand | Updated after each quarterly index review; the date is shown in the Index filter | The indices in the Screener's Index filter |
 
-The risk-free interest rate (3%) and the equity risk premium (5%) are fixed model assumptions, not data feeds. They are described on the Methodology page.
+The equity risk premium (5%) is a fixed model assumption, not a data feed. The risk-free interest rate is the 10-year government bond yield of each share's currency, taken from the OECD each quarter (see the table). Both are described on the Methodology page.
 
 Uvalu does not use analyst price targets or analyst recommendations.
 
@@ -62,4 +64,4 @@ Data shown in Uvalu is licensed for your personal use inside the app. You may ex
 
 ## 7. Trade marks
 
-Company names and ticker symbols are used only to identify the shares concerned. All trade marks belong to their owners. Uvalu is not affiliated with, sponsored by or endorsed by any company or exchange shown.
+Company names and ticker symbols are used only to identify the shares concerned. Index names (such as EURO STOXX 50, DAX or CAC 40) are used only to describe which shares belong to an index; they are trade marks of their owners (STOXX, Deutsche Börse, Euronext, FTSE Russell, Nasdaq, SIX, BME, GPW and others), and no index logos are shown. All trade marks belong to their owners. Uvalu is not affiliated with, sponsored by or endorsed by any company or exchange shown.

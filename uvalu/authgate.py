@@ -325,6 +325,9 @@ def _render_brand_panel() -> None:
              + f'<div style="display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;">{_links}</div>')
     # One markdown block, so the panel's own space-between can't reach these
     # divs: .uv-login-brand fills the panel and pushes the legal text down.
+    # EX-32: the covered exchanges, from the registry (6 today, 14 with batch 1).
+    from uvalu import exchanges
+    _n_exchanges = len(exchanges.EXCHANGES)
     st.markdown(f"""
     <div class="uv-login-brand">
     <div style="display:flex;align-items:center;gap:23px;position:relative;z-index:2;">
@@ -333,10 +336,10 @@ def _render_brand_panel() -> None:
     </div>
     <div style="position:relative;z-index:2;">
       <div class="uv-login-headline">{h_("Find value before the market does.")}</div>
-      <div class="uv-login-copy">{h_("Five valuation models across 6 European exchanges: margin of safety, composite scores and quality screens in one workspace. Model outputs are the same for every user.")}</div>
+      <div class="uv-login-copy">{h_("Five valuation models across {n} European exchanges: margin of safety, composite scores and quality screens in one workspace. Model outputs are the same for every user.", n=_n_exchanges)}</div>
       <div class="uv-login-stats">
         <div><div class="uv-login-stat-val">5</div><div class="uv-login-stat-lbl">{h_("valuation models")}</div></div>
-        <div><div class="uv-login-stat-val">6</div><div class="uv-login-stat-lbl">{h_("EU exchanges")}</div></div>
+        <div><div class="uv-login-stat-val">{_n_exchanges}</div><div class="uv-login-stat-lbl">{h_("EU exchanges")}</div></div>
         <div><div class="uv-login-stat-val">24 h</div><div class="uv-login-stat-lbl">{h_("model update cycle")}</div></div>
       </div>
     </div>

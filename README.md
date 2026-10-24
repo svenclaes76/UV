@@ -8,7 +8,7 @@ A Streamlit web app for European stock analysis and personal portfolio managemen
 
 ## Features
 
-- **Screener** — ranks 750+ stocks across 6 European exchanges using a 6-stage valuation pipeline whose fair value blends six models (Graham Number, PE Fair Value, EPV, single- and multi-stage DDM, Analyst Target). Each stock receives a composite score and a Buy / Monitor / Avoid signal.
+- **Screener** — ranks European stocks on the covered exchanges (`uvalu/exchanges.py`), one line per company, using a staged valuation pipeline whose fair value blends several models (Graham Number, P/E fair value, EPV, single- and multi-stage DDM, P/B and FCF fallbacks). Each stock gets a composite score and a model signal (Undervalued / Mid score / Low score / Screened out).
 - **Portfolio tracker** — track open positions with live prices, unrealised P&L, and benchmark comparison. Manage realised trades and dividend history.
 - **Dashboard** — KPI cards, performance heatmap, sector allocation, portfolio value chart with S&P 500 / Euro Stoxx 50 overlays, and a risk snapshot.
 - **Risk assessment** — 8-stage quantitative analysis: concentration (Herfindahl), volatility, Value-at-Risk, factor exposure, stress tests (Dot-com / 2008 / COVID / 2022), and 10,000-path Monte Carlo simulation.

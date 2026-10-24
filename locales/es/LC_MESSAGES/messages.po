@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-24 02:19+0000\n"
+"POT-Creation-Date: 2026-10-24 02:39+0000\n"
 "PO-Revision-Date: 2026-10-18 15:16+0200\n"
 "Last-Translator: \n"
 "Language-Team: es <LL@li.org>\n"
@@ -58,7 +58,7 @@ msgstr "Análisis"
 msgid "Settings"
 msgstr "Ajustes"
 
-#: app.py:133 uvalu/compliance/disclosures.py:126 uvalu/pages_/help.py:215
+#: app.py:133 uvalu/compliance/disclosures.py:132 uvalu/pages_/help.py:219
 #: uvalu/shell.py:489
 msgid "Methodology"
 msgstr "Metodología"
@@ -67,8 +67,8 @@ msgstr "Metodología"
 msgid "Legal"
 msgstr "Legal"
 
-#: app.py:136 uvalu/pages_/about.py:203 uvalu/pages_/help.py:179
-#: uvalu/pages_/help.py:319 uvalu/shell.py:492
+#: app.py:136 uvalu/pages_/about.py:203 uvalu/pages_/help.py:183
+#: uvalu/pages_/help.py:323 uvalu/shell.py:492
 msgid "About Uvalu"
 msgstr "Acerca de Uvalu"
 
@@ -113,7 +113,7 @@ msgstr "Ya existe una cuenta con este correo."
 msgid "Account created. You can now log in."
 msgstr "Cuenta creada. Ya puedes iniciar sesión."
 
-#: auth.py:315 uvalu/authgate.py:428
+#: auth.py:315 uvalu/authgate.py:431
 msgid "Uvalu is open to residents of the European Economic Area only."
 msgstr "Uvalu solo está abierto a residentes del Espacio Económico Europeo."
 
@@ -1432,7 +1432,7 @@ msgstr "Ticker · {ticker}"
 msgid "Concentration ceiling (HHI)"
 msgstr "Límite de concentración (HHI)"
 
-#: uvalu/compliance/disclosures.py:86 uvalu/compliance/disclosures.py:96
+#: uvalu/compliance/disclosures.py:86 uvalu/compliance/disclosures.py:99
 #: workbook.py:283
 msgid "Dividends"
 msgstr "Dividendos"
@@ -1692,63 +1692,74 @@ msgstr "Seguridad de la contraseña: {strength}"
 
 #. Context: Small uppercase tagline next to the uvalu logo (top bar and sign-in
 #. panel). Keep short and lowercase.
-#: uvalu/authgate.py:332 uvalu/shell.py:413
+#: uvalu/authgate.py:335 uvalu/shell.py:413
 msgid "value engine"
 msgstr "motor de valor"
 
-#: uvalu/authgate.py:335
+#: uvalu/authgate.py:338
 msgid "Find value before the market does."
 msgstr "Encuentra valor antes que el mercado."
 
-#: uvalu/authgate.py:336
-msgid "Five valuation models across 6 European exchanges: margin of safety, composite scores and quality screens in one workspace. Model outputs are the same for every user."
-msgstr "Cinco modelos de valoración en 6 bolsas europeas: margen de seguridad, puntuaciones compuestas y filtros de calidad en un solo espacio de trabajo. Los resultados de los modelos son iguales para todos los usuarios."
+#: uvalu/authgate.py:339
+#, fuzzy, python-brace-format
+#| msgid ""
+#| "Five valuation models across 6 European exchanges: margin of safety, composite "
+#| "scores and quality screens in one workspace. Model outputs are the same for "
+#| "every user."
+msgid ""
+"Five valuation models across {n} European exchanges: margin of safety, composite"
+" scores and quality screens in one workspace. Model outputs are the same for "
+"every user."
+msgstr ""
+"Cinco modelos de valoración en {n} bolsas europeas: margen de seguridad, "
+"puntuaciones compuestas y filtros de calidad en un solo espacio de trabajo. Los "
+"resultados de los modelos son iguales para todos los usuarios."
 
 #. Context: Sign-in screen › stat label under the big number '6' (six valuation
 #. models). Lowercase.
-#: uvalu/authgate.py:338
+#: uvalu/authgate.py:341
 msgid "valuation models"
 msgstr "modelos de valoración"
 
 #. Context: Sign-in screen › stat label under the big number '6' (six European
 #. stock exchanges)
-#: uvalu/authgate.py:339
+#: uvalu/authgate.py:342
 msgid "EU exchanges"
 msgstr "bolsas de la UE"
 
-#: uvalu/authgate.py:340
+#: uvalu/authgate.py:343
 msgid "model update cycle"
 msgstr "ciclo de actualización del modelo"
 
 #. Context: Sign-in screen › single sign-on button. {provider} is 'Google' or
 #. 'Microsoft Entra ID'.
-#: uvalu/authgate.py:373 uvalu/authgate.py:379
+#: uvalu/authgate.py:376 uvalu/authgate.py:382
 #, python-brace-format
 msgid "Continue with {provider}"
 msgstr "Continuar con {provider}"
 
 #. Context: Sign-in screen › small uppercase badge on a sign-on button whose
 #. provider is not set up by the admin
-#: uvalu/authgate.py:381
+#: uvalu/authgate.py:384
 msgid "NOT CONFIGURED"
 msgstr "NO CONFIGURADO"
 
 #. Context: Sign-in screen › heading after a single sign-on for a suspended
 #. account
-#: uvalu/authgate.py:388
+#: uvalu/authgate.py:391
 msgid "This account has been suspended"
 msgstr "Esta cuenta ha sido suspendida"
 
 #. Context: Sign-in screen › text under 'This account has been suspended'.
 #. {provider} = Google / Microsoft Entra ID.
-#: uvalu/authgate.py:389
+#: uvalu/authgate.py:392
 #, python-brace-format
 msgid "Sign-in via {provider} succeeded, but the Uvalu account for it is suspended."
 msgstr "El inicio de sesión con {provider} ha funcionado, pero la cuenta de Uvalu asociada está suspendida."
 
 #. Context: Sign-in screen › heading when a single sign-on email has no Uvalu
 #. account
-#: uvalu/authgate.py:392
+#: uvalu/authgate.py:395
 #, python-brace-format
 msgid "No Uvalu account for this {provider} identity"
 msgstr "No hay ninguna cuenta de Uvalu para esta identidad de {provider}"
@@ -1756,263 +1767,266 @@ msgstr "No hay ninguna cuenta de Uvalu para esta identidad de {provider}"
 #. Context: Sign-in screen › text under 'No Uvalu account…'. {email} is shown
 #. in bold. (Code currently builds this from two pieces; merge them into one
 #. string.)
-#: uvalu/authgate.py:393
+#: uvalu/authgate.py:396
 #, python-brace-format
 msgid "Uvalu is invite-only. {email} is not a member of this workspace, so no account was created."
 msgstr "Uvalu funciona solo con invitación. {email} no es miembro de este espacio de trabajo, así que no se ha creado ninguna cuenta."
 
 #. Context: Sign-in screen › follow-up hint under the 'no account' message
-#: uvalu/authgate.py:401
+#: uvalu/authgate.py:404
 msgid "If you were invited on a different address, sign in with that one — or ask an admin to invite this address."
 msgstr "Si te invitaron a otra dirección, inicia sesión con ella o pide a un administrador que invite a esta dirección."
 
 #. Context: Sign-in screens › button that returns to the normal sign-in form
-#: uvalu/authgate.py:404 uvalu/authgate.py:585
+#: uvalu/authgate.py:407 uvalu/authgate.py:588
 msgid "Back to sign in"
 msgstr "Volver a iniciar sesión"
 
-#: uvalu/authgate.py:422
+#: uvalu/authgate.py:425
 msgid "Before you create your account, confirm the following."
 msgstr "Antes de crear tu cuenta, confirma lo siguiente."
 
-#: uvalu/authgate.py:426
+#: uvalu/authgate.py:429
 msgid "Country of residence"
 msgstr "País de residencia"
 
-#: uvalu/authgate.py:427
+#: uvalu/authgate.py:430
 msgid "Choose your country"
 msgstr "Elige tu país"
 
-#: uvalu/authgate.py:429
+#: uvalu/authgate.py:432
 msgid "I am 18 or older."
 msgstr "Tengo 18 años o más."
 
-#: uvalu/authgate.py:430
+#: uvalu/authgate.py:433
 #, python-brace-format
 msgid "I have read the [Terms of use](/legal?doc=terms) ({terms_version}) and the [Privacy notice](/legal?doc=privacy) ({privacy_version})."
 msgstr "He leído las [Condiciones de uso](/legal?doc=terms) ({terms_version}) y el [Aviso de privacidad](/legal?doc=privacy) ({privacy_version})."
 
-#: uvalu/authgate.py:433
+#: uvalu/authgate.py:436
 msgid "I understand that Uvalu gives no personal investment advice: scores and signals are the same for every user and don't take my situation into account (Terms of use, section 4)."
 msgstr "Entiendo que Uvalu no ofrece asesoramiento de inversión personalizado: las puntuaciones y señales son las mismas para todos los usuarios y no tienen en cuenta mi situación (Condiciones de uso, sección 4)."
 
-#: uvalu/authgate.py:436
+#: uvalu/authgate.py:439
 msgid "Continue"
 msgstr "Continuar"
 
-#: uvalu/authgate.py:440
+#: uvalu/authgate.py:443
 msgid "Choose your country and confirm all three statements to continue."
 msgstr "Elige tu país y confirma las tres declaraciones para continuar."
 
 #. Context: Invite acceptance screen › heading when the invite link is wrong or
 #. expired
-#: uvalu/authgate.py:460
+#: uvalu/authgate.py:463
 msgid "Invite link invalid"
 msgstr "Enlace de invitación no válido"
 
 #. Context: Invite acceptance screen › text under 'Invite link invalid'
-#: uvalu/authgate.py:461
+#: uvalu/authgate.py:464
 msgid "This invite link is invalid or has expired. Ask your admin to send a new one."
 msgstr "Este enlace de invitación no es válido o ha caducado. Pide uno nuevo a tu administrador."
 
 #. Context: Fills {inviter} in 'Invited by {inviter} as …' when the inviter is
 #. unknown
-#: uvalu/authgate.py:466
+#: uvalu/authgate.py:469
 msgid "an admin"
 msgstr "un administrador"
 
 #. Context: Invite acceptance screen › text under 'Create your account'.
 #. {inviter} = inviter's email or 'an admin'; {role} = Viewer / Analyst / Admin
 #. (bold). (Code builds this from pieces; merge into one string.)
-#: uvalu/authgate.py:467
+#: uvalu/authgate.py:470
 #, python-brace-format
 msgid "Invited by {inviter} as {role}. Pick a password, or use a connected provider — you can add another method later."
 msgstr "Invitado por {inviter} como {role}. Elige una contraseña o usa un proveedor conectado; podrás añadir otro método más adelante."
 
 #. Context: Invite acceptance screen › heading
-#: uvalu/authgate.py:470
+#: uvalu/authgate.py:473
 msgid "Create your account"
 msgstr "Crea tu cuenta"
 
 #. Context: Sign-in, sign-up and invite screens › label of the email field
-#: uvalu/authgate.py:477 uvalu/authgate.py:547 uvalu/authgate.py:818
+#: uvalu/authgate.py:480 uvalu/authgate.py:550 uvalu/authgate.py:821
 msgid "Email"
 msgstr "Correo electrónico"
 
 #. Context: Invite acceptance screen › small uppercase badge next to the email:
 #. the email can't be changed
-#: uvalu/authgate.py:483
+#: uvalu/authgate.py:486
 msgid "FIXED BY INVITE"
 msgstr "FIJADO POR LA INVITACIÓN"
 
 #. Context: Sign-in and sign-up forms › label of the password field. Also the
 #. row title in Settings › Security.
-#: uvalu/authgate.py:491 uvalu/authgate.py:548 uvalu/authgate.py:828 uvalu/authgate.py:833 uvalu/authgate.py:874 uvalu/pages_/settings.py:597 uvalu/pages_/settings.py:601
+#: uvalu/authgate.py:494 uvalu/authgate.py:551 uvalu/authgate.py:831
+#: uvalu/authgate.py:836 uvalu/authgate.py:877 uvalu/pages_/settings.py:597
+#: uvalu/pages_/settings.py:601
 msgid "Password"
 msgstr "Contraseña"
 
 #. Context: Password fields › tooltip with the minimum password length
-#: uvalu/authgate.py:493 uvalu/authgate.py:550 uvalu/authgate.py:617 uvalu/pages_/settings.py:400 uvalu/pages_/settings.py:432
+#: uvalu/authgate.py:496 uvalu/authgate.py:553 uvalu/authgate.py:620
+#: uvalu/pages_/settings.py:400 uvalu/pages_/settings.py:432
 #, python-brace-format
 msgid "At least {min_len} characters."
 msgstr "Al menos {min_len} caracteres."
 
 #. Context: Invite acceptance screen › submit button
-#: uvalu/authgate.py:494
+#: uvalu/authgate.py:497
 msgid "Create account"
 msgstr "Crear cuenta"
 
 #. Context: Sign-in screen › divider between the password form and the
 #. 'Continue with Google/Microsoft' buttons
-#: uvalu/authgate.py:509 uvalu/authgate.py:794 uvalu/authgate.py:883
+#: uvalu/authgate.py:512 uvalu/authgate.py:797 uvalu/authgate.py:886
 msgid "or"
 msgstr "o"
 
 #. Context: First-run screen (no users yet) › heading
-#: uvalu/authgate.py:541
+#: uvalu/authgate.py:544
 msgid "Create the first admin account"
 msgstr "Crea la primera cuenta de administrador"
 
 #. Context: Sign-in and first-admin screens › example text inside the empty
 #. email field
-#: uvalu/authgate.py:547 uvalu/authgate.py:818
+#: uvalu/authgate.py:550 uvalu/authgate.py:821
 msgid "you@company.com"
 msgstr "tu@empresa.com"
 
 #. Context: First-run screen › submit button
-#: uvalu/authgate.py:551
+#: uvalu/authgate.py:554
 msgid "Create admin account"
 msgstr "Crear cuenta de administrador"
 
 #. Context: Sign-in screen › heading of the info box opened by 'Forgot?'
-#: uvalu/authgate.py:581
+#: uvalu/authgate.py:584
 msgid "Forgot your password?"
 msgstr "¿Has olvidado tu contraseña?"
 
-#: uvalu/authgate.py:582
+#: uvalu/authgate.py:585
 msgid "During the beta Uvalu doesn’t send emails. Ask your admin to reset your password. They give you a single-use link, valid for 30 minutes."
 msgstr "Durante la beta Uvalu no envía correos. Pide a tu administrador que restablezca tu contraseña. Te dará un enlace de un solo uso, válido durante 30 minutos."
 
 #. Context: Password reset screen › heading when the reset link is wrong or
 #. expired
-#: uvalu/authgate.py:600
+#: uvalu/authgate.py:603
 msgid "Reset link invalid"
 msgstr "Enlace de restablecimiento no válido"
 
 #. Context: Password reset screen › text under 'Reset link invalid'
-#: uvalu/authgate.py:601
+#: uvalu/authgate.py:604
 msgid "This reset link is invalid or has expired. Ask your admin to send a new one."
 msgstr "Este enlace de restablecimiento no es válido o ha caducado. Pide uno nuevo a tu administrador."
 
 #. Context: Password reset screen › text under the heading; {email} shown in
 #. bold. (Code builds this from pieces; merge into one string.)
-#: uvalu/authgate.py:606
+#: uvalu/authgate.py:609
 #, python-brace-format
 msgid "Resetting the password for {email}"
 msgstr "Restableciendo la contraseña de {email}"
 
 #. Context: Password reset screen › heading
-#: uvalu/authgate.py:609
+#: uvalu/authgate.py:612
 msgid "Choose a new password"
 msgstr "Elige una nueva contraseña"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:615 uvalu/pages_/settings.py:399 uvalu/pages_/settings.py:431
+#: uvalu/authgate.py:618 uvalu/pages_/settings.py:399 uvalu/pages_/settings.py:431
 msgid "New password"
 msgstr "Nueva contraseña"
 
 #. Context: Password reset screen and Settings › Change password › field label
-#: uvalu/authgate.py:618 uvalu/pages_/settings.py:402 uvalu/pages_/settings.py:434
+#: uvalu/authgate.py:621 uvalu/pages_/settings.py:402 uvalu/pages_/settings.py:434
 msgid "Confirm new password"
 msgstr "Confirma la nueva contraseña"
 
 #. Context: Password reset screen › submit button
-#: uvalu/authgate.py:620
+#: uvalu/authgate.py:623
 msgid "Reset password"
 msgstr "Restablecer contraseña"
 
 #. Context: Sign-in screen › notice after this session was ended from another
 #. device
-#: uvalu/authgate.py:686
+#: uvalu/authgate.py:689
 msgid "You were signed out of this session."
 msgstr "Se ha cerrado tu sesión."
 
 #. Context: Sign-in screen › notice when the signed-in account was deleted
-#: uvalu/authgate.py:692
+#: uvalu/authgate.py:695
 msgid "Your account no longer exists. Please contact your admin."
 msgstr "Tu cuenta ya no existe. Ponte en contacto con tu administrador."
 
 #. Context: Sign-in screen › notice when the signed-in account was suspended
-#: uvalu/authgate.py:696
+#: uvalu/authgate.py:699
 msgid "This account has been suspended."
 msgstr "Esta cuenta ha sido suspendida."
 
-#: uvalu/authgate.py:746
+#: uvalu/authgate.py:749
 msgid "← Back to sign in"
 msgstr "← Volver al inicio de sesión"
 
 #. Context: Sign-in screen › heading after too many failed password attempts
-#: uvalu/authgate.py:777
+#: uvalu/authgate.py:780
 msgid "Sign in temporarily locked"
 msgstr "Inicio de sesión bloqueado temporalmente"
 
-#: uvalu/authgate.py:778
+#: uvalu/authgate.py:781
 msgid "Too many failed sign-in attempts. Uvalu will accept a new attempt when the timer expires."
 msgstr "Demasiados intentos de inicio de sesión fallidos. Uvalu aceptará un nuevo intento cuando termine el temporizador."
 
 #. Context: Sign-in lockout card › big countdown, e.g. '12 min'. Followed by
 #. 'until the next attempt'.
 #. Also: Settings › price refresh interval option, e.g. '5 min'
-#: uvalu/authgate.py:784
+#: uvalu/authgate.py:787
 #, python-brace-format
 msgid "{minutes} min"
 msgstr "{minutes} min"
 
 #. Context: Sign-in lockout card › caption under the countdown ('12 min / until
 #. the next attempt')
-#: uvalu/authgate.py:785
+#: uvalu/authgate.py:788
 msgid "until the next attempt"
 msgstr "hasta el próximo intento"
 
 #. Context: Sign-in screen › heading of the form, and the (disabled) sign-in
 #. button when the account is locked
-#: uvalu/authgate.py:787 uvalu/authgate.py:811 uvalu/authgate.py:835
+#: uvalu/authgate.py:790 uvalu/authgate.py:814 uvalu/authgate.py:838
 msgid "Sign in"
 msgstr "Iniciar sesión"
 
-#: uvalu/authgate.py:801
+#: uvalu/authgate.py:804
 msgid "The lock applies to password sign-in only."
 msgstr "El bloqueo solo afecta al inicio de sesión con contraseña."
 
 #. Context: Sign-in lockout screen › button to try another email address
-#: uvalu/authgate.py:804
+#: uvalu/authgate.py:807
 msgid "Not you? Use a different account"
 msgstr "¿No eres tú? Usa otra cuenta"
 
 #. Context: Sign-in screen › subheading under 'Sign in'
-#: uvalu/authgate.py:812
+#: uvalu/authgate.py:815
 msgid "Welcome back. Enter your credentials to continue."
 msgstr "Hola de nuevo. Introduce tus credenciales para continuar."
 
 #. Context: Sign-in screen › small link next to the password label, opens the
 #. 'Forgot your password?' note
-#: uvalu/authgate.py:830
+#: uvalu/authgate.py:833
 msgid "Forgot?"
 msgstr "¿La has olvidado?"
 
 #. Context: Sign-in screen › error when the form is submitted with an empty
 #. field
-#: uvalu/authgate.py:838
+#: uvalu/authgate.py:841
 msgid "Enter your email and password to continue."
 msgstr "Introduce tu correo y tu contraseña para continuar."
 
 #. Context: Sign-in screen › footer line, followed by 'Ask your admin for an
 #. invite'
-#: uvalu/authgate.py:893
+#: uvalu/authgate.py:896
 msgid "New to Uvalu?"
 msgstr "¿Eres nuevo en Uvalu?"
 
-#: uvalu/authgate.py:893
+#: uvalu/authgate.py:896
 msgid "Ask for an invite"
 msgstr "Pide una invitación"
 
@@ -2196,7 +2210,7 @@ msgstr "Franja baja · {low}–{high}"
 
 #. Context: Valuation model name (kept untranslated, L-08): Help page and
 #. fair-value bars
-#: uvalu/components.py:774 uvalu/pages_/help.py:103
+#: uvalu/components.py:774 uvalu/pages_/help.py:104
 msgid "Graham Number"
 msgstr "Graham Number"
 
@@ -2226,7 +2240,7 @@ msgstr "Precio objetivo de analistas"
 #. Context: Fair-value model name: book value per share × the sector's
 #. price/book ratio, used only when the core models fail. Same name in the
 #. legal Methodology document
-#: uvalu/components.py:787 uvalu/pages_/help.py:113
+#: uvalu/components.py:787 uvalu/pages_/help.py:114
 msgid "Book value (fallback)"
 msgstr "Valor contable (respaldo)"
 
@@ -3665,7 +3679,7 @@ msgid "Privacy policy"
 msgstr "Política de privacidad"
 
 #. Context: Planned (spec, not in code yet) › Link text
-#: uvalu/compliance/disclosures.py:124 uvalu/i18n_planned.py:15
+#: uvalu/compliance/disclosures.py:130 uvalu/i18n_planned.py:15
 msgid "Terms of use"
 msgstr "Condiciones de uso"
 
@@ -4083,7 +4097,7 @@ msgstr "El soporte explica cómo funciona Uvalu; no podemos opinar sobre si debe
 msgid "Your records · nothing is executed"
 msgstr "Tus registros · no se ejecuta ninguna orden"
 
-#: uvalu/compliance/disclosures.py:84 uvalu/compliance/disclosures.py:93
+#: uvalu/compliance/disclosures.py:84 uvalu/compliance/disclosures.py:96
 msgid "Prices"
 msgstr "Precios"
 
@@ -4091,7 +4105,7 @@ msgstr "Precios"
 msgid "Yahoo Finance · delayed quotes, with the time they were fetched"
 msgstr "Yahoo Finance · cotizaciones diferidas, con la hora en que se obtuvieron"
 
-#: uvalu/compliance/disclosures.py:85 uvalu/compliance/disclosures.py:94
+#: uvalu/compliance/disclosures.py:85 uvalu/compliance/disclosures.py:97
 msgid "Fundamentals"
 msgstr "Datos fundamentales"
 
@@ -4103,85 +4117,109 @@ msgstr "Yahoo Finance · actualizados aproximadamente cada 24 horas"
 msgid "Yahoo Finance payment history · your own entries are your records"
 msgstr "Historial de pagos de Yahoo Finance · tus propias entradas son tus registros"
 
-#: uvalu/compliance/disclosures.py:87 uvalu/compliance/disclosures.py:98
+#: uvalu/compliance/disclosures.py:87 uvalu/compliance/disclosures.py:101
 msgid "FX"
 msgstr "Divisas"
 
-#: uvalu/compliance/disclosures.py:87 uvalu/compliance/disclosures.py:98
+#: uvalu/compliance/disclosures.py:87 uvalu/compliance/disclosures.py:101
 msgid "ECB reference rates via frankfurter.dev"
 msgstr "Tipos de referencia del BCE a través de frankfurter.dev"
 
-#: uvalu/compliance/disclosures.py:93
+#: uvalu/compliance/disclosures.py:89 uvalu/compliance/disclosures.py:103
+#, fuzzy
+#| msgid "blended yield"
+msgid "Bond yields"
+msgstr "Rentabilidad de los bonos"
+
+#: uvalu/compliance/disclosures.py:89 uvalu/compliance/disclosures.py:103
+#, fuzzy
+msgid "OECD 10-year government bond yields · snapshot taken each quarter"
+msgstr ""
+"Rentabilidad de la deuda pública a 10 años de la OCDE · instantánea cada "
+"trimestre"
+
+#: uvalu/compliance/disclosures.py:90 uvalu/compliance/disclosures.py:104
+#, fuzzy
+#| msgid "Index membership"
+msgid "Index members"
+msgstr "Composición de los índices"
+
+#: uvalu/compliance/disclosures.py:90 uvalu/compliance/disclosures.py:104
+#, fuzzy
+msgid "The index providers' published member lists · checked each quarter"
+msgstr "Las listas publicadas por los proveedores de índices · revisadas cada trimestre"
+
+#: uvalu/compliance/disclosures.py:96
 msgid "EODHD · end-of-day closes, refreshed each weekday evening"
 msgstr "EODHD · precios de cierre, actualizados cada noche de lunes a viernes"
 
-#: uvalu/compliance/disclosures.py:94
+#: uvalu/compliance/disclosures.py:97
 msgid "The companies' annual reports and results releases · entered by hand, each figure with its source and page"
 msgstr "Informes anuales y comunicados de resultados de las empresas · introducidos a mano, cada cifra con su fuente y página"
 
-#: uvalu/compliance/disclosures.py:96
+#: uvalu/compliance/disclosures.py:99
 msgid "EODHD payment history"
 msgstr "Historial de pagos de EODHD"
 
-#: uvalu/compliance/disclosures.py:97
+#: uvalu/compliance/disclosures.py:100
 msgid "Sector multiples"
 msgstr "Múltiplos sectoriales"
 
-#: uvalu/compliance/disclosures.py:97
+#: uvalu/compliance/disclosures.py:100
 msgid "Aswath Damodaran, NYU Stern · European industry P/E and P/B, January 2026"
 msgstr "Aswath Damodaran, NYU Stern · PER y precio/valor contable europeos por sector, enero de 2026"
 
-#: uvalu/compliance/disclosures.py:109
+#: uvalu/compliance/disclosures.py:115
 msgid "Tax figures are estimates"
 msgstr "Las cifras fiscales son estimaciones"
 
-#: uvalu/compliance/disclosures.py:110
+#: uvalu/compliance/disclosures.py:116
 #, python-brace-format
 msgid "Rules applied: Belgium. Foreign withholding at the rate for the company's country in Settings (its statutory rate unless you changed it), then the Belgian withholding tax (roerende voorheffing) of {be_rate} on the remainder; not applied to stock (scrip) dividends. Rates last reviewed {date}."
 msgstr "Reglas aplicadas: Bélgica. Retención extranjera al tipo del país de la empresa en Ajustes (su tipo legal, salvo que lo hayas cambiado) y, después, la retención belga sobre rendimientos del capital mobiliario (précompte mobilier / roerende voorheffing) del {be_rate} sobre el resto; no se aplica a los dividendos en acciones (scrip). Tipos revisados por última vez el {date}."
 
-#: uvalu/compliance/disclosures.py:114
+#: uvalu/compliance/disclosures.py:120
 msgid "Not handled: the dividend exemption and its carry-forward, substantial holdings, funds with a bond component, non-Belgian residents, split ownership, professional or speculative trading."
 msgstr "No contemplados: la exención de dividendos y su traslado, las participaciones significativas, los fondos con componente de renta fija, los no residentes en Bélgica, la propiedad desmembrada (usufructo y nuda propiedad), las operaciones profesionales o especulativas."
 
-#: uvalu/compliance/disclosures.py:117
+#: uvalu/compliance/disclosures.py:123
 msgid "You remain responsible for your tax return. Check these figures against your bank statements or with a tax professional."
 msgstr "Sigues siendo responsable de tu declaración de impuestos. Comprueba estas cifras con tus extractos bancarios o con un profesional fiscal."
 
-#: uvalu/compliance/disclosures.py:125
+#: uvalu/compliance/disclosures.py:131
 msgid "Privacy notice"
 msgstr "Aviso de privacidad"
 
-#: uvalu/compliance/disclosures.py:127 uvalu/pages_/analysis.py:192
-#: uvalu/pages_/help.py:176 uvalu/pages_/help.py:296
+#: uvalu/compliance/disclosures.py:133 uvalu/pages_/analysis.py:192
+#: uvalu/pages_/help.py:180 uvalu/pages_/help.py:300
 msgid "Data sources"
 msgstr "Fuentes de datos"
 
-#: uvalu/compliance/disclosures.py:128 uvalu/pages_/help.py:306
+#: uvalu/compliance/disclosures.py:134 uvalu/pages_/help.py:310
 msgid "Conflicts of interest"
 msgstr "Conflictos de intereses"
 
-#: uvalu/compliance/disclosures.py:129
+#: uvalu/compliance/disclosures.py:135
 msgid "Complaints & Consumer Mediation Service"
 msgstr "Reclamaciones y Servicio de Mediación para el Consumidor"
 
-#: uvalu/compliance/disclosures.py:130
+#: uvalu/compliance/disclosures.py:136
 msgid "Accessibility statement"
 msgstr "Declaración de accesibilidad"
 
-#: uvalu/compliance/disclosures.py:134
+#: uvalu/compliance/disclosures.py:140
 msgid "Complaints"
 msgstr "Reclamaciones"
 
-#: uvalu/compliance/disclosures.py:134
+#: uvalu/compliance/disclosures.py:140
 msgid "Accessibility"
 msgstr "Accesibilidad"
 
-#: uvalu/compliance/disclosures.py:135
+#: uvalu/compliance/disclosures.py:141
 msgid "Reference language: English. You may rely on the version shown to you in your own language."
 msgstr "Idioma de referencia: inglés. Puedes acogerte a la versión que se te muestra en tu idioma."
 
-#: uvalu/compliance/disclosures.py:137
+#: uvalu/compliance/disclosures.py:143
 msgid "This page is not yet available in your language; the English reference version is shown."
 msgstr "Esta página aún no está disponible en tu idioma; se muestra la versión de referencia en inglés."
 
@@ -5261,139 +5299,142 @@ msgstr "Mayores movimientos de hoy"
 msgid "No daily price data available."
 msgstr "No hay precios diarios disponibles."
 
-#: uvalu/pages_/help.py:66
+#: uvalu/pages_/help.py:67
 #, python-brace-format
 msgid "Composite model score of {score} or more, the price at least {mos} below the model fair value, and the fair value backed by two or more independent models."
 msgstr "Puntuación compuesta del modelo de {score} o más, precio al menos un {mos} por debajo del valor razonable del modelo y valor razonable respaldado por dos o más modelos independientes."
 
-#: uvalu/pages_/help.py:69
+#: uvalu/pages_/help.py:70
 #, python-brace-format
 msgid "Composite model score from {low} to {high}, or {score} or more without a confirmed margin of safety."
 msgstr "Puntuación compuesta del modelo de {low} a {high}, o {score} o más sin margen de seguridad confirmado."
 
-#: uvalu/pages_/help.py:71
+#: uvalu/pages_/help.py:72
 #, python-brace-format
 msgid "Composite model score below {low}."
 msgstr "Puntuación compuesta del modelo por debajo de {low}."
 
-#: uvalu/pages_/help.py:98
+#: uvalu/pages_/help.py:99
 #, python-brace-format
 msgid "{a} Undervalued · {b} Mid score · {c} Low score · {d} Screened out"
 msgstr "{a} Infravalorado · {b} Puntuación intermedia · {c} Puntuación baja · {d} Excluido"
 
 #. Context: Help › explanation of the Graham Number. Use the local decimal
 #. separator in 22.5.
-#: uvalu/pages_/help.py:103
+#: uvalu/pages_/help.py:104
 msgid "√(22.5 × EPS × book value per share) — Benjamin Graham's classic value formula. Needs positive trailing earnings and book value per share."
 msgstr "√(22,5 × BPA × valor contable por acción): la fórmula de valor clásica de Benjamin Graham. Requiere beneficios de los últimos 12 meses y un valor contable por acción positivos."
 
 #. Context: Methodology › fair-value model name, exactly as in the legal
 #. Methodology document § 3: earnings per share × a sector P/E multiple
-#: uvalu/pages_/help.py:106
+#: uvalu/pages_/help.py:107
 msgid "Price/earnings value"
 msgstr "Valor precio/beneficio"
 
 #. Context: Help › explanation of the P/E fair value model
-#: uvalu/pages_/help.py:106
+#: uvalu/pages_/help.py:107
 msgid "Trailing EPS × a sector-typical fair P/E multiple."
 msgstr "BPA de los últimos 12 meses × un PER razonable típico del sector."
 
 #. Context: Methodology › fair-value model name, exactly as in the legal
 #. Methodology document § 3
-#: uvalu/pages_/help.py:107
+#: uvalu/pages_/help.py:108
 msgid "Earnings power value (EPV)"
 msgstr "Valor de la capacidad de beneficio (EPV)"
 
 #. Context: Help › explanation of EPV
-#: uvalu/pages_/help.py:107
+#: uvalu/pages_/help.py:108
 msgid "Normalised earnings capitalised at the cost of capital, deliberately ignoring speculative growth."
 msgstr "Beneficios normalizados capitalizados al coste del capital, ignorando deliberadamente el crecimiento especulativo."
 
 #. Context: Methodology › fair-value model name, exactly as in the legal
 #. Methodology document § 3
-#: uvalu/pages_/help.py:109
+#: uvalu/pages_/help.py:110
 msgid "Dividend model, single stage"
 msgstr "Modelo de dividendos, una etapa"
 
 #. Context: Help › explanation of the one-stage DDM
-#: uvalu/pages_/help.py:109
+#: uvalu/pages_/help.py:110
 msgid "Gordon growth model: next year's expected dividend discounted at (cost of equity − perpetual growth rate). Only applies to dividend payers."
 msgstr "Modelo de crecimiento de Gordon: el dividendo esperado del próximo año, descontado a (coste de los fondos propios − tasa de crecimiento perpetuo). Solo para empresas que pagan dividendo."
 
 #. Context: Methodology › fair-value model name, exactly as in the legal
 #. Methodology document § 3
-#: uvalu/pages_/help.py:111
+#: uvalu/pages_/help.py:112
 msgid "Dividend model, multi-stage"
 msgstr "Modelo de dividendos, varias etapas"
 
 #. Context: Help › explanation of the two-stage DDM
-#: uvalu/pages_/help.py:111
+#: uvalu/pages_/help.py:112
 msgid "A higher-growth phase followed by a stable terminal-growth phase, each discounted back separately. Also dividend-payer only."
 msgstr "Una fase de mayor crecimiento seguida de una fase estable de crecimiento terminal, cada una descontada por separado. También solo para empresas que pagan dividendo."
 
 #. Context: Methodology › description of the book value (fallback) model
-#: uvalu/pages_/help.py:113
+#: uvalu/pages_/help.py:114
 msgid "Book value per share × the sector's median price/book ratio. Used only when Graham, P/E and EPV all fail, typically for a loss-maker."
 msgstr "Valor contable por acción × la relación precio/valor contable mediana del sector. Solo se usa cuando Graham, PER y EPV fallan, normalmente en una empresa con pérdidas."
 
 #. Context: Methodology › fair-value model name, exactly as in the legal
 #. Methodology document § 3
-#: uvalu/pages_/help.py:115
+#: uvalu/pages_/help.py:116
 msgid "Free cash flow value (fallback)"
 msgstr "Valor del flujo de caja libre (respaldo)"
 
 #. Context: Methodology › description of the free cash flow value (fallback)
 #. model
-#: uvalu/pages_/help.py:115
+#: uvalu/pages_/help.py:116
 msgid "Free cash flow × a fixed multiple, minus net debt, per share. Used only when Graham, P/E and EPV all fail."
 msgstr "Flujo de caja libre × un múltiplo fijo, menos la deuda neta, por acción. Solo se usa cuando Graham, PER y EPV fallan."
 
 #. Context: Help › FAQ question
-#: uvalu/pages_/help.py:122
+#: uvalu/pages_/help.py:123
 msgid "How is the composite fair value calculated?"
 msgstr "¿Cómo se calcula el valor razonable compuesto?"
 
-#: uvalu/pages_/help.py:123
+#: uvalu/pages_/help.py:124
 msgid "Each stock is valued by every model that applies to it. Their values are combined into one weighted fair value, capped when a single model runs far above the others. Margin of safety is the discount of the price to that figure. Both are model estimates."
 msgstr "Cada acción se valora con todos los modelos que le son aplicables. Sus valores se combinan en un único valor razonable ponderado, limitado cuando un modelo queda muy por encima de los demás. El margen de seguridad es el descuento del precio respecto a esa cifra. Ambos son estimaciones del modelo."
 
-#: uvalu/pages_/help.py:126
+#: uvalu/pages_/help.py:127
 msgid "What does the weighted composite score mean?"
 msgstr "¿Qué significa la puntuación compuesta ponderada?"
 
-#: uvalu/pages_/help.py:127
+#: uvalu/pages_/help.py:128
 msgid "A 0–100 value-weighted mean of the model scores across your holdings. It describes the portfolio; it is not a recommendation. A holding that fails a quality screen counts with its score of 0; a holding without a score (No signal) is left out."
 msgstr "Una media de 0 a 100, ponderada por valor, de las puntuaciones del modelo de tus posiciones. Describe la cartera; no es una recomendación. Una posición que no supera un filtro de calidad cuenta con su puntuación de 0; una posición sin puntuación (Sin señal) queda excluida."
 
 #. Context: Help › FAQ question
-#: uvalu/pages_/help.py:130 uvalu/pages_/help.py:144
+#: uvalu/pages_/help.py:131 uvalu/pages_/help.py:148
 msgid "How often do prices update?"
 msgstr "¿Con qué frecuencia se actualizan los precios?"
 
-#: uvalu/pages_/help.py:131
+#: uvalu/pages_/help.py:132
 msgid "During the free beta prices are delayed quotes from Yahoo Finance; each signal shows the time of the price it used. Fundamentals are refreshed about every 24 hours. Real-time prices are not offered."
 msgstr "Durante la beta gratuita, los precios son cotizaciones diferidas de Yahoo Finance; cada señal muestra la hora del precio que usó. Los datos fundamentales se actualizan aproximadamente cada 24 horas. No se ofrecen precios en tiempo real."
 
-#: uvalu/pages_/help.py:134
+#: uvalu/pages_/help.py:135
 msgid "Why does a stock show “Screened out”?"
 msgstr "¿Por qué una acción muestra «Excluido»?"
 
-#: uvalu/pages_/help.py:135
+#: uvalu/pages_/help.py:136
 msgid "It breaks one of the quality rules listed on this page; the explanation next to the badge names which. Its composite score is set to 0. It still appears in your portfolio and valuations."
 msgstr "Incumple una de las reglas de calidad de esta página; la explicación junto a la etiqueta indica cuál. Su puntuación compuesta se fija en 0. Sigue apareciendo en tu cartera y en las valoraciones."
 
 #. Context: Help › FAQ question
-#: uvalu/pages_/help.py:138 uvalu/pages_/help.py:148
+#: uvalu/pages_/help.py:139 uvalu/pages_/help.py:152
 msgid "Which exchanges are covered?"
 msgstr "¿Qué bolsas se cubren?"
 
-#. Context: Help › FAQ answer. Exchange names are proper names; only translate
-#. city names if usual.
-#: uvalu/pages_/help.py:139
-msgid "Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana."
-msgstr "Euronext Ámsterdam/Bruselas/París, XETRA, SIX Swiss y Borsa Italiana."
+#: uvalu/pages_/help.py:141
+#, fuzzy, python-brace-format
+msgid ""
+"Shares of European companies on {exchanges}: one line per company, on its home "
+"exchange if it is listed there, otherwise where it trades most."
+msgstr ""
+"Acciones de empresas europeas en {exchanges}: una línea por empresa, en su bolsa"
+" de origen si cotiza allí y, si no, donde más se negocia."
 
-#: uvalu/pages_/help.py:145
+#: uvalu/pages_/help.py:149
 msgid ""
 "The demo shows end-of-day closing prices, refreshed each weekday evening; the "
 "provider is named under Data sources. The fundamentals come from the companies' "
@@ -5404,7 +5445,7 @@ msgstr ""
 "proceden de los informes anuales de las empresas y se actualizan una vez al año."
 " No se muestran precios intradía."
 
-#: uvalu/pages_/help.py:149
+#: uvalu/pages_/help.py:153
 msgid "The demo covers 9 stocks on Euronext Amsterdam, Brussels and Paris, Xetra, SIX Swiss Exchange, Nasdaq Copenhagen and the London Stock Exchange, plus one ETF."
 msgstr "La demo cubre 9 acciones en Euronext Ámsterdam, Bruselas y París, Xetra, SIX Swiss Exchange, Nasdaq Copenhagen y la London Stock Exchange, más un ETF."
 
@@ -5413,7 +5454,7 @@ msgstr "La demo cubre 9 acciones en Euronext Ámsterdam, Bruselas y París, Xetr
 #. Methodology › left-hand section list › the signal badges (Undervalued, Neutral, …).
 #. Methodology › left-hand section list › the signal badges (Undervalued, Mid score,
 #. …).
-#: uvalu/pages_/help.py:170
+#: uvalu/pages_/help.py:174
 msgid "Badges"
 msgstr "Etiquetas"
 
@@ -5421,124 +5462,124 @@ msgstr "Etiquetas"
 #. EPV, …).
 #. Methodology › left-hand section list › the fair-value models (Graham Number, EPV,
 #. …).
-#: uvalu/pages_/help.py:172
+#: uvalu/pages_/help.py:176
 msgid "Models"
 msgstr "Modelos"
 
-#: uvalu/pages_/help.py:173 uvalu/pages_/help.py:280
+#: uvalu/pages_/help.py:177 uvalu/pages_/help.py:284
 msgid "Quality screens"
 msgstr "Filtros de calidad"
 
 #. Methodology & help › left-hand section list › frequently asked questions.
 #. Methodology › left-hand section list › frequently asked questions.
-#: uvalu/pages_/help.py:175
+#: uvalu/pages_/help.py:179
 msgid "FAQ"
 msgstr "Preguntas frecuentes"
 
 #. Methodology & help › left-hand section list › short for "Conflicts of interest".
 #. Methodology › left-hand section list › short for "Conflicts of interest".
-#: uvalu/pages_/help.py:178
+#: uvalu/pages_/help.py:182
 msgid "Conflicts"
 msgstr "Conflictos de intereses"
 
-#: uvalu/pages_/help.py:216
+#: uvalu/pages_/help.py:220
 msgid "How each model works, what the badges mean, how often they change and where the data comes from."
 msgstr "Cómo funciona cada modelo, qué significan las etiquetas, con qué frecuencia cambian y de dónde proceden los datos."
 
-#: uvalu/pages_/help.py:217
+#: uvalu/pages_/help.py:221
 msgid "Full methodology →"
 msgstr "Metodología completa →"
 
-#: uvalu/pages_/help.py:218
+#: uvalu/pages_/help.py:222
 msgid "Data sources →"
 msgstr "Fuentes de datos →"
 
-#: uvalu/pages_/help.py:219
+#: uvalu/pages_/help.py:223
 msgid "Conflicts of interest →"
 msgstr "Conflictos de intereses →"
 
-#: uvalu/pages_/help.py:233
+#: uvalu/pages_/help.py:237
 msgid "Badges · meaning and thresholds"
 msgstr "Etiquetas · significado y umbrales"
 
-#: uvalu/pages_/help.py:243
+#: uvalu/pages_/help.py:247
 msgid "Time horizon"
 msgstr "Horizonte temporal"
 
-#: uvalu/pages_/help.py:243
+#: uvalu/pages_/help.py:247
 msgid "3 to 5 years, the period the valuation models assume"
 msgstr "De 3 a 5 años, el periodo que suponen los modelos de valoración"
 
-#: uvalu/pages_/help.py:244
+#: uvalu/pages_/help.py:248
 msgid "Updated"
 msgstr "Actualización"
 
-#: uvalu/pages_/help.py:244
+#: uvalu/pages_/help.py:248
 msgid "Fundamentals about every 24 hours; signals are recomputed when they change"
 msgstr "Datos fundamentales aproximadamente cada 24 horas; las señales se recalculan cuando cambian"
 
-#: uvalu/pages_/help.py:245
+#: uvalu/pages_/help.py:249
 msgid "History"
 msgstr "Historial"
 
-#: uvalu/pages_/help.py:245
+#: uvalu/pages_/help.py:249
 msgid "Every badge change kept 24 months, the last 12 shown on each stock page"
 msgstr "Cada cambio de etiqueta se conserva 24 meses; los últimos 12 se muestran en la página de cada acción"
 
-#: uvalu/pages_/help.py:248
+#: uvalu/pages_/help.py:252
 msgid "Same for every user."
 msgstr "Iguales para todos los usuarios."
 
-#: uvalu/pages_/help.py:248
+#: uvalu/pages_/help.py:252
 msgid "Badges, scores and fair values use only instrument data and the shared model settings. They never use your holdings, income, goals or risk tolerance."
 msgstr "Las etiquetas, puntuaciones y valores razonables solo usan datos del instrumento y los ajustes del modelo compartidos. Nunca usan tus posiciones, ingresos, objetivos ni tolerancia al riesgo."
 
-#: uvalu/pages_/help.py:251
+#: uvalu/pages_/help.py:255
 msgid "Risk."
 msgstr "Riesgo."
 
-#: uvalu/pages_/help.py:251
+#: uvalu/pages_/help.py:255
 msgid "Model outputs can be wrong. Share prices can stay below or above fair value for years, and you can lose capital."
 msgstr "Los resultados de los modelos pueden ser erróneos. Los precios pueden mantenerse por debajo o por encima del valor razonable durante años y puedes perder capital."
 
-#: uvalu/pages_/help.py:253
+#: uvalu/pages_/help.py:257
 msgid "Sensitivity."
 msgstr "Sensibilidad."
 
-#: uvalu/pages_/help.py:257
+#: uvalu/pages_/help.py:261
 msgid "Reading the badges"
 msgstr "Cómo leer las etiquetas"
 
-#: uvalu/pages_/help.py:263
+#: uvalu/pages_/help.py:267
 msgid "Coverage today"
 msgstr "Cobertura hoy"
 
-#: uvalu/pages_/help.py:272
+#: uvalu/pages_/help.py:276
 msgid "The fair-value models"
 msgstr "Los modelos de valor razonable"
 
 #. Context: Help page › FAQ section heading
-#: uvalu/pages_/help.py:287
+#: uvalu/pages_/help.py:291
 msgid "Frequently asked"
 msgstr "Preguntas frecuentes"
 
-#: uvalu/pages_/help.py:302
+#: uvalu/pages_/help.py:306
 msgid "Stale or missing inputs are flagged on the stock page. No analyst estimates or ratings are shown."
 msgstr "Los datos de entrada obsoletos o ausentes se señalan en la página de la acción. No se muestran estimaciones ni calificaciones de analistas."
 
-#: uvalu/pages_/help.py:309
+#: uvalu/pages_/help.py:313
 msgid "The founder’s position in a covered stock, of any size, is shown on that stock’s page and updated within 2 business days of each trade."
 msgstr "La posición del fundador en una acción que sigue Uvalu, de cualquier tamaño, se muestra en la página de esa acción y se actualiza en 2 días hábiles tras cada operación."
 
-#: uvalu/pages_/help.py:310
+#: uvalu/pages_/help.py:314
 msgid "Uvalu receives no payment from issuers, brokers or data providers, has no affiliate or broker links and no income during the free beta."
 msgstr "Uvalu no recibe pagos de emisores, brókeres ni proveedores de datos, no tiene enlaces de afiliación ni de brókeres y no tiene ingresos durante la beta gratuita."
 
-#: uvalu/pages_/help.py:312
+#: uvalu/pages_/help.py:316
 msgid "Uvalu receives no payment from issuers, brokers or data providers and has no affiliate or broker links."
 msgstr "Uvalu no recibe pagos de emisores, brókeres ni proveedores de datos y no tiene enlaces de afiliación ni de brókeres."
 
-#: uvalu/pages_/help.py:313
+#: uvalu/pages_/help.py:317
 msgid "The founder does not trade affected shares from the moment a model change is decided until 2 trading days after it is live."
 msgstr "El fundador no negocia las acciones afectadas desde que se decide un cambio de modelo hasta 2 días hábiles bursátiles después de que entre en vigor."
 
@@ -7901,3 +7942,6 @@ msgstr[1] "Todavía no hay datos del screener para tus tickers en seguimiento: a
 
 #~ msgid "Default withholding tax % applied when you record a dividend on each exchange — always editable per record. Depends on your own tax residency and treaty, which this app has no way to know, so every rate starts at 0% until you set it."
 #~ msgstr "Porcentaje de retención predeterminado que se aplica al registrar un dividendo en cada bolsa; siempre se puede cambiar en cada registro. Depende de tu residencia fiscal y del convenio aplicable, que la aplicación no puede conocer, así que cada tipo empieza en 0 % hasta que lo definas."
+
+#~ msgid "Euronext Amsterdam/Brussels/Paris, XETRA, SIX Swiss, and Borsa Italiana."
+#~ msgstr "Euronext Ámsterdam/Bruselas/París, XETRA, SIX Swiss y Borsa Italiana."

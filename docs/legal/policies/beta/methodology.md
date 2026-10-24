@@ -25,7 +25,7 @@ This page explains how Uvalu calculates fair values, scores, model signals and r
 - **Transparent.** Each result shows the models behind it, the inputs used and when it was calculated.
 - **Shared settings.** The thresholds and weights below are set centrally by Uvalu and are the same for all users. The values in force are always shown on this page.
 - **Automated.** Results are calculated by formulas. No analyst reviews individual stocks.
-- **Coverage.** Shares of European companies on Euronext Brussels, Amsterdam, Paris and Milan, Xetra and SIX Swiss Exchange, one line per company: its home exchange if it is listed there, otherwise the line where it trades most (a company only changes line when another one trades at least twice as much, confirmed a week later). Companies registered outside Europe, second lines of the same company, lines that don't trade and funds are not covered. A share you add yourself is scored against this coverage, never added to it.
+- **Coverage.** Shares of European companies on the exchanges in the Screener's Market list, one line per company: its home exchange if it is listed there, otherwise the line where it trades most (a company only changes line when another one trades at least twice as much, confirmed a week later). Companies registered outside Europe, second lines of the same company, lines that don't trade and funds are not covered. A share you add yourself is scored against this coverage, never added to it.
 
 ## 2. Facts and estimates
 
