@@ -1060,6 +1060,29 @@ def render() -> None:
                         _style_opts, _cur_style.capitalize(), disabled=not _is_admin, stacked=True,
                         format_func=frozen(_style_label))
 
+                # Model M5 (plan P8): each part can be switched back to M4
+                # without a code change; the model version shown above follows.
+                _m5_vals: dict = {}
+                if _is_admin:
+                    st.markdown(
+                        '<div style="padding:14px 20px 4px;font-size:10.5px;letter-spacing:0.06em;'
+                        f'text-transform:uppercase;color:var(--muted);">{h_("Model M5 parts")}</div>'
+                        '<div style="padding:0 20px 6px;font-size:12px;color:var(--muted);line-height:1.5;">'
+                        f'{h_("Switch a part off to go back to model M4 for it. Signals are recalculated and the change is logged.")}'
+                        '</div>', unsafe_allow_html=True)
+                    for _m5_key, _m5_title, _m5_desc in (
+                        ("m5_rate_per_currency", h_("Risk-free rate per currency"),
+                         h_("The 10-year government bond yield of each share's currency, instead of 3% for all.")),
+                        ("m5_epv_tax_floor", h_("Tax floor in earnings power value"),
+                         h_("Companies registered where tax is below 5% are valued at the 25% default rate.")),
+                        ("m5_liquidity_eur", h_("Liquidity in euro"),
+                         h_("Trading liquidity measured as value traded in euro, not as number of shares.")),
+                        ("m5_per_share_currency", h_("Per-share figures by currency"),
+                         h_("Earnings and book value per share are converted only when they are in the reporting currency.")),
+                    ):
+                        _m5_vals[_m5_key] = _toggle_row(_m5_key, f"scr_{_m5_key}", _m5_title, _m5_desc,
+                                                        bool(_shared.get(_m5_key, True)), disabled=not _is_admin)
+
                 _stoxx = _toggle_row("stoxx", "scr_stoxx", h_("Benchmark — Euro Stoxx 50"),
                                      h_("Overlay on the portfolio value chart."),
                                      bool(_shared.get("benchmark_stoxx", False)), disabled=not _is_admin)
@@ -1095,6 +1118,11 @@ def render() -> None:
                     elif _stoxx != bool(_shared.get("benchmark_stoxx", False)):
                         _shared["benchmark_stoxx"] = bool(_stoxx)
                         save_shared_settings(_shared)
+                        st.rerun()
+                    elif any(bool(v) != bool(_shared.get(k, True)) for k, v in _m5_vals.items()):
+                        _shared.update({k: bool(v) for k, v in _m5_vals.items()})
+                        save_shared_settings(_shared)
+                        _load_all_screener_data.clear()
                         st.rerun()
 
 

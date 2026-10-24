@@ -63,7 +63,8 @@ each part can be switched back to M4 in the shared settings.
   at run time. Iceland has no OECD series: ISK has no rate yet.
 - Shared settings `m5_rate_per_currency`, `m5_epv_tax_floor` and
   `m5_liquidity_eur` (default on, plan P8): switching one off returns that
-  part to M4; `screener.model_version()` gives "M5", "M5*" (mixed) or "M4",
+  part to M4 (admins switch them in Settings › Model settings in force,
+  logged like every shared setting); `screener.model_version()` gives "M5", "M5*" (mixed) or "M4",
   and the switches are part of `model_settings_id`.
 
 ### Changed

@@ -90,6 +90,26 @@ def test_screening_sliders_only_for_admins(isolated_data, monkeypatch, role):
     assert at.toggle(key="scr_stoxx").disabled is True
 
 
+def test_m5_switches_for_admins_persist_and_change_the_model_version(isolated_data, monkeypatch):
+    # Plan P8: each M5 part can be switched back to M4 from Settings.
+    at = _run(monkeypatch, role="Admin")
+    keys = {w.key for w in at.toggle}
+    assert {"scr_m5_rate_per_currency", "scr_m5_epv_tax_floor", "scr_m5_liquidity_eur",
+            "scr_m5_per_share_currency"} <= keys
+    at.toggle(key="scr_m5_liquidity_eur").set_value(False)
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    assert settings.load_shared_settings()["m5_liquidity_eur"] is False
+    html = "".join(m.value for m in at.markdown)
+    assert "model M5*" in html
+
+
+@pytest.mark.parametrize("role", ["Analyst", "Viewer"])
+def test_m5_switches_not_shown_to_non_admins(isolated_data, monkeypatch, role):
+    at = _run(monkeypatch, role=role)
+    assert not {w.key for w in at.toggle} & {"scr_m5_rate_per_currency", "scr_m5_liquidity_eur"}
+
+
 def test_changing_screening_style_persists_and_reruns(isolated_data, monkeypatch):
     at = _run(monkeypatch, role="Admin")
     at.segmented_control(key="scr_style").set_value("Income")

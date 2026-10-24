@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Uvalu 1.0\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-10-24 01:39+0000\n"
+"POT-Creation-Date: 2026-10-24 02:19+0000\n"
 "PO-Revision-Date: 2026-10-18 15:16+0200\n"
 "Last-Translator: \n"
 "Language-Team: nl <LL@li.org>\n"
@@ -2401,7 +2401,7 @@ msgstr "{stock} van de volglijst verwijderen"
 
 #. Context: Button to open a stock row (Risk page, tables)
 #: uvalu/components.py:1290 uvalu/components.py:1889 uvalu/pages_/risk.py:473
-#: uvalu/pages_/settings.py:1188
+#: uvalu/pages_/settings.py:1216
 msgid "View"
 msgstr "Bekijken"
 
@@ -3934,7 +3934,7 @@ msgstr "Accountmenu van {name}"
 msgid "Demo"
 msgstr "Demo"
 
-#: uvalu/pages_/settings.py:1204 uvalu/shell.py:478
+#: uvalu/pages_/settings.py:1232 uvalu/shell.py:478
 msgid "Free beta"
 msgstr "Gratis bèta"
 
@@ -3946,7 +3946,7 @@ msgstr "Beheerportaal"
 
 #. Context: User menu (top right) › sign-out link. Also a button per session in
 #. Settings › Active sessions.
-#: uvalu/pages_/settings.py:746 uvalu/pages_/settings.py:1205 uvalu/shell.py:502
+#: uvalu/pages_/settings.py:746 uvalu/pages_/settings.py:1233 uvalu/shell.py:502
 msgid "Sign out"
 msgstr "Afmelden"
 
@@ -6189,12 +6189,12 @@ msgid "Model settings"
 msgstr "Modelinstellingen"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:106 uvalu/pages_/settings.py:1103
+#: uvalu/pages_/settings.py:106 uvalu/pages_/settings.py:1131
 msgid "Privacy"
 msgstr "Privacy"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:107 uvalu/pages_/settings.py:1140
+#: uvalu/pages_/settings.py:107 uvalu/pages_/settings.py:1168
 msgid "Plan"
 msgstr "Abonnement"
 
@@ -6303,8 +6303,8 @@ msgid "Type your email address to confirm"
 msgstr "Typ je e-mailadres om te bevestigen"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:243 uvalu/pages_/settings.py:1120
-#: uvalu/pages_/settings.py:1124
+#: uvalu/pages_/settings.py:243 uvalu/pages_/settings.py:1148
+#: uvalu/pages_/settings.py:1152
 msgid "Delete account"
 msgstr "Account verwijderen"
 
@@ -6793,7 +6793,7 @@ msgid "Download backup.xlsx"
 msgstr "backup.xlsx downloaden"
 
 #. Context: Settings › Import & export card
-#: uvalu/pages_/settings.py:957 uvalu/pages_/settings.py:1116
+#: uvalu/pages_/settings.py:957 uvalu/pages_/settings.py:1144
 #, python-brace-format
 msgid "Could not create the workbook: {error}"
 msgstr "Kon de werkmap niet maken: {error}"
@@ -6920,114 +6920,185 @@ msgstr "Screeningstijl"
 msgid "Which signals lead the composite score — Value tilts to margin of safety & quality, Growth to momentum, Income to dividends."
 msgstr "Welke signalen de totaalscore sturen: Waarde legt de nadruk op veiligheidsmarge en kwaliteit, Groei op momentum, Inkomen op dividenden."
 
+#: uvalu/pages_/settings.py:1069
+#, fuzzy
+#| msgid "Model summary"
+msgid "Model M5 parts"
+msgstr "Onderdelen van model M5"
+
+#: uvalu/pages_/settings.py:1071
+#, fuzzy
+msgid ""
+"Switch a part off to go back to model M4 for it. Signals are recalculated and "
+"the change is logged."
+msgstr ""
+"Zet een onderdeel uit om daarvoor terug te gaan naar model M4. De signalen "
+"worden herberekend en de wijziging wordt vastgelegd."
+
+#: uvalu/pages_/settings.py:1074
+#, fuzzy
+msgid "Risk-free rate per currency"
+msgstr "Risicovrije rente per munt"
+
+#: uvalu/pages_/settings.py:1075
+#, fuzzy, no-python-format
+#| msgid "there is no government bond yield for the share's currency yet"
+msgid ""
+"The 10-year government bond yield of each share's currency, instead of 3% for "
+"all."
+msgstr ""
+"De rente op 10-jarige staatsobligaties in de munt van elk aandeel, in plaats van"
+" 3% voor alle aandelen."
+
+#: uvalu/pages_/settings.py:1076
+#, fuzzy
+#| msgid "Earnings power value (EPV)"
+msgid "Tax floor in earnings power value"
+msgstr "Belastingvloer in de winstkrachtwaarde"
+
+#: uvalu/pages_/settings.py:1077
+#, fuzzy, no-python-format
+msgid "Companies registered where tax is below 5% are valued at the 25% default rate."
+msgstr ""
+"Bedrijven die gevestigd zijn waar de belasting onder 5% ligt, worden gewaardeerd"
+" tegen het standaardtarief van 25%."
+
+#: uvalu/pages_/settings.py:1078
+#, fuzzy
+#| msgid "Amount in euro."
+msgid "Liquidity in euro"
+msgstr "Liquiditeit in euro"
+
+#: uvalu/pages_/settings.py:1079
+#, fuzzy
+msgid "Trading liquidity measured as value traded in euro, not as number of shares."
+msgstr ""
+"Verhandelbaarheid gemeten als verhandelde waarde in euro, niet als aantal "
+"aandelen."
+
+#: uvalu/pages_/settings.py:1080
+#, fuzzy
+#| msgid "Per share ({currency})"
+msgid "Per-share figures by currency"
+msgstr "Cijfers per aandeel naar munt"
+
+#: uvalu/pages_/settings.py:1081
+#, fuzzy
+msgid ""
+"Earnings and book value per share are converted only when they are in the "
+"reporting currency."
+msgstr ""
+"Winst en boekwaarde per aandeel worden alleen omgerekend als ze in de "
+"rapportagemunt staan."
+
 #. Context: Settings › toggle title
-#: uvalu/pages_/settings.py:1063
+#: uvalu/pages_/settings.py:1086
 msgid "Benchmark — Euro Stoxx 50"
 msgstr "Benchmark: Euro Stoxx 50"
 
 #. Context: Settings › benchmark toggle description
-#: uvalu/pages_/settings.py:1064
+#: uvalu/pages_/settings.py:1087
 msgid "Overlay on the portfolio value chart."
 msgstr "Toon over de grafiek met de waarde van de portefeuille."
 
 #. Context: Settings › toggle title
-#: uvalu/pages_/settings.py:1066
+#: uvalu/pages_/settings.py:1089
 msgid "Include US-listed names"
 msgstr "Amerikaanse aandelen opnemen"
 
-#: uvalu/pages_/settings.py:1067
+#: uvalu/pages_/settings.py:1090
 msgid "Not available: the beta covers European exchanges only."
 msgstr "Niet beschikbaar: de bèta dekt alleen Europese beurzen."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1107
+#: uvalu/pages_/settings.py:1135
 msgid "Export my data"
 msgstr "Mijn gegevens exporteren"
 
 #. Context: Settings › Import & export / Privacy
-#: uvalu/pages_/settings.py:1108
+#: uvalu/pages_/settings.py:1136
 msgid "Everything Uvalu holds about you: account details, settings, watchlist and all portfolio data, as an Excel workbook (.xlsx)."
 msgstr "Alles wat Uvalu over je bijhoudt: accountgegevens, instellingen, volglijst en alle portefeuillegegevens, als Excel-werkmap (.xlsx)."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1112
+#: uvalu/pages_/settings.py:1140
 msgid "Export"
 msgstr "Exporteren"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1121
+#: uvalu/pages_/settings.py:1149
 msgid "Removes your account and data from live systems at once and from backups within 30 days."
 msgstr "Verwijdert je account en gegevens meteen uit de live systemen en binnen 30 dagen uit de back-ups."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1129
+#: uvalu/pages_/settings.py:1157
 msgid "Privacy contact"
 msgstr "Privacycontact"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1130
+#: uvalu/pages_/settings.py:1158
 msgid "Questions about your data, or a complaint to the Belgian Data Protection Authority (GBA / APD)."
 msgstr "Vragen over je gegevens, of een klacht bij de Belgische Gegevensbeschermingsautoriteit (GBA / APD)."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1145
+#: uvalu/pages_/settings.py:1173
 msgid "Free beta · by invitation"
 msgstr "Gratis bèta · op uitnodiging"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1146
+#: uvalu/pages_/settings.py:1174
 msgid "No paid plans during the beta and you pay nothing. We tell you at least 14 days before the beta ends where we can, so you can export your data. Your account never turns into a paid plan without your express agreement."
 msgstr "Geen betaalde abonnementen tijdens de bèta en je betaalt niets. Waar we kunnen, laten we het je minstens 14 dagen voor het einde van de bèta weten, zodat je je gegevens kunt exporteren. Je account wordt nooit een betaald abonnement zonder je uitdrukkelijke toestemming."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1150
+#: uvalu/pages_/settings.py:1178
 msgid "Active"
 msgstr "Actief"
 
-#: uvalu/pages_/settings.py:1158
+#: uvalu/pages_/settings.py:1186
 msgid "Legal documents"
 msgstr "Juridische documenten"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1166
+#: uvalu/pages_/settings.py:1194
 msgid "No-personal-advice acknowledgement"
 msgstr "Bevestiging geen persoonlijk advies"
 
-#: uvalu/pages_/settings.py:1167
+#: uvalu/pages_/settings.py:1195
 #, python-brace-format
 msgid "Terms of use, section 4. You confirmed it on {date}."
 msgstr "Gebruiksvoorwaarden, artikel 4. Je hebt dit bevestigd op {date}."
 
 #. Context: Settings › Legal documents › the no-personal-advice row: acceptance isn't
 #. recorded yet
-#: uvalu/pages_/settings.py:1169
+#: uvalu/pages_/settings.py:1197
 msgid "Terms of use, section 4. Your acceptance isn't recorded yet."
 msgstr "Gebruiksvoorwaarden, artikel 4. Je aanvaarding wordt nog niet geregistreerd."
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1172
+#: uvalu/pages_/settings.py:1200
 #, python-brace-format
 msgid "{document} · {version}"
 msgstr "{document} · {version}"
 
 #. Context: Settings › Privacy, Plan and Legal documents cards
-#: uvalu/pages_/settings.py:1173
+#: uvalu/pages_/settings.py:1201
 #, python-brace-format
 msgid "Effective from {date}."
 msgstr "Van kracht sinds {date}."
 
-#: uvalu/pages_/settings.py:1177
+#: uvalu/pages_/settings.py:1205
 #, python-brace-format
 msgid "You accepted version {version} on {date}."
 msgstr "Je hebt versie {version} aanvaard op {date}."
 
 #. Context: Settings › Legal documents › the no-personal-advice row: acceptance isn't
 #. recorded yet
-#: uvalu/pages_/settings.py:1185
+#: uvalu/pages_/settings.py:1213
 msgid "Not available"
 msgstr "Niet beschikbaar"
 
-#: uvalu/pages_/settings.py:1190
+#: uvalu/pages_/settings.py:1218
 msgid "During the beta these documents are available in English only."
 msgstr "Tijdens de bèta zijn deze documenten alleen in het Engels beschikbaar."
 
