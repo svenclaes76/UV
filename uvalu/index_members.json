@@ -628,9 +628,9 @@
   "bel_20": {
    "name": "BEL 20",
    "owner": "Euronext",
-   "source_url": "https://en.wikipedia.org/wiki/BEL_20",
+   "source_url": "https://live.euronext.com/sites/default/files/documentation/index-composition/BEL_20_Index_Composition.pdf",
    "size": 20,
-   "as_of": "2026-10-17",
+   "as_of": "2026-09-30",
    "members": [
     {
      "ticker": "ABI.BR",
@@ -649,7 +649,7 @@
      "name": "Ageas"
     },
     {
-     "ticker": "APAM.BR",
+     "ticker": "APAM.AS",
      "name": "Aperam"
     },
     {
@@ -713,9 +713,10 @@
      "name": "WDP"
     }
    ],
-   "status": "check",
+   "status": "ok",
    "problems": [
-    "Aperam (APAM.BR) is not in Euronext Brussels' list; its lines are Amsterdam, Madrid and Vienna. Check whether it is still a BEL 20 member"
+    "Aperam (member since 23 Mar 2026) listed as APAM.AS: its Brussels line is missing from the exchange list we read",
+    "Montea is the 20th member, not shown in Euronext's public view"
    ]
   },
   "cac_40": {
@@ -2105,7 +2106,8 @@
    ],
    "status": "check",
    "problems": [
-    "Golden Ocean removed (merged into CMB.Tech); check which stock took its place (CMBTO.OL?) against Oslo Børs' list"
+    "Golden Ocean removed (merged into CMB.Tech, Aug 2025)",
+    "four semi-annual reviews since the source list (Sep 2024); Mar 2026: Protector Forsikring in, MPC Container Ships out; Sep 2026: Aker, BlueNord, TGS, Bakkafrost, DOF Group, Protector Forsikring, Wallenius Wilhelmsen changed (in/out split not readable in Euronext's release). Needs Euronext Oslo's full list"
    ]
   },
   "omx_baltic_benchmark": {
@@ -2311,8 +2313,12 @@
    "owner": "Nasdaq",
    "source_url": "https://en.wikipedia.org/wiki/OMX_Helsinki_25",
    "size": 25,
-   "as_of": "2026-10-17",
+   "as_of": "2026-10-24",
    "members": [
+    {
+     "ticker": "BITTI.HE",
+     "name": "Bittium Oyj"
+    },
     {
      "ticker": "ELISA.HE",
      "name": "Elisa"
@@ -2416,7 +2422,8 @@
    ],
    "status": "check",
    "problems": [
-    "Kojamo (KOJAMO.HE) is not in Nasdaq Helsinki's list (cached 17 Oct 2026): check whether it left the exchange and which stock replaced it"
+    "Bittium added (August 2026 review); the snapshot now has 26 names, so one of them is no longer a member: confirm against Nasdaq's full list",
+    "Kojamo is a member and still listed, but missing from the Nasdaq Helsinki list we read: it won't be in the universe until that list gap is fixed"
    ]
   },
   "omxi15": {
