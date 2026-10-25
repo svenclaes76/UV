@@ -13,25 +13,13 @@
     "^STOXX50E": "2026-10-23"
   },
   "last_run": {
-    "at": "2026-10-23T23:46:55+00:00",
-    "calls": 11,
-    "dividends": false,
+    "at": "2026-10-25T23:02:20+00:00",
+    "calls": 10,
+    "dividends": true,
     "errors": {},
-    "fx": true,
-    "prices": true,
-    "updated": [
-      "ABI.BR",
-      "KBC.BR",
-      "ASML.AS",
-      "SAP.DE",
-      "MC.PA",
-      "TTE.PA",
-      "NESN.SW",
-      "NOVO-B.CO",
-      "SHEL.L",
-      "VWCE.DE",
-      "^STOXX50E"
-    ]
+    "fx": false,
+    "prices": false,
+    "updated": []
   },
   "refreshed_at": "2026-10-23T23:46:55+00:00",
   "source": "EODHD end-of-day; ECB reference rates via frankfurter"
